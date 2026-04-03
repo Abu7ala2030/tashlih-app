@@ -15,20 +15,21 @@ class PushNotificationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  String? _lastSavedToken;
+
   String? get currentUserId => _auth.currentUser?.uid;
 
   Future<void> initialize() async {
     await _requestPermission();
     await _setupForegroundPresentation();
-    await _saveInitialToken();
     _listenTokenRefresh();
+    await syncCurrentUserToken();
   }
 
   Future<void> bindForegroundListeners({
     required void Function(String chatId) onOpenChat,
     required void Function(String requestId) onOpenRequest,
   }) async {
-    // 🔥 استقبال الإشعار داخل التطبيق (Foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
 
@@ -38,12 +39,10 @@ class PushNotificationService {
       }
     });
 
-    // 🔥 عند الضغط على الإشعار
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _handleNavigation(message, onOpenChat, onOpenRequest);
     });
 
-    // 🔥 إذا التطبيق كان مغلق وفتح من إشعار
     final initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
       _handleNavigation(initialMessage, onOpenChat, onOpenRequest);
@@ -83,31 +82,54 @@ class PushNotificationService {
 
   Future<void> _setupForegroundPresentation() async {
     if (Platform.isIOS || Platform.isMacOS) {
-      await FirebaseMessaging.instance
-          .setForegroundNotificationPresentationOptions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
     }
   }
 
-  Future<void> _saveInitialToken() async {
+  void _listenTokenRefresh() {
+    _messaging.onTokenRefresh.listen((token) async {
+      _lastSavedToken = token;
+      final uid = currentUserId;
+      if (uid == null || uid.isEmpty) return;
+      await _saveToken(uid, token);
+    });
+  }
+
+  Future<void> syncCurrentUserToken() async {
     final uid = currentUserId;
     if (uid == null || uid.isEmpty) return;
 
     final token = await _messaging.getToken();
     if (token == null || token.isEmpty) return;
 
+    _lastSavedToken = token;
     await _saveToken(uid, token);
   }
 
-  void _listenTokenRefresh() {
-    _messaging.onTokenRefresh.listen((token) async {
-      final uid = currentUserId;
-      if (uid == null || uid.isEmpty) return;
-      await _saveToken(uid, token);
-    });
+  Future<void> removeCurrentDeviceToken({String? uid}) async {
+    final userId = uid ?? currentUserId;
+    if (userId == null || userId.isEmpty) return;
+
+    String? token = _lastSavedToken;
+    token ??= await _messaging.getToken();
+
+    if (token == null || token.isEmpty) return;
+
+    await _db
+        .collection(FirestorePaths.users)
+        .doc(userId)
+        .collection('deviceTokens')
+        .doc(token)
+        .delete()
+        .catchError((_) {});
+
+    if (_lastSavedToken == token) {
+      _lastSavedToken = null;
+    }
   }
 
   Future<void> _saveToken(String uid, String token) async {
@@ -117,12 +139,12 @@ class PushNotificationService {
         .collection('deviceTokens')
         .doc(token)
         .set({
-          'token': token,
-          'platform': Platform.isAndroid
-              ? 'android'
-              : (Platform.isIOS ? 'ios' : 'other'),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+      'token': token,
+      'platform': Platform.isAndroid
+          ? 'android'
+          : (Platform.isIOS ? 'ios' : 'other'),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

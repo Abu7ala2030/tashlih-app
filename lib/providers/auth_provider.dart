@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../data/services/push_notification_service.dart';
+
 class AppCurrentUser {
   final String uid;
   final String role;
@@ -33,7 +35,8 @@ class AuthProvider extends ChangeNotifier {
         authResolved = true;
       } else {
         await _loadUserFromFirestore(firebaseUser.uid);
-        authResolved = true; // 🔥 بعد تحميل Firestore
+        await PushNotificationService.instance.syncCurrentUserToken();
+        authResolved = true;
       }
 
       notifyListeners();
@@ -107,6 +110,8 @@ class AuthProvider extends ChangeNotifier {
         role: normalizedRole,
         email: email.trim(),
       );
+
+      await PushNotificationService.instance.syncCurrentUserToken();
     } on FirebaseAuthException catch (e) {
       errorMessage = e.message ?? 'فشل إنشاء الحساب';
     } catch (e) {
@@ -136,6 +141,7 @@ class AuthProvider extends ChangeNotifier {
 
       if (user != null) {
         await _loadUserFromFirestore(user!.uid);
+        await PushNotificationService.instance.syncCurrentUserToken();
       }
     } on FirebaseAuthException catch (e) {
       errorMessage = e.message ?? 'فشل تسجيل الدخول';
@@ -149,10 +155,18 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final currentUid = user?.uid;
+
     try {
       isLoading = true;
       errorMessage = null;
       notifyListeners();
+
+      if (currentUid != null && currentUid.isNotEmpty) {
+        await PushNotificationService.instance.removeCurrentDeviceToken(
+          uid: currentUid,
+        );
+      }
 
       await _auth.signOut();
       user = null;
@@ -169,7 +183,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> fakeLoginAs(Object? role) async {
-    // مؤقتًا للتوافق مع الشاشات القديمة:
     await registerWithEmail(
       email:
           '${role.toString().toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}@test.com',
