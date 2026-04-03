@@ -30,10 +30,12 @@ class _CustomerRequestTrackingScreenState
     final direct = (widget.request['workerId'] ?? '').toString().trim();
     if (direct.isNotEmpty) return direct;
 
-    final assigned = (widget.request['assignedWorkerId'] ?? '').toString().trim();
+    final assigned =
+        (widget.request['assignedWorkerId'] ?? '').toString().trim();
     if (assigned.isNotEmpty) return assigned;
 
-    final accepted = (widget.request['acceptedWorkerId'] ?? '').toString().trim();
+    final accepted =
+        (widget.request['acceptedWorkerId'] ?? '').toString().trim();
     return accepted;
   }
 
@@ -65,16 +67,9 @@ class _CustomerRequestTrackingScreenState
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => const ChatScreen(
-            chatId: '',
-            title: '',
-          ),
-          settings: RouteSettings(
-            arguments: {
-              'chatId': chatId,
-              'title': 'محادثة العامل',
-              'senderRole': 'customer',
-            },
+          builder: (_) => ChatScreen(
+            chatId: chatId,
+            title: 'محادثة العامل',
           ),
         ),
       );
@@ -332,8 +327,9 @@ class _CustomerRequestTrackingScreenState
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed:
-                                (_canOpenChat && !isOpeningChat) ? _openChat : null,
+                            onPressed: (_canOpenChat && !isOpeningChat)
+                                ? _openChat
+                                : null,
                             icon: isOpeningChat
                                 ? const SizedBox(
                                     width: 18,

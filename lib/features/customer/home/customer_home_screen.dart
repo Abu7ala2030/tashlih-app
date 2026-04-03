@@ -5,16 +5,82 @@ import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/hero_vehicle_banner.dart';
 import '../../../core/widgets/vehicle_section_row.dart';
 import '../../../providers/vehicle_provider.dart';
+import '../../shared/notifications/notification_bell_button.dart';
+import '../profile/customer_profile_screen.dart';
+import '../requests/my_requests_screen.dart';
 
-class CustomerHomeScreen extends StatelessWidget {
+class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
+
+  @override
+  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+}
+
+class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      _CustomerBrowseTab(
+        onOpenRequests: () => setState(() => _currentIndex = 1),
+        onOpenProfile: () => setState(() => _currentIndex = 2),
+      ),
+      const MyRequestsScreen(),
+      const CustomerProfileScreen(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() => _currentIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'الرئيسية',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'طلباتي',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'الحساب',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerBrowseTab extends StatelessWidget {
+  final VoidCallback onOpenRequests;
+  final VoidCallback onOpenProfile;
+
+  const _CustomerBrowseTab({
+    required this.onOpenRequests,
+    required this.onOpenProfile,
+  });
 
   List<Map<String, dynamic>> _byBrand(
     List<Map<String, dynamic>> vehicles,
     String brand,
   ) {
     return vehicles
-        .where((v) => ((v['make'] ?? '').toString().toLowerCase() == brand.toLowerCase()))
+        .where(
+          (v) =>
+              ((v['make'] ?? '').toString().toLowerCase() ==
+              brand.toLowerCase()),
+        )
         .toList();
   }
 
@@ -44,109 +110,199 @@ class CustomerHomeScreen extends StatelessWidget {
     final frontDamageVehicles = _byDamageType(allPublishedVehicles, 'front');
     final rearDamageVehicles = _byDamageType(allPublishedVehicles, 'rear');
 
-    return Scaffold(
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
+    return AppGradientBackground(
+      child: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: const [
+                    Expanded(
+                      child: Text(
+                        'تشليح بلس',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .2,
+                        ),
+                      ),
+                    ),
+                    NotificationBellButton(),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                child: HeroVehicleBanner(vehicle: featuredVehicle),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _QuickActionCard(
+                        icon: Icons.receipt_long_outlined,
+                        title: 'طلباتي',
+                        subtitle: 'راجع الطلبات والعروض',
+                        onTap: onOpenRequests,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _QuickActionCard(
+                        icon: Icons.person_outline,
+                        title: 'حسابي',
+                        subtitle: 'بياناتي وإعداداتي',
+                        onTap: onOpenProfile,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
+                child: Row(
+                  children: const [
+                    Expanded(
+                      child: _CategoryPill(
+                        label: 'تويوتا',
+                        icon: Icons.directions_car_filled_outlined,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: _CategoryPill(
+                        label: 'هيونداي',
+                        icon: Icons.local_shipping_outlined,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: _CategoryPill(
+                        label: 'نيسان',
+                        icon: Icons.car_crash_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (allPublishedVehicles.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'لا توجد مركبات منشورة حتى الآن',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              )
+            else
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Expanded(
-                        child: Text(
-                          'تشليح بلس',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: .2,
-                          ),
-                        ),
+                      VehicleSectionRow(
+                        title: 'أضيف حديثًا',
+                        vehicles: allPublishedVehicles,
                       ),
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white10,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          onPressed: () {},
-                          icon: const Icon(Icons.notifications_none),
-                        ),
+                      const SizedBox(height: 24),
+                      VehicleSectionRow(
+                        title: 'تويوتا',
+                        vehicles: toyotaVehicles,
                       ),
+                      const SizedBox(height: 24),
+                      VehicleSectionRow(
+                        title: 'هيونداي',
+                        vehicles: hyundaiVehicles,
+                      ),
+                      const SizedBox(height: 24),
+                      VehicleSectionRow(
+                        title: 'نيسان',
+                        vehicles: nissanVehicles,
+                      ),
+                      const SizedBox(height: 24),
+                      VehicleSectionRow(
+                        title: 'صدمة أمامية',
+                        vehicles: frontDamageVehicles,
+                      ),
+                      const SizedBox(height: 24),
+                      VehicleSectionRow(
+                        title: 'صدمة خلفية',
+                        vehicles: rearDamageVehicles,
+                      ),
+                      const SizedBox(height: 100),
                     ],
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: HeroVehicleBanner(vehicle: featuredVehicle),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1A1D21),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
-                  child: Row(
-                    children: const [
-                      Expanded(
-                        child: _CategoryPill(
-                          label: 'تويوتا',
-                          icon: Icons.directions_car_filled_outlined,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: _CategoryPill(
-                          label: 'هيونداي',
-                          icon: Icons.local_shipping_outlined,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: _CategoryPill(
-                          label: 'نيسان',
-                          icon: Icons.car_crash_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  height: 1.4,
                 ),
               ),
-              if (allPublishedVehicles.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      'لا توجد مركبات منشورة حتى الآن',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                )
-              else
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        VehicleSectionRow(title: 'أضيف حديثًا', vehicles: allPublishedVehicles),
-                        const SizedBox(height: 24),
-                        VehicleSectionRow(title: 'تويوتا', vehicles: toyotaVehicles),
-                        const SizedBox(height: 24),
-                        VehicleSectionRow(title: 'هيونداي', vehicles: hyundaiVehicles),
-                        const SizedBox(height: 24),
-                        VehicleSectionRow(title: 'نيسان', vehicles: nissanVehicles),
-                        const SizedBox(height: 24),
-                        VehicleSectionRow(title: 'صدمة أمامية', vehicles: frontDamageVehicles),
-                        const SizedBox(height: 24),
-                        VehicleSectionRow(title: 'صدمة خلفية', vehicles: rearDamageVehicles),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

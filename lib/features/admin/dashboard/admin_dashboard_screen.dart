@@ -6,6 +6,9 @@ import '../../../core/widgets/stat_card.dart';
 import '../../../providers/request_provider.dart';
 import '../../../providers/vehicle_provider.dart';
 import '../finance/admin_commissions_screen.dart';
+import '../requests/admin_request_offers_screen.dart';
+import '../review/review_vehicle_screen.dart';
+import '../workers/manage_workers_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -15,14 +18,117 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final TextEditingController commissionPercentController =
-      TextEditingController(text: '10');
+  int _currentIndex = 0;
 
   @override
-  void dispose() {
-    commissionPercentController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    final pages = [
+      const _AdminOverviewTab(),
+      const _AdminRequestsTab(),
+      const ManageWorkersScreen(),
+      const AdminCommissionsScreen(),
+      const ReviewVehicleScreen(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() => _currentIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'الرئيسية',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'الطلبات',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups),
+            label: 'العمال',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.payments_outlined),
+            selectedIcon: Icon(Icons.payments),
+            label: 'المالية',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fact_check_outlined),
+            selectedIcon: Icon(Icons.fact_check),
+            label: 'المراجعة',
+          ),
+        ],
+      ),
+    );
   }
+}
+
+class _AdminRequestsTab extends StatelessWidget {
+  const _AdminRequestsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<RequestProvider>();
+    final requests = provider.requests;
+
+    if (requests.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+            'لا توجد طلبات حاليًا',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('طلبات العملاء'),
+      ),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: requests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final request = requests[index];
+          final partName = (request['partName'] ?? 'طلب بدون اسم').toString();
+          final customerName = (request['customerName'] ?? 'عميل').toString();
+          final status = (request['status'] ?? '').toString();
+
+          return Card(
+            child: ListTile(
+              title: Text(partName),
+              subtitle: Text('العميل: $customerName\nالحالة: $status'),
+              isThreeLine: true,
+              trailing: const Icon(Icons.arrow_forward_ios, size: 18),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AdminRequestOffersScreen(request: request),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AdminOverviewTab extends StatelessWidget {
+  const _AdminOverviewTab();
 
   @override
   Widget build(BuildContext context) {
@@ -30,442 +136,191 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final requestProvider = context.watch<RequestProvider>();
 
     final allVehicles = vehicleProvider.vehicles;
-    final pendingVehicles =
-        allVehicles.where((v) => (v['status'] ?? '') == 'pending').toList();
-    final publishedVehicles =
-        allVehicles.where((v) => (v['status'] ?? '') == 'published').toList();
-    final rejectedVehicles =
-        allVehicles.where((v) => (v['status'] ?? '') == 'rejected').toList();
+    final pendingVehicles = allVehicles
+        .where((v) => (v['status'] ?? '') == 'pending')
+        .toList();
+    final publishedVehicles = allVehicles
+        .where((v) => (v['status'] ?? '') == 'published')
+        .toList();
 
     final allRequests = requestProvider.requests;
-    final newRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'newRequest').toList();
-    final availableRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'available').toList();
-    final assignedRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'assigned').toList();
+    final newRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'newRequest')
+        .toList();
     final checkingRequests = allRequests
         .where((r) => (r['status'] ?? '') == 'checkingAvailability')
         .toList();
-
-    final commissionEligibleRequests = assignedRequests
-        .where((r) => (r['commissionEligible'] ?? false) == true)
+    final availableRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'available')
         .toList();
 
-    final commissionPercent =
-        double.tryParse(commissionPercentController.text.trim()) ?? 0;
-
-    double totalCommissionBase = 0;
-    for (final request in commissionEligibleRequests) {
-      final raw = request['commissionBaseAmount'] ?? 0;
-      final amount =
-          raw is num ? raw.toDouble() : double.tryParse(raw.toString()) ?? 0;
-      totalCommissionBase += amount;
-    }
-
-    final estimatedCommission =
-        totalCommissionBase * commissionPercent / 100;
-
-    return Scaffold(
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
+    return AppGradientBackground(
+      child: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'لوحة تحكم المدير',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'تابع الطلبات والعمال والمالية والمراجعات من مكان واحد',
+                      style: TextStyle(color: Colors.white70, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF20252B), Color(0xFF171A1F)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'لوحة الإدارة',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .2,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'راقب المركبات والطلبات والعمولات من مكان واحد',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                height: 1.5,
-                              ),
-                            ),
-                          ],
+                      Text(
+                        'نظرة تشغيلية',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'هذه الشاشة تعطيك ملخصًا سريعًا، وباقي التبويبات مخصصة للتنفيذ والإدارة.',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          height: 1.4,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2B1D2F), Color(0xFF1A1D21)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: StatCard(
+                        label: 'كل المركبات',
+                        value: allVehicles.length.toString(),
+                        icon: Icons.directions_car_outlined,
                       ),
-                      border: Border.all(color: Colors.white10),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 16,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
                     ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ملخص الإدارة',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'تابع ما يحتاج مراجعة الآن وراقب المبيعات المؤهلة للعمولة.',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        label: 'قيد المراجعة',
+                        value: pendingVehicles.length.toString(),
+                        icon: Icons.hourglass_top_outlined,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        label: 'منشورة',
+                        value: publishedVehicles.length.toString(),
+                        icon: Icons.verified_outlined,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: Row(
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: StatCard(
+                        label: 'طلبات جديدة',
+                        value: newRequests.length.toString(),
+                        icon: Icons.fiber_new_outlined,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        label: 'جاري التحقق',
+                        value: checkingRequests.length.toString(),
+                        icon: Icons.search_outlined,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        label: 'متوفرة',
+                        value: availableRequests.length.toString(),
+                        icon: Icons.check_circle_outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1D21),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: const Column(
                     children: [
-                      Expanded(
-                        child: StatCard(
-                          label: 'كل المركبات',
-                          value: allVehicles.length.toString(),
-                          icon: Icons.directions_car_outlined,
-                        ),
+                      _AdminActionRow(
+                        icon: Icons.assignment_outlined,
+                        title: 'الطلبات',
+                        subtitle: 'راجع عروض الطلبات وحالاتها',
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: StatCard(
-                          label: 'قيد المراجعة',
-                          value: pendingVehicles.length.toString(),
-                          icon: Icons.hourglass_top_outlined,
-                        ),
+                      _AdminActionRow(
+                        icon: Icons.groups_outlined,
+                        title: 'العمال',
+                        subtitle: 'إدارة الحسابات والاعتمادات',
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: StatCard(
-                          label: 'منشورة',
-                          value: publishedVehicles.length.toString(),
-                          icon: Icons.public_outlined,
-                        ),
+                      _AdminActionRow(
+                        icon: Icons.payments_outlined,
+                        title: 'المالية',
+                        subtitle: 'متابعة العمولات والتقارير',
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: StatCard(
-                          label: 'طلبات جديدة',
-                          value: newRequests.length.toString(),
-                          icon: Icons.fiber_new_outlined,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: StatCard(
-                          label: 'عروض',
-                          value: availableRequests.length.toString(),
-                          icon: Icons.local_offer_outlined,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: StatCard(
-                          label: 'تم التعيين',
-                          value: assignedRequests.length.toString(),
-                          icon: Icons.verified_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Text(
-                    'ملخص العمولات',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1D21),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'نسبة العمولة %',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 100,
-                              child: TextField(
-                                controller: commissionPercentController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                  decimal: true,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: '10',
-                                  filled: true,
-                                  fillColor: Colors.white10,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
-                                  ),
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _SummaryRow(
-                          label: 'طلبات مؤهلة للعمولة',
-                          value: commissionEligibleRequests.length.toString(),
-                        ),
-                        _SummaryRow(
-                          label: 'إجمالي قيمة البيع المؤهل',
-                          value:
-                              '${totalCommissionBase.toStringAsFixed(2)} ريال',
-                        ),
-                        _SummaryRow(
-                          label: 'العمولة التقديرية',
-                          value:
-                              '${estimatedCommission.toStringAsFixed(2)} ريال',
-                          isHighlighted: true,
-                          isLast: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Text(
-                    'إجراءات سريعة',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  child: Column(
-                    children: [
-                      const _QuickActionTile(
+                      _AdminActionRow(
                         icon: Icons.fact_check_outlined,
-                        title: 'مراجعة المركبات',
-                        subtitle: 'اعتماد أو رفض المركبات المرفوعة من العمال',
-                        color: Color(0xFF2C2A4A),
-                      ),
-                      const SizedBox(height: 12),
-                      const _QuickActionTile(
-                        icon: Icons.list_alt_outlined,
-                        title: 'إدارة الطلبات',
-                        subtitle: 'راجع الطلبات والعروض وتتبع العمولات',
-                        color: Color(0xFF1E3A3A),
-                      ),
-                      const SizedBox(height: 12),
-                      _QuickActionTile(
-                        icon: Icons.paid_outlined,
-                        title: 'لوحة العمولات',
-                        subtitle: 'مراجعة العمولات الفعلية وتصدير CSV',
-                        color: const Color(0xFF3A2E39),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const AdminCommissionsScreen(),
-                            ),
-                          );
-                        },
+                        title: 'المراجعة',
+                        subtitle: 'اعتماد المركبات والتحقق من البيانات',
+                        isLast: true,
                       ),
                     ],
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Text(
-                    'ملخص الإدارة',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1D21),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      children: [
-                        _SummaryRow(
-                          label: 'المركبات المرفوضة',
-                          value: rejectedVehicles.length.toString(),
-                        ),
-                        _SummaryRow(
-                          label: 'طلبات قيد التحقق',
-                          value: checkingRequests.length.toString(),
-                        ),
-                        _SummaryRow(
-                          label: 'الطلبات التي فيها عروض',
-                          value: availableRequests.length.toString(),
-                        ),
-                        _SummaryRow(
-                          label: 'الطلبات المعينة',
-                          value: assignedRequests.length.toString(),
-                          isLast: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _QuickActionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.28),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right),
           ],
         ),
       ),
@@ -473,49 +328,51 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
+class _AdminActionRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
   final bool isLast;
-  final bool isHighlighted;
 
-  const _SummaryRow({
-    required this.label,
-    required this.value,
+  const _AdminActionRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
     this.isLast = false,
-    this.isHighlighted = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(.08),
-                ),
+                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
               ),
       ),
       child: Row(
         children: [
+          Icon(icon),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isHighlighted ? Colors.amberAccent : Colors.white70,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              color: isHighlighted ? Colors.amberAccent : Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ],
             ),
           ),
         ],

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../admin/requests/admin_request_timeline_screen.dart';
+import '../../customer/requests/customer_request_offers_screen.dart';
 import '../../customer/requests/customer_request_tracking_screen.dart';
 import '../../worker/requests/worker_request_details_screen.dart';
 
@@ -94,7 +95,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<Map<String, dynamic>> _mergeSimilarNotificationsData(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
-    final Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> grouped = {};
+    final Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> grouped =
+        {};
 
     for (final doc in docs) {
       final key = _groupKeyForNotification(doc.data());
@@ -165,9 +167,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  bool _customerShouldOpenTracking(Map<String, dynamic> request) {
+    final status = (request['status'] ?? '').toString();
+    return status == 'assigned' ||
+        status == 'shipped' ||
+        status == 'delivered';
+  }
+
   Future<void> _openRelatedRequest(
     BuildContext context, {
     required String requestId,
+    String? notificationType,
   }) async {
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final request = await _loadRequest(requestId);
@@ -206,10 +216,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
 
+    final type = (notificationType ?? '').trim();
+
+    if (type == 'new_offer' && !_customerShouldOpenTracking(request)) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CustomerRequestOffersScreen(request: request),
+        ),
+      );
+      return;
+    }
+
+    if (_customerShouldOpenTracking(request)) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CustomerRequestTrackingScreen(request: request),
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CustomerRequestTrackingScreen(request: request),
+        builder: (_) => CustomerRequestOffersScreen(request: request),
       ),
     );
   }
@@ -413,12 +445,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final doc = first['doc'] as QueryDocumentSnapshot<Map<String, dynamic>>;
     final data = first['data'] as Map<String, dynamic>;
     final requestId = (data['requestId'] ?? '').toString();
+    final type = (data['type'] ?? '').toString();
 
     if ((data['isRead'] ?? false) == false) {
       await doc.reference.update({'isRead': true});
     }
 
-    await _openRelatedRequest(context, requestId: requestId);
+    await _openRelatedRequest(
+      context,
+      requestId: requestId,
+      notificationType: type,
+    );
   }
 
   _NotificationVisual _visualForType(String type) {
@@ -1001,6 +1038,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         onTap: () => _openRelatedRequest(
                           context,
                           requestId: requestId,
+                          notificationType: type,
                         ),
                       ),
                     _buildActionButton(
@@ -1184,7 +1222,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     _FilterChip(
                       label: 'تم التسليم',
                       selected: selectedType == 'request_delivered',
-                      onTap: () => setState(() => selectedType = 'request_delivered'),
+                      onTap: () =>
+                          setState(() => selectedType = 'request_delivered'),
                     ),
                   ],
                 ),

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../../providers/request_provider.dart';
+import 'customer_request_tracking_screen.dart';
 
 class CustomerRequestOffersScreen extends StatefulWidget {
   final Map<String, dynamic> request;
@@ -42,6 +43,21 @@ class _CustomerRequestOffersScreenState
     });
   }
 
+  Future<Map<String, dynamic>?> _loadFreshRequest() async {
+    if (requestId.isEmpty) return null;
+
+    final doc = await FirebaseFirestore.instance
+        .collection(FirestorePaths.requests)
+        .doc(requestId)
+        .get();
+
+    if (!doc.exists) return null;
+
+    final data = doc.data() ?? <String, dynamic>{};
+    data['id'] = doc.id;
+    return data;
+  }
+
   Future<void> _acceptOffer({
     required String offerId,
     required String workerId,
@@ -54,10 +70,26 @@ class _CustomerRequestOffersScreenState
             workerId: workerId,
           );
 
+      final freshRequest = await _loadFreshRequest();
+
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم قبول العرض بنجاح')),
       );
+
+      if (freshRequest != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CustomerRequestTrackingScreen(
+              request: freshRequest,
+            ),
+          ),
+        );
+        return;
+      }
+
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -222,7 +254,9 @@ class _CustomerRequestOffersScreenState
 
   Future<void> _contactBestByCall(List<_OfferViewData> pendingOffers) async {
     if (pendingOffers.isEmpty) return;
-    final phone = (pendingOffers.first.workerData['phone'] ?? '').toString().trim();
+    final phone = (pendingOffers.first.workerData['phone'] ?? '')
+        .toString()
+        .trim();
 
     if (phone.isEmpty) {
       if (!mounted) return;
@@ -239,7 +273,9 @@ class _CustomerRequestOffersScreenState
     List<_OfferViewData> pendingOffers,
   ) async {
     if (pendingOffers.isEmpty) return;
-    final phone = (pendingOffers.first.workerData['phone'] ?? '').toString().trim();
+    final phone = (pendingOffers.first.workerData['phone'] ?? '')
+        .toString()
+        .trim();
 
     if (phone.isEmpty) {
       if (!mounted) return;
@@ -254,7 +290,9 @@ class _CustomerRequestOffersScreenState
 
   Future<void> _copyBestPhone(List<_OfferViewData> pendingOffers) async {
     if (pendingOffers.isEmpty) return;
-    final phone = (pendingOffers.first.workerData['phone'] ?? '').toString().trim();
+    final phone = (pendingOffers.first.workerData['phone'] ?? '')
+        .toString()
+        .trim();
 
     if (phone.isEmpty) {
       if (!mounted) return;
