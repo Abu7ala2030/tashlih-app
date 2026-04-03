@@ -32,6 +32,11 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     });
   }
 
+  Future<void> _refresh() async {
+    context.read<RequestProvider>().listenToMyRequests();
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+  }
+
   List<Map<String, dynamic>> _sortRequests(List<Map<String, dynamic>> input) {
     final requests = [...input];
 
@@ -109,7 +114,9 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
 
     if (target.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد حاليًا أي طلب يحتوي على عروض جديدة')),
+        const SnackBar(
+          content: Text('لا يوجد حاليًا أي طلب يحتوي على عروض جديدة'),
+        ),
       );
       return;
     }
@@ -133,7 +140,9 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
 
     if (candidates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد حاليًا أي طلب يحتوي على أعلى عرض محفوظ')),
+        const SnackBar(
+          content: Text('لا يوجد حاليًا أي طلب يحتوي على أعلى عرض محفوظ'),
+        ),
       );
       return;
     }
@@ -191,333 +200,387 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     return Scaffold(
       body: AppGradientBackground(
         child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'طلباتي',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .2,
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'طلباتي',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: .2,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'يمكنك الآن فتح أول طلب فيه عروض جديدة أو الانتقال مباشرة إلى أعلى عرض قيمة.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                height: 1.5,
+                              SizedBox(height: 8),
+                              Text(
+                                'يمكنك الآن فتح أول طلب فيه عروض جديدة أو الانتقال مباشرة إلى أعلى عرض قيمة.',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const NotificationBellButton(),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: StatCard(
+                            label: 'الكل',
+                            value: allRequests.length.toString(),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: StatCard(
+                            label: 'جديد',
+                            value: allRequests
+                                .where((r) => (r['status'] ?? '') == 'newRequest')
+                                .length
+                                .toString(),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: StatCard(
+                            label: 'عروض جديدة',
+                            value: newOffersRequestsCount.toString(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          final created = await Navigator.pushNamed(
+                            context,
+                            '/part-request',
+                          );
+
+                          if (created == true && mounted) {
+                            context.read<RequestProvider>().listenToMyRequests();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('تم إنشاء الطلب ويمكنك متابعته هنا'),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('طلب جديد'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (newOffersRequestsCount > 0 || highestOfferCount > 0)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2216),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(.35),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.auto_awesome, color: Colors.orange),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                selectedStatus == 'newOffersOnly'
+                                    ? 'أنت الآن تعرض الطلبات التي وصلتها عروض جديدة فقط.'
+                                    : 'الزران السريعان بالأسفل يساعدانك على فتح أهم الطلبات مباشرة.',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  height: 1.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const NotificationBellButton(),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: StatCard(
-                          label: 'الكل',
-                          value: allRequests.length.toString(),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: StatCard(
-                          label: 'جديد',
-                          value: allRequests
-                              .where((r) => (r['status'] ?? '') == 'newRequest')
-                              .length
-                              .toString(),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: StatCard(
-                          label: 'عروض جديدة',
-                          value: newOffersRequestsCount.toString(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (newOffersRequestsCount > 0 || highestOfferCount > 0)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2216),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.orange.withOpacity(.35)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.auto_awesome, color: Colors.orange),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              selectedStatus == 'newOffersOnly'
-                                  ? 'أنت الآن تعرض الطلبات التي وصلتها عروض جديدة فقط.'
-                                  : 'الزران السريعان بالأسفل يساعدانك على فتح أهم الطلبات مباشرة.',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                height: 1.5,
-                                fontWeight: FontWeight.w700,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: newOffersRequestsCount > 0
+                                ? () => _openFirstRequestWithNewOffers(
+                                      context,
+                                      allRequests,
+                                    )
+                                : null,
+                            icon: const Icon(Icons.flash_on_outlined),
+                            label: Text(
+                              newOffersRequestsCount > 0
+                                  ? 'فتح أول طلب فيه عروض جديدة'
+                                  : 'لا توجد طلبات بعروض جديدة',
+                            ),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: newOffersRequestsCount > 0
-                              ? () => _openFirstRequestWithNewOffers(context, allRequests)
-                              : null,
-                          icon: const Icon(Icons.flash_on_outlined),
-                          label: Text(
-                            newOffersRequestsCount > 0
-                                ? 'فتح أول طلب فيه عروض جديدة'
-                                : 'لا توجد طلبات بعروض جديدة',
-                          ),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: highestOfferCount > 0
+                                ? () => _openHighestOfferRequest(
+                                      context,
+                                      allRequests,
+                                    )
+                                : null,
+                            icon: const Icon(Icons.trending_up),
+                            label: Text(
+                              highestOfferCount > 0
+                                  ? 'فتح أعلى عرض قيمة'
+                                  : 'لا يوجد عرض محفوظ',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: highestOfferCount > 0
-                              ? () => _openHighestOfferRequest(context, allRequests)
-                              : null,
-                          icon: const Icon(Icons.trending_up),
-                          label: Text(
-                            highestOfferCount > 0
-                                ? 'فتح أعلى عرض قيمة'
-                                : 'لا يوجد عرض محفوظ',
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 52,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        StatusChipFilter(
+                          label: 'الكل',
+                          selected: selectedStatus == 'all',
+                          onTap: () => setState(() => selectedStatus = 'all'),
+                        ),
+                        StatusChipFilter(
+                          label: 'عروض جديدة فقط',
+                          selected: selectedStatus == 'newOffersOnly',
+                          onTap: () =>
+                              setState(() => selectedStatus = 'newOffersOnly'),
+                        ),
+                        StatusChipFilter(
+                          label: 'جديد',
+                          selected: selectedStatus == 'newRequest',
+                          onTap: () =>
+                              setState(() => selectedStatus = 'newRequest'),
+                        ),
+                        StatusChipFilter(
+                          label: 'جاري التحقق',
+                          selected: selectedStatus == 'checkingAvailability',
+                          onTap: () => setState(
+                            () => selectedStatus = 'checkingAvailability',
                           ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                        ),
+                        StatusChipFilter(
+                          label: 'عروض',
+                          selected: selectedStatus == 'available',
+                          onTap: () =>
+                              setState(() => selectedStatus = 'available'),
+                        ),
+                        StatusChipFilter(
+                          label: 'تم التعيين',
+                          selected: selectedStatus == 'assigned',
+                          onTap: () =>
+                              setState(() => selectedStatus = 'assigned'),
+                        ),
+                        StatusChipFilter(
+                          label: 'تم الشحن',
+                          selected: selectedStatus == 'shipped',
+                          onTap: () =>
+                              setState(() => selectedStatus = 'shipped'),
+                        ),
+                        StatusChipFilter(
+                          label: 'تم التسليم',
+                          selected: selectedStatus == 'delivered',
+                          onTap: () =>
+                              setState(() => selectedStatus = 'delivered'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'الطلبات',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 52,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      StatusChipFilter(
-                        label: 'الكل',
-                        selected: selectedStatus == 'all',
-                        onTap: () => setState(() => selectedStatus = 'all'),
-                      ),
-                      StatusChipFilter(
-                        label: 'عروض جديدة فقط',
-                        selected: selectedStatus == 'newOffersOnly',
-                        onTap: () => setState(() => selectedStatus = 'newOffersOnly'),
-                      ),
-                      StatusChipFilter(
-                        label: 'جديد',
-                        selected: selectedStatus == 'newRequest',
-                        onTap: () => setState(() => selectedStatus = 'newRequest'),
-                      ),
-                      StatusChipFilter(
-                        label: 'جاري التحقق',
-                        selected: selectedStatus == 'checkingAvailability',
-                        onTap: () => setState(() => selectedStatus = 'checkingAvailability'),
-                      ),
-                      StatusChipFilter(
-                        label: 'عروض',
-                        selected: selectedStatus == 'available',
-                        onTap: () => setState(() => selectedStatus = 'available'),
-                      ),
-                      StatusChipFilter(
-                        label: 'تم التعيين',
-                        selected: selectedStatus == 'assigned',
-                        onTap: () => setState(() => selectedStatus = 'assigned'),
-                      ),
-                      StatusChipFilter(
-                        label: 'تم الشحن',
-                        selected: selectedStatus == 'shipped',
-                        onTap: () => setState(() => selectedStatus = 'shipped'),
-                      ),
-                      StatusChipFilter(
-                        label: 'تم التسليم',
-                        selected: selectedStatus == 'delivered',
-                        onTap: () => setState(() => selectedStatus = 'delivered'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'الطلبات',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
+                        Text(
+                          '${requests.length} طلب',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                      Text(
-                        '${requests.length} طلب',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (requests.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: EmptyStateCard(
-                        icon: selectedStatus == 'newOffersOnly'
-                            ? Icons.local_offer_outlined
-                            : Icons.inventory_2_outlined,
-                        title: selectedStatus == 'newOffersOnly'
-                            ? 'لا توجد طلبات بعروض جديدة الآن'
-                            : 'لا توجد طلبات ضمن هذه الحالة',
-                        subtitle: selectedStatus == 'newOffersOnly'
-                            ? 'عندما يرسل العامل عرضًا جديدًا سيظهر الطلب هنا مباشرة.'
-                            : 'بمجرد إرسال طلب جديد سيظهر هنا مع حالته الحالية.',
-                      ),
+                      ],
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                  sliver: SliverList.separated(
-                    itemCount: requests.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final request = requests[index];
-                      final status = (request['status'] ?? '').toString();
-                      final newOffersCount =
-                          ((request['newOffersCount'] ?? 0) as num).toInt();
+                ),
+                if (requests.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: EmptyStateCard(
+                          icon: selectedStatus == 'newOffersOnly'
+                              ? Icons.local_offer_outlined
+                              : Icons.inventory_2_outlined,
+                          title: selectedStatus == 'newOffersOnly'
+                              ? 'لا توجد طلبات بعروض جديدة الآن'
+                              : 'لا توجد طلبات ضمن هذه الحالة',
+                          subtitle: selectedStatus == 'newOffersOnly'
+                              ? 'عندما يرسل العامل عرضًا جديدًا سيظهر الطلب هنا مباشرة.'
+                              : 'بمجرد إرسال طلب جديد سيظهر هنا مع حالته الحالية.',
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                    sliver: SliverList.separated(
+                      itemCount: requests.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final request = requests[index];
+                        final status = (request['status'] ?? '').toString();
+                        final newOffersCount =
+                            ((request['newOffersCount'] ?? 0) as num).toInt();
 
-                      return Stack(
-                        children: [
-                          AppItemCard(
-                            title: (request['partName'] ?? '').toString(),
-                            subtitle:
-                                '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\nالمدينة: ${request['city'] ?? '-'}${_extraSubtitle(request)}',
-                            imageUrl: (request['vehicleCoverImage'] ?? '').toString(),
-                            statusText: _statusText(status),
-                            statusColor: _statusColor(status),
-                            onTap: () => _openRequest(context, request),
-                          ),
-                          if (newOffersCount > 0)
-                            Positioned(
-                              top: 10,
-                              left: 10,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  borderRadius: BorderRadius.circular(999),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 8,
-                                      offset: Offset(0, 3),
+                        return Stack(
+                          children: [
+                            AppItemCard(
+                              title: (request['partName'] ?? '').toString(),
+                              subtitle:
+                                  '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\nالمدينة: ${request['city'] ?? '-'}${_extraSubtitle(request)}',
+                              imageUrl:
+                                  (request['vehicleCoverImage'] ?? '').toString(),
+                              statusText: _statusText(status),
+                              statusColor: _statusColor(status),
+                              onTap: () => _openRequest(context, request),
+                            ),
+                            if (newOffersCount > 0)
+                              Positioned(
+                                top: 10,
+                                left: 10,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange,
+                                    borderRadius: BorderRadius.circular(999),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 8,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    newOffersCount == 1
+                                        ? 'عرض جديد'
+                                        : '$newOffersCount عروض جديدة',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
                                     ),
-                                  ],
-                                ),
-                                child: Text(
-                                  newOffersCount == 1
-                                      ? 'عرض جديد'
-                                      : '$newOffersCount عروض جديدة',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                               ),
-                            ),
-                          if (_bestOfferValue(request) > 0)
-                            Positioned(
-                              bottom: 10,
-                              left: 10,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF123B2E),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  'أعلى عرض: ${_bestOfferValue(request).toStringAsFixed(0)} ريال',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
+                            if (_bestOfferValue(request) > 0)
+                              Positioned(
+                                bottom: 10,
+                                left: 10,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF123B2E),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    'أعلى عرض: ${_bestOfferValue(request).toStringAsFixed(0)} ريال',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -26,6 +26,7 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
     final selectedVehicle = context.read<HomeProvider>().selectedVehicle;
     if (selectedVehicle != null) {
       cityController.text = (selectedVehicle['city'] ?? '').toString();
+      phoneController.text = (selectedVehicle['contactPhone'] ?? '').toString();
     }
   }
 
@@ -85,7 +86,7 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم إرسال الطلب بنجاح')),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,6 +129,11 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
                     'التشليح: ${(selectedVehicle['scrapyardName'] ?? 'غير محدد').toString()}',
                     style: const TextStyle(color: Colors.white70),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'المدينة: ${(selectedVehicle['city'] ?? 'غير محدد').toString()}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                 ],
               ),
             ),
@@ -166,7 +172,8 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
               });
             },
             title: const Text('أحتاج شحن للقطعة'),
-            subtitle: const Text('فعّلها إذا كنت تريد توصيل القطعة إلى عنوانك'),
+            subtitle:
+                const Text('فعّلها إذا كنت تريد توصيل القطعة إلى عنوانك'),
             contentPadding: EdgeInsets.zero,
           ),
           const SizedBox(height: 24),

@@ -23,7 +23,6 @@ class _CustomerRequestTrackingScreenState
   bool isOpeningChat = false;
 
   String get _requestId => (widget.request['id'] ?? '').toString();
-
   String get _customerId => (widget.request['customerId'] ?? '').toString();
 
   String get _workerId {
@@ -74,7 +73,6 @@ class _CustomerRequestTrackingScreenState
         ),
       );
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('فشل فتح المحادثة: $e')),
       );
@@ -96,10 +94,23 @@ class _CustomerRequestTrackingScreenState
       return;
     }
 
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('تعذر فتح الموقع')),
     );
+  }
+
+  Future<void> _callWorker() async {
+    final phone = widget.request['phone'] ?? '';
+    if (phone.toString().isEmpty) return;
+
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر إجراء الاتصال')),
+      );
+    }
   }
 
   String _statusText(String status) {
@@ -146,6 +157,7 @@ class _CustomerRequestTrackingScreenState
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
+              /// HEADER
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -182,6 +194,8 @@ class _CustomerRequestTrackingScreenState
                   ),
                 ),
               ),
+
+              /// STATUS CARD
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
@@ -200,10 +214,7 @@ class _CustomerRequestTrackingScreenState
                             children: [
                               const Text(
                                 'الحالة الحالية',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: TextStyle(color: Colors.white70),
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -217,28 +228,13 @@ class _CustomerRequestTrackingScreenState
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _statusColor(status).withOpacity(.16),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            _statusText(status),
-                            style: TextStyle(
-                              color: _statusColor(status),
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ),
               ),
+
+              /// DETAILS
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -247,107 +243,59 @@ class _CustomerRequestTrackingScreenState
                     decoration: BoxDecoration(
                       color: const Color(0xFF1A1D21),
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.white10),
                     ),
                     child: Column(
                       children: [
-                        _InfoRow(
-                          label: 'القطعة المطلوبة',
-                          value: (request['partName'] ?? '-').toString(),
-                        ),
-                        _InfoRow(
-                          label: 'المركبة',
-                          value:
-                              '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}',
-                        ),
-                        _InfoRow(
-                          label: 'السعر المختار',
-                          value: _priceText(),
-                        ),
-                        _InfoRow(
-                          label: 'المدينة',
-                          value: (request['city'] ?? '-').toString(),
-                        ),
-                        _InfoRow(
-                          label: 'التشليح',
-                          value: scrapyardName,
-                          isLast: true,
-                        ),
-                        if (scrapyardLocation.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () => _openMap(scrapyardLocation),
-                              icon: const Icon(Icons.location_on_outlined),
-                              label: const Text('فتح موقع التشليح'),
-                            ),
-                          ),
-                        ],
+                        _info('القطعة', request['partName']),
+                        _info('السعر', _priceText()),
+                        _info('التشليح', scrapyardName),
                       ],
                     ),
                   ),
                 ),
               ),
+
+              /// ACTIONS
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1D21),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'إجراءات الطلب',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
+                  child: Column(
+                    children: [
+                      /// CHAT
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed:
+                              (_canOpenChat && !isOpeningChat) ? _openChat : null,
+                          icon: const Icon(Icons.chat),
+                          label: const Text('محادثة العامل'),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          status == 'assigned'
-                              ? 'تم اعتماد العرض وبدأت مرحلة التنفيذ. يمكنك الآن التواصل مع العامل مباشرة.'
-                              : status == 'shipped'
-                                  ? 'الطلب في مرحلة الشحن. يمكنك متابعة التنسيق مع العامل عبر المحادثة.'
-                                  : status == 'delivered'
-                                      ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
-                                      : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            height: 1.6,
-                          ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      /// CALL
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _callWorker,
+                          icon: const Icon(Icons.phone),
+                          label: const Text('اتصال بالعامل'),
                         ),
-                        const SizedBox(height: 14),
+                      ),
+
+                      if (scrapyardLocation.isNotEmpty) ...[
+                        const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: (_canOpenChat && !isOpeningChat)
-                                ? _openChat
-                                : null,
-                            icon: isOpeningChat
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.chat_bubble_outline),
-                            label: Text(
-                              _canOpenChat
-                                  ? 'محادثة العامل'
-                                  : 'المحادثة متاحة بعد قبول العرض',
-                            ),
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openMap(scrapyardLocation),
+                            icon: const Icon(Icons.location_on),
+                            label: const Text('فتح الموقع'),
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -357,49 +305,14 @@ class _CustomerRequestTrackingScreenState
       ),
     );
   }
-}
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isLast;
-
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.isLast = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
-              ),
-      ),
+  Widget _info(String label, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
+          Expanded(child: Text(label)),
+          Text('${value ?? '-'}'),
         ],
       ),
     );
