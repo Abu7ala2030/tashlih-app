@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../core/widgets/app_gradient_background.dart';
 
@@ -19,11 +20,14 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController scrapyardNameController =
       TextEditingController();
-  final TextEditingController scrapyardLocationController =
-      TextEditingController();
 
   bool isLoading = true;
   bool isSaving = false;
+  bool isGettingLocation = false;
+
+  double? scrapyardLat;
+  double? scrapyardLng;
+  String? scrapyardGoogleMapsUrl;
 
   @override
   void initState() {
@@ -36,7 +40,6 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     nameController.dispose();
     phoneController.dispose();
     scrapyardNameController.dispose();
-    scrapyardLocationController.dispose();
     super.dispose();
   }
 
@@ -54,10 +57,25 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
       nameController.text = (data['name'] ?? '').toString();
       phoneController.text = (data['phone'] ?? '').toString();
-      scrapyardNameController.text =
-          (data['scrapyardName'] ?? '').toString();
-      scrapyardLocationController.text =
-          (data['scrapyardGoogleMapsUrl'] ?? '').toString();
+      scrapyardNameController.text = (data['scrapyardName'] ?? '').toString();
+
+      final latValue = data['scrapyardLat'];
+      final lngValue = data['scrapyardLng'];
+
+      if (latValue is num) {
+        scrapyardLat = latValue.toDouble();
+      } else {
+        scrapyardLat = double.tryParse(latValue?.toString() ?? '');
+      }
+
+      if (lngValue is num) {
+        scrapyardLng = lngValue.toDouble();
+      } else {
+        scrapyardLng = double.tryParse(lngValue?.toString() ?? '');
+      }
+
+      scrapyardGoogleMapsUrl =
+          (data['scrapyardGoogleMapsUrl'] ?? '').toString().trim();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,6 +84,107 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خدمة الموقع غير مفعلة على الجهاز')),
+      );
+      return false;
+    }
+
+    var permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم رفض صلاحية الموقع')),
+      );
+      return false;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('صلاحية الموقع مرفوضة نهائيًا، فعّلها من إعدادات الجهاز'),
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  String _buildGoogleMapsUrl(double lat, double lng) {
+    return 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+  }
+
+  Future<void> _useCurrentLocation() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يوجد مستخدم مسجل حاليًا')),
+      );
+      return;
+    }
+
+    setState(() => isGettingLocation = true);
+
+    try {
+      final allowed = await _ensureLocationPermission();
+      if (!allowed) {
+        if (mounted) setState(() => isGettingLocation = false);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final lat = position.latitude;
+      final lng = position.longitude;
+      final mapsUrl = _buildGoogleMapsUrl(lat, lng);
+
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'role': 'worker',
+        'scrapyardLat': lat,
+        'scrapyardLng': lng,
+        'scrapyardGoogleMapsUrl': mapsUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+
+      setState(() {
+        scrapyardLat = lat;
+        scrapyardLng = lng;
+        scrapyardGoogleMapsUrl = mapsUrl;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تحديث الموقع الفعلي بنجاح')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل جلب الموقع الحالي: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isGettingLocation = false);
       }
     }
   }
@@ -101,9 +220,11 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
       return;
     }
 
-    if (scrapyardLocationController.text.trim().isEmpty) {
+    if (scrapyardLat == null || scrapyardLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل رابط موقع التشليح')),
+        const SnackBar(
+          content: Text('حدث موقع التشليح الحالي أولًا قبل الحفظ'),
+        ),
       );
       return;
     }
@@ -111,17 +232,26 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     setState(() => isSaving = true);
 
     try {
+      final mapsUrl = _buildGoogleMapsUrl(scrapyardLat!, scrapyardLng!);
+
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'role': 'worker',
         'name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
         'scrapyardName': scrapyardNameController.text.trim(),
-        'scrapyardGoogleMapsUrl': scrapyardLocationController.text.trim(),
+        'scrapyardLat': scrapyardLat,
+        'scrapyardLng': scrapyardLng,
+        'scrapyardGoogleMapsUrl': mapsUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       if (!mounted) return;
+
+      setState(() {
+        scrapyardGoogleMapsUrl = mapsUrl;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم حفظ بيانات العامل بنجاح')),
       );
@@ -148,6 +278,13 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
         SnackBar(content: Text('فشل تسجيل الخروج: $e')),
       );
     }
+  }
+
+  String _locationText() {
+    if (scrapyardLat == null || scrapyardLng == null) {
+      return 'لم يتم تحديد الموقع بعد';
+    }
+    return '${scrapyardLat!.toStringAsFixed(6)}, ${scrapyardLng!.toStringAsFixed(6)}';
   }
 
   @override
@@ -288,10 +425,10 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
+              const SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: const Text(
+                  padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  child: Text(
                     'بيانات العامل والتشليح',
                     style: TextStyle(
                       fontSize: 20,
@@ -330,12 +467,67 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           label: 'اسم التشليح',
                           hint: 'مثال: تشليح الدمام الحديث',
                         ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: scrapyardLocationController,
-                          label: 'رابط موقع التشليح على Google Maps',
-                          hint: 'الصق رابط الموقع من Google Maps',
-                          maxLines: 2,
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'الموقع الفعلي الحالي',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _locationText(),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  height: 1.5,
+                                ),
+                              ),
+                              if ((scrapyardGoogleMapsUrl ?? '').isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  scrapyardGoogleMapsUrl!,
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: isGettingLocation
+                                      ? null
+                                      : _useCurrentLocation,
+                                  icon: isGettingLocation
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.my_location_outlined),
+                                  label: Text(
+                                    isGettingLocation
+                                        ? 'جاري تحديد الموقع...'
+                                        : 'استخدام موقعي الحالي',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         SizedBox(
