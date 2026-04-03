@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/app_gradient_background.dart';
@@ -23,6 +24,7 @@ class CustomerRequestTrackingScreen extends StatefulWidget {
 class _CustomerRequestTrackingScreenState
     extends State<CustomerRequestTrackingScreen> {
   bool isOpeningChat = false;
+  GoogleMapController? _mapController;
 
   String get _requestId => (widget.request['id'] ?? '').toString();
 
@@ -89,7 +91,7 @@ class _CustomerRequestTrackingScreenState
         (status == 'assigned' || status == 'shipped' || status == 'delivered');
   }
 
-  Future<void> _openMap(String url) async {
+  Future<void> _openMapUrl(String url) async {
     if (url.trim().isEmpty) return;
 
     final uri = Uri.tryParse(url);
@@ -107,7 +109,7 @@ class _CustomerRequestTrackingScreenState
   }
 
   Future<void> _callWorker(Map<String, dynamic> request) async {
-    final phone = (request['phone'] ?? request['workerPhone'] ?? '')
+    final phone = (request['workerPhone'] ?? request['phone'] ?? '')
         .toString()
         .trim();
 
@@ -167,6 +169,129 @@ class _CustomerRequestTrackingScreenState
         .collection(FirestorePaths.requests)
         .doc(_requestId)
         .snapshots();
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _workerLocationStream(
+    String workerId,
+  ) {
+    return FirebaseFirestore.instance
+        .collection('workers')
+        .doc(workerId)
+        .snapshots();
+  }
+
+  double? _readDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    final parsed = double.tryParse(value?.toString() ?? '');
+    return parsed;
+  }
+
+  LatLng? _requestTargetLatLng(Map<String, dynamic> request) {
+    final lat = _readDouble(
+      request['deliveryLat'] ??
+          request['targetLat'] ??
+          request['destinationLat'] ??
+          request['lat'],
+    );
+    final lng = _readDouble(
+      request['deliveryLng'] ??
+          request['targetLng'] ??
+          request['destinationLng'] ??
+          request['lng'],
+    );
+
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  Widget _buildTrackingMap(Map<String, dynamic> request) {
+    final workerId = _workerIdFromRequest(request);
+
+    if (workerId.isEmpty) {
+      return _MapPlaceholder(
+        title: 'لا يمكن عرض التتبع الآن',
+        subtitle: 'لم يتم ربط عامل بهذا الطلب حتى الآن.',
+        icon: Icons.location_off_outlined,
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _workerLocationStream(workerId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 260,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final workerData = snapshot.data?.data() ?? <String, dynamic>{};
+        final workerLat = _readDouble(workerData['lat']);
+        final workerLng = _readDouble(workerData['lng']);
+
+        if (workerLat == null || workerLng == null) {
+          return _MapPlaceholder(
+            title: 'موقع العامل غير متوفر بعد',
+            subtitle: 'سيظهر هنا بمجرد بدء العامل بإرسال موقعه.',
+            icon: Icons.my_location_outlined,
+          );
+        }
+
+        final workerLatLng = LatLng(workerLat, workerLng);
+        final targetLatLng = _requestTargetLatLng(request);
+
+        final markers = <Marker>{
+          Marker(
+            markerId: const MarkerId('worker'),
+            position: workerLatLng,
+            infoWindow: const InfoWindow(title: 'موقع العامل'),
+          ),
+        };
+
+        if (targetLatLng != null) {
+          markers.add(
+            Marker(
+              markerId: const MarkerId('target'),
+              position: targetLatLng,
+              infoWindow: const InfoWindow(title: 'موقع التسليم'),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ),
+            ),
+          );
+        }
+
+        final initialCamera = CameraPosition(
+          target: workerLatLng,
+          zoom: 14,
+        );
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_mapController != null) {
+            _mapController!.animateCamera(
+              CameraUpdate.newLatLng(workerLatLng),
+            );
+          }
+        });
+
+        return SizedBox(
+          height: 260,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: GoogleMap(
+              initialCameraPosition: initialCamera,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              compassEnabled: true,
+              markers: markers,
+              onMapCreated: (controller) {
+                _mapController = controller;
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -310,6 +435,33 @@ class _CustomerRequestTrackingScreenState
                           border: Border.all(color: Colors.white10),
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'الخريطة المباشرة',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildTrackingMap(request),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1D21),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Column(
                           children: [
                             _InfoRow(
                               label: 'القطعة المطلوبة',
@@ -338,7 +490,7 @@ class _CustomerRequestTrackingScreenState
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  onPressed: () => _openMap(scrapyardLocation),
+                                  onPressed: () => _openMapUrl(scrapyardLocation),
                                   icon: const Icon(Icons.location_on_outlined),
                                   label: const Text('فتح موقع التشليح'),
                                 ),
@@ -374,7 +526,7 @@ class _CustomerRequestTrackingScreenState
                               status == 'assigned'
                                   ? 'تم اعتماد العرض وبدأت مرحلة التنفيذ. يمكنك الآن التواصل مع العامل مباشرة.'
                                   : status == 'shipped'
-                                      ? 'الطلب في مرحلة الشحن. يمكنك متابعة التنسيق مع العامل عبر المحادثة.'
+                                      ? 'الطلب في مرحلة الشحن. يمكنك متابعة موقع العامل والتنسيق معه عبر المحادثة.'
                                       : status == 'delivered'
                                           ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
                                           : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
@@ -474,6 +626,60 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MapPlaceholder extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _MapPlaceholder({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 260,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 42, color: Colors.white70),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
