@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/app_gradient_background.dart';
+import '../vehicles/add_vehicle_screen.dart';
 
 class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({super.key});
@@ -42,6 +44,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     scrapyardNameController.dispose();
     super.dispose();
   }
+
+  String? get _uid => _auth.currentUser?.uid;
 
   Future<void> _loadWorkerProfile() async {
     final user = _auth.currentUser;
@@ -223,7 +227,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     if (scrapyardLat == null || scrapyardLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('حدث موقع التشليح الحالي أولًا قبل الحفظ'),
+          content: Text('حدّث موقع التشليح الحالي أولًا قبل الحفظ'),
         ),
       );
       return;
@@ -267,6 +271,281 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     }
   }
 
+  Future<void> _openMapUrl() async {
+    final url = (scrapyardGoogleMapsUrl ?? '').trim();
+
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يوجد موقع محفوظ للتشليح')),
+      );
+      return;
+    }
+
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رابط الموقع غير صالح')),
+      );
+      return;
+    }
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تعذر فتح الموقع')),
+    );
+  }
+
+  Future<void> _openAddVehicle() async {
+    final created = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AddVehicleScreen(),
+      ),
+    );
+
+    if (created == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تمت إضافة المركبة بنجاح')),
+      );
+    }
+  }
+
+  void _showSupportSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'الدعم الفني',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'إذا واجهت مشكلة، تأكد أولًا من:\n'
+                  '1) تحديث موقعك الحالي من هذه الشاشة.\n'
+                  '2) إضافة المركبة من تبويب مركباتي.\n'
+                  '3) توفر الإنترنت وصلاحية الموقع.\n'
+                  '4) انتظار مراجعة الإدارة للمركبات المضافة.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    height: 1.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showApprovalStatusSheet({
+    required int totalVehicles,
+    required int pendingVehicles,
+    required int publishedVehicles,
+    required int rejectedVehicles,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'حالة الاعتماد',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _StatusInfoRow(
+                  label: 'إجمالي المركبات',
+                  value: totalVehicles.toString(),
+                ),
+                _StatusInfoRow(
+                  label: 'قيد المراجعة',
+                  value: pendingVehicles.toString(),
+                ),
+                _StatusInfoRow(
+                  label: 'منشورة',
+                  value: publishedVehicles.toString(),
+                ),
+                _StatusInfoRow(
+                  label: 'مرفوضة',
+                  value: rejectedVehicles.toString(),
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNotificationsSheet() {
+    final uid = _uid;
+    if (uid == null || uid.isEmpty) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.72,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'آخر الإشعارات',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: _db
+                        .collection('users')
+                        .doc(uid)
+                        .collection('notifications')
+                        .orderBy('createdAt', descending: true)
+                        .limit(20)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      final docs = snapshot.data?.docs ?? [];
+
+                      if (docs.isEmpty) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'لا توجد إشعارات حتى الآن',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        itemCount: docs.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final data = docs[index].data();
+                          final title = (data['title'] ?? 'إشعار').toString();
+                          final body = (data['body'] ?? '').toString();
+                          final type = (data['type'] ?? '').toString();
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A1D21),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  body.isEmpty ? 'بدون تفاصيل' : body,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                if (type.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white10,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      type,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _signOut() async {
     try {
       await _auth.signOut();
@@ -301,319 +580,361 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
       );
     }
 
-    return Scaffold(
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'حساب العامل',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'تابع حسابك وحالتك العامة والبيانات المرتبطة بنشاطك',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1D3557), Color(0xFF171A1F)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 34,
-                          backgroundColor: Colors.white10,
-                          child: Icon(Icons.badge_outlined, size: 34),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                nameController.text.trim().isEmpty
-                                    ? 'عامل'
-                                    : nameController.text.trim(),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                phoneController.text.trim().isEmpty
-                                    ? 'بدون رقم'
-                                    : phoneController.text.trim(),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'نشط',
-                                style: TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
+    final uid = _uid;
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: uid == null
+          ? null
+          : _db
+              .collection('vehicles')
+              .where('workerId', isEqualTo: uid)
+              .snapshots(),
+      builder: (context, vehicleSnapshot) {
+        final vehicleDocs = vehicleSnapshot.data?.docs ?? [];
+        final totalVehicles = vehicleDocs.length;
+        final pendingVehicles = vehicleDocs
+            .where((doc) => (doc.data()['status'] ?? '') == 'pending')
+            .length;
+        final publishedVehicles = vehicleDocs
+            .where((doc) => (doc.data()['status'] ?? '') == 'published')
+            .length;
+        final rejectedVehicles = vehicleDocs
+            .where((doc) => (doc.data()['status'] ?? '') == 'rejected')
+            .length;
+
+        return Scaffold(
+          body: AppGradientBackground(
+            child: SafeArea(
+              child: CustomScrollView(
+                slivers: [
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'حساب العامل',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .2,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: Row(
-                    children: const [
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: 'الملف',
-                          value: '100%',
-                          icon: Icons.account_circle_outlined,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: 'التشليح',
-                          value: 'مربوط',
-                          icon: Icons.storefront_outlined,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: _MiniStatCard(
-                          label: 'الحالة',
-                          value: 'نشط',
-                          icon: Icons.bolt_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Text(
-                    'بيانات العامل والتشليح',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1D21),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      children: [
-                        _InputField(
-                          controller: nameController,
-                          label: 'اسم العامل',
-                          hint: 'مثال: أحمد محمد',
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: phoneController,
-                          label: 'رقم الجوال',
-                          hint: '05xxxxxxxx',
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: scrapyardNameController,
-                          label: 'اسم التشليح',
-                          hint: 'مثال: تشليح الدمام الحديث',
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white10),
+                          SizedBox(height: 8),
+                          Text(
+                            'تابع حسابك وحالتك العامة والبيانات المرتبطة بنشاطك',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              height: 1.5,
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'الموقع الفعلي الحالي',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _locationText(),
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  height: 1.5,
-                                ),
-                              ),
-                              if ((scrapyardGoogleMapsUrl ?? '').isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  scrapyardGoogleMapsUrl!,
-                                  style: const TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: isGettingLocation
-                                      ? null
-                                      : _useCurrentLocation,
-                                  icon: isGettingLocation
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.my_location_outlined),
-                                  label: Text(
-                                    isGettingLocation
-                                        ? 'جاري تحديد الموقع...'
-                                        : 'استخدام موقعي الحالي',
-                                  ),
-                                ),
-                              ),
-                            ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1D3557), Color(0xFF171A1F)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
+                          border: Border.all(color: Colors.white10),
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: isSaving ? null : _saveWorkerProfile,
-                            child: isSaving
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 34,
+                              backgroundColor: Colors.white10,
+                              child: Icon(Icons.badge_outlined, size: 34),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    nameController.text.trim().isEmpty
+                                        ? 'عامل'
+                                        : nameController.text.trim(),
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
                                     ),
-                                  )
-                                : const Text('حفظ البيانات'),
-                          ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    phoneController.text.trim().isEmpty
+                                        ? 'بدون رقم'
+                                        : phoneController.text.trim(),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    publishedVehicles > 0 ? 'نشط' : 'بانتظار الاعتماد',
+                                    style: TextStyle(
+                                      color: publishedVehicles > 0
+                                          ? Colors.greenAccent
+                                          : Colors.orangeAccent,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-                  child: Text(
-                    'الإعدادات',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _MiniStatCard(
+                              label: 'مركباتي',
+                              value: totalVehicles.toString(),
+                              icon: Icons.directions_car_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _MiniStatCard(
+                              label: 'قيد المراجعة',
+                              value: pendingVehicles.toString(),
+                              icon: Icons.hourglass_top_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _MiniStatCard(
+                              label: 'منشورة',
+                              value: publishedVehicles.toString(),
+                              icon: Icons.verified_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Column(
-                    children: const [
-                      _ProfileTile(
-                        icon: Icons.account_circle_outlined,
-                        title: 'بيانات الحساب',
-                        subtitle: 'الاسم، الجوال، وبيانات التشليح',
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                      child: Text(
+                        'بيانات العامل والتشليح',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                      SizedBox(height: 12),
-                      _ProfileTile(
-                        icon: Icons.verified_user_outlined,
-                        title: 'حالة الاعتماد',
-                        subtitle: 'متابعة حالة الحساب واعتماد الإدارة',
-                      ),
-                      SizedBox(height: 12),
-                      _ProfileTile(
-                        icon: Icons.notifications_none,
-                        title: 'الإشعارات',
-                        subtitle: 'تنبيهات الطلبات الجديدة وتحديثات الحالة',
-                      ),
-                      SizedBox(height: 12),
-                      _ProfileTile(
-                        icon: Icons.support_agent_outlined,
-                        title: 'الدعم الفني',
-                        subtitle: 'تواصل مع الدعم إذا واجهت مشكلة في التطبيق',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF2B1D1D),
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: _signOut,
-                      child: const Text('تسجيل الخروج'),
                     ),
                   ),
-                ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1D21),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Column(
+                          children: [
+                            _InputField(
+                              controller: nameController,
+                              label: 'اسم العامل',
+                              hint: 'مثال: أحمد محمد',
+                            ),
+                            const SizedBox(height: 12),
+                            _InputField(
+                              controller: phoneController,
+                              label: 'رقم الجوال',
+                              hint: '05xxxxxxxx',
+                              keyboardType: TextInputType.phone,
+                            ),
+                            const SizedBox(height: 12),
+                            _InputField(
+                              controller: scrapyardNameController,
+                              label: 'اسم التشليح',
+                              hint: 'مثال: تشليح الدمام الحديث',
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white10,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'الموقع الفعلي الحالي',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _locationText(),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  if ((scrapyardGoogleMapsUrl ?? '').isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      scrapyardGoogleMapsUrl!,
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: isGettingLocation
+                                          ? null
+                                          : _useCurrentLocation,
+                                      icon: isGettingLocation
+                                          ? const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.my_location_outlined),
+                                      label: Text(
+                                        isGettingLocation
+                                            ? 'جاري تحديد الموقع...'
+                                            : 'استخدام موقعي الحالي',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: isSaving ? null : _saveWorkerProfile,
+                                child: isSaving
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('حفظ البيانات'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                      child: Text(
+                        'الإعدادات',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Column(
+                        children: [
+                          _ProfileTile(
+                            icon: Icons.add_photo_alternate_outlined,
+                            title: 'إضافة مركبة جديدة',
+                            subtitle: 'افتح شاشة إضافة مركبة وارفع الصور والبيانات',
+                            onTap: _openAddVehicle,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileTile(
+                            icon: Icons.verified_user_outlined,
+                            title: 'حالة الاعتماد',
+                            subtitle: 'تابع حالة مركباتك المنشورة وتلك التي بانتظار المراجعة',
+                            onTap: () => _showApprovalStatusSheet(
+                              totalVehicles: totalVehicles,
+                              pendingVehicles: pendingVehicles,
+                              publishedVehicles: publishedVehicles,
+                              rejectedVehicles: rejectedVehicles,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileTile(
+                            icon: Icons.notifications_none,
+                            title: 'الإشعارات',
+                            subtitle: 'اعرض آخر الإشعارات والرسائل المرتبطة بطلباتك',
+                            onTap: _showNotificationsSheet,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileTile(
+                            icon: Icons.location_on_outlined,
+                            title: 'فتح موقع التشليح',
+                            subtitle: 'افتح الموقع الحالي المحفوظ للتشليح على الخريطة',
+                            onTap: _openMapUrl,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileTile(
+                            icon: Icons.support_agent_outlined,
+                            title: 'الدعم الفني',
+                            subtitle: 'مساعدة سريعة لمعالجة أكثر المشاكل الشائعة داخل التطبيق',
+                            onTap: _showSupportSheet,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF2B1D1D),
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _signOut,
+                          child: const Text('تسجيل الخروج'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -669,57 +990,112 @@ class _ProfileTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback onTap;
 
   const _ProfileTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1D21),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isLast;
+
+  const _StatusInfoRow({
+    required this.label,
+    required this.value,
+    this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1D21),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+              ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon),
-          ),
-          const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    height: 1.45,
-                  ),
-                ),
-              ],
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-          const Icon(Icons.chevron_right),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
         ],
       ),
     );
