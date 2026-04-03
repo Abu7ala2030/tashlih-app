@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "165262957316",
+    "project_id": "tashlih-app-b5b20",
+    "storage_bucket": "tashlih-app-b5b20.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165262957316:android:0f07d4ef7c3d060d134e51",
+        "android_client_info": {
+          "package_name": "com.example.tashlih_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADmAeZH3NF9i6jP_kjvg5mL3JV5Cdj5CY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================
+    // 🔐 Helpers
+    // =========================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isParticipant(chatId) {
+      return request.auth.uid in
+        get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    // =========================
+    // 👤 USERS
+    // =========================
+
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // =========================
+    // 💬 CHATS
+    // =========================
+
+    match /chats/{chatId} {
+
+      // ✅ قراءة الشات فقط للمشاركين
+      allow read: if isAuthenticated() && isParticipant(chatId);
+
+      // ✅ إنشاء الشات مسموح لأي مستخدم مسجل
+      allow create: if isAuthenticated()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.auth.uid in request.resource.data.participants;
+
+      // ❌ منع التعديل اليدوي للشات (نخليه فقط من السيرفر/الكود)
+      allow update: if isAuthenticated() && isParticipant(chatId);
+
+      // ❌ حذف الشات ممنوع
+      allow delete: if false;
+
+      // =========================
+      // 📩 MESSAGES
+      // =========================
+
+      match /messages/{messageId} {
+
+        // ✅ قراءة الرسائل فقط للمشاركين
+        allow read: if isAuthenticated() && isParticipant(chatId);
+
+        // ✅ إرسال رسالة بشروط صارمة
+        allow create: if isAuthenticated()
+          && isParticipant(chatId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.type == 'text';
+
+        // ❌ منع التعديل
+        allow update: if false;
+
+        // ❌ منع الحذف
+        allow delete: if false;
+      }
+    }
+  }
+}

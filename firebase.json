@@ -1,0 +1,34 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tashlih-app-b5b20",
+          "appId": "1:165262957316:android:0f07d4ef7c3d060d134e51",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tashlih-app-b5b20",
+          "configurations": {
+            "android": "1:165262957316:android:0f07d4ef7c3d060d134e51",
+            "ios": "1:165262957316:ios:5f57b41ed70a4310134e51",
+            "macos": "1:165262957316:ios:5f57b41ed70a4310134e51",
+            "web": "1:165262957316:web:aaf2eae9ec14e974134e51",
+            "windows": "1:165262957316:web:e3608005fd0ba07b134e51"
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "source": "lib/firebase/functions"
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  }
+}
