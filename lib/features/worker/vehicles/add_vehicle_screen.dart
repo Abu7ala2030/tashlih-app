@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -29,6 +30,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final ImagePicker _picker = ImagePicker();
   final List<File> _selectedImages = [];
   bool _isSubmitting = false;
+  bool _isLoadingProfile = true;
 
   String selectedDamageType = 'front';
   final List<String> selectedParts = [];
@@ -47,6 +49,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadWorkerDefaults();
+  }
+
+  @override
   void dispose() {
     makeController.dispose();
     modelController.dispose();
@@ -57,6 +65,45 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     scrapyardLocationController.dispose();
     descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWorkerDefaults() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) {
+        setState(() => _isLoadingProfile = false);
+      }
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+
+      final data = doc.data() ?? <String, dynamic>{};
+
+      scrapyardNameController.text =
+          (data['scrapyardName'] ?? '').toString().trim();
+
+      scrapyardLocationController.text =
+          (data['scrapyardGoogleMapsUrl'] ??
+                  data['scrapyardLocation'] ??
+                  '')
+              .toString()
+              .trim();
+
+      if (cityController.text.trim().isEmpty) {
+        cityController.text = (data['city'] ?? '').toString().trim();
+      }
+    } catch (_) {
+      // تجاهل الخطأ هنا حتى لا نمنع العامل من إضافة المركبة
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingProfile = false);
+      }
+    }
   }
 
   void _togglePart(String part) {
@@ -169,21 +216,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         'description': descriptionController.text.trim(),
         'visibleParts': selectedParts,
         'status': 'pending',
-
-        /// ربط العامل الحقيقي
         'workerId': currentUser.uid,
-
-        /// مهم جدًا للعمولة
         'listedByWorkerId': currentUser.uid,
-
-        /// بيانات التشليح
         'scrapyardName': scrapyardNameController.text.trim(),
         'scrapyardLocation': scrapyardLocationController.text.trim(),
-
         'media': imageUrls,
         'coverImage': imageUrls.first,
-
-        /// مرجع زمني محلي إضافي
         'createdAtLocal': DateTime.now().toIso8601String(),
       };
 
@@ -197,22 +235,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         ),
       );
 
-      makeController.clear();
-      modelController.clear();
-      yearController.clear();
-      colorController.clear();
-      cityController.clear();
-      scrapyardNameController.clear();
-      scrapyardLocationController.clear();
-      descriptionController.clear();
-
-      setState(() {
-        _selectedImages.clear();
-        selectedDamageType = 'front';
-        selectedParts.clear();
-        _isSubmitting = false;
-      });
+      Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
+
       setState(() => _isSubmitting = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -225,348 +251,383 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
-                    children: const [
-                      Expanded(
-                        child: Column(
+    return Stack(
+      children: [
+        Scaffold(
+          body: AppGradientBackground(
+            child: SafeArea(
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back),
+                          ),
+                          const SizedBox(width: 4),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'إضافة مركبة',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .2,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'ارفع صور السيارة وأضف تفاصيلها بشكل واضح لزيادة فرص الطلب',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF1F2A37),
+                              Color(0xFF171A1F),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'إضافة مركبة',
+                              'نصيحة سريعة',
                               style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .2,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                             SizedBox(height: 8),
                             Text(
-                              'ارفع صور السيارة وأضف تفاصيلها بشكل واضح لزيادة فرص الطلب',
+                              'صوّر السيارة من عدة زوايا، وركّز على جهة الضرر والقطع المهمة.',
                               style: TextStyle(
-                                color: Colors.white70,
-                                height: 1.5,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                height: 1.4,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF1F2A37),
-                          Color(0xFF171A1F),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  if (_isLoadingProfile)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 18),
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
                       ),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'نصيحة سريعة',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'صوّر السيارة من عدة زوايا، وركّز على جهة الضرر والقطع المهمة.',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: _SectionCard(
-                    title: 'صور المركبة',
-                    child: Column(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _isSubmitting ? null : _pickImages,
-                          icon: const Icon(Icons.photo_library_outlined),
-                          label: const Text('اختيار صور المركبة'),
-                        ),
-                        const SizedBox(height: 14),
-                        if (_selectedImages.isEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white10,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: Colors.white10),
-                            ),
-                            child: const Column(
-                              children: [
-                                Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  size: 40,
-                                ),
-                                SizedBox(height: 10),
-                                Text(
-                                  'لم يتم اختيار صور بعد',
-                                  style: TextStyle(fontWeight: FontWeight.w800),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          SizedBox(
-                            height: 110,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: _selectedImages.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(width: 10),
-                              itemBuilder: (context, index) {
-                                return Stack(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Image.file(
-                                        _selectedImages[index],
-                                        width: 110,
-                                        height: 110,
-                                        fit: BoxFit.cover,
+                    )
+                  else ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                        child: _SectionCard(
+                          title: 'صور المركبة',
+                          child: Column(
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _isSubmitting ? null : _pickImages,
+                                icon: const Icon(Icons.photo_library_outlined),
+                                label: const Text('اختيار صور المركبة'),
+                              ),
+                              const SizedBox(height: 14),
+                              if (_selectedImages.isEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white10,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: Colors.white10),
+                                  ),
+                                  child: const Column(
+                                    children: [
+                                      Icon(
+                                        Icons.add_photo_alternate_outlined,
+                                        size: 40,
                                       ),
-                                    ),
-                                    Positioned(
-                                      top: 6,
-                                      right: 6,
-                                      child: InkWell(
-                                        onTap: _isSubmitting
-                                            ? null
-                                            : () {
-                                                setState(() {
-                                                  _selectedImages.removeAt(
-                                                    index,
-                                                  );
-                                                });
-                                              },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                          ),
+                                      SizedBox(height: 10),
+                                      Text(
+                                        'لم يتم اختيار صور بعد',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                SizedBox(
+                                  height: 110,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: _selectedImages.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(width: 10),
+                                    itemBuilder: (context, index) {
+                                      return Stack(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            child: Image.file(
+                                              _selectedImages[index],
+                                              width: 110,
+                                              height: 110,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                          Positioned(
+                                            top: 6,
+                                            right: 6,
+                                            child: InkWell(
+                                              onTap: _isSubmitting
+                                                  ? null
+                                                  : () {
+                                                      setState(() {
+                                                        _selectedImages
+                                                            .removeAt(index);
+                                                      });
+                                                    },
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                decoration:
+                                                    const BoxDecoration(
+                                                  color: Colors.black54,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.close,
+                                                  size: 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                        child: _SectionCard(
+                          title: 'بيانات المركبة',
+                          child: Column(
+                            children: [
+                              _InputField(
+                                controller: makeController,
+                                label: 'الماركة',
+                                hint: 'مثال: Toyota',
+                              ),
+                              const SizedBox(height: 12),
+                              _InputField(
+                                controller: modelController,
+                                label: 'الموديل',
+                                hint: 'مثال: Camry',
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _InputField(
+                                      controller: yearController,
+                                      label: 'السنة',
+                                      hint: '2018',
+                                      keyboardType: TextInputType.number,
                                     ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-                  child: _SectionCard(
-                    title: 'بيانات المركبة',
-                    child: Column(
-                      children: [
-                        _InputField(
-                          controller: makeController,
-                          label: 'الماركة',
-                          hint: 'مثال: Toyota',
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: modelController,
-                          label: 'الموديل',
-                          hint: 'مثال: Camry',
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _InputField(
-                                controller: yearController,
-                                label: 'السنة',
-                                hint: '2018',
-                                keyboardType: TextInputType.number,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _InputField(
+                                      controller: colorController,
+                                      label: 'اللون',
+                                      hint: 'أبيض',
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _InputField(
-                                controller: colorController,
-                                label: 'اللون',
-                                hint: 'أبيض',
+                              const SizedBox(height: 12),
+                              _InputField(
+                                controller: cityController,
+                                label: 'المدينة',
+                                hint: 'مثال: الدمام',
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: cityController,
-                          label: 'المدينة',
-                          hint: 'مثال: الدمام',
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: scrapyardNameController,
-                          label: 'اسم التشليح',
-                          hint: 'مثال: تشليح الدمام الحديث',
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: scrapyardLocationController,
-                          label: 'رابط موقع التشليح (Google Maps)',
-                          hint: 'الصق رابط الموقع من قوقل',
-                        ),
-                        const SizedBox(height: 12),
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'نوع الضرر',
-                            style: TextStyle(fontWeight: FontWeight.w900),
+                              const SizedBox(height: 12),
+                              _InputField(
+                                controller: scrapyardNameController,
+                                label: 'اسم التشليح',
+                                hint: 'مثال: تشليح الدمام الحديث',
+                              ),
+                              const SizedBox(height: 12),
+                              _InputField(
+                                controller: scrapyardLocationController,
+                                label: 'رابط موقع التشليح (Google Maps)',
+                                hint: 'الصق رابط الموقع من قوقل',
+                              ),
+                              const SizedBox(height: 12),
+                              const Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'نوع الضرر',
+                                  style: TextStyle(fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: selectedDamageType,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'front',
+                                    child: Text('أمامي'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'rear',
+                                    child: Text('خلفي'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'leftSide',
+                                    child: Text('جهة يسار'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'rightSide',
+                                    child: Text('جهة يمين'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'rollover',
+                                    child: Text('انقلاب'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'flood',
+                                    child: Text('غرق'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'fire',
+                                    child: Text('حريق'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'unknown',
+                                    child: Text('غير محدد'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => selectedDamageType = value);
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              _InputField(
+                                controller: descriptionController,
+                                label: 'وصف الحالة',
+                                hint: 'اكتب وصفًا مختصرًا لحالة السيارة',
+                                maxLines: 4,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: selectedDamageType,
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'front',
-                              child: Text('أمامي'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'rear',
-                              child: Text('خلفي'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'leftSide',
-                              child: Text('جهة يسار'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'rightSide',
-                              child: Text('جهة يمين'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'rollover',
-                              child: Text('انقلاب'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'flood',
-                              child: Text('غرق'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'fire',
-                              child: Text('حريق'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'unknown',
-                              child: Text('غير محدد'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => selectedDamageType = value);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: descriptionController,
-                          label: 'وصف الحالة',
-                          hint: 'اكتب وصفًا مختصرًا لحالة السيارة',
-                          maxLines: 4,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
-                  child: _SectionCard(
-                    title: 'القطع الظاهرة أو المحتملة',
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: allParts.map((part) {
-                        return FilterChip(
-                          label: Text(part),
-                          selected: selectedParts.contains(part),
-                          onSelected: _isSubmitting
-                              ? null
-                              : (_) => _togglePart(part),
-                        );
-                      }).toList(),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
+                        child: _SectionCard(
+                          title: 'القطع الظاهرة أو المحتملة',
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: allParts.map((part) {
+                              return FilterChip(
+                                label: Text(part),
+                                selected: selectedParts.contains(part),
+                                onSelected: _isSubmitting
+                                    ? null
+                                    : (_) => _togglePart(part),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF121417),
-          border: Border(
-            top: BorderSide(
-              color: Colors.white.withOpacity(.08),
+          bottomSheet: Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF121417),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withOpacity(.08),
+                ),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: (_isSubmitting || _isLoadingProfile)
+                      ? null
+                      : _submit,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('إرسال للمراجعة'),
+                ),
+              ),
             ),
           ),
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _isSubmitting ? null : _submit,
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('إرسال للمراجعة'),
+        if (_isSubmitting)
+          Container(
+            color: Colors.black45,
+            child: const Center(
+              child: CircularProgressIndicator(),
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }
