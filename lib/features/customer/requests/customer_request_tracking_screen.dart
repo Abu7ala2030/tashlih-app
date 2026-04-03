@@ -26,6 +26,9 @@ class _CustomerRequestTrackingScreenState
   bool isOpeningChat = false;
   GoogleMapController? _mapController;
 
+  LatLng? _lastWorkerLocation;
+  DateTime? _lastUpdatedAt;
+
   String get _requestId => (widget.request['id'] ?? '').toString();
 
   Future<void> _openChat(Map<String, dynamic> request) async {
@@ -204,11 +207,20 @@ class _CustomerRequestTrackingScreenState
     return LatLng(lat, lng);
   }
 
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+
+    if (diff.inSeconds < 60) return 'الآن';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} دقيقة';
+    return '${diff.inHours} ساعة';
+  }
+
   Widget _buildTrackingMap(Map<String, dynamic> request) {
     final workerId = _workerIdFromRequest(request);
 
     if (workerId.isEmpty) {
-      return _MapPlaceholder(
+      return const _MapPlaceholder(
         title: 'لا يمكن عرض التتبع الآن',
         subtitle: 'لم يتم ربط عامل بهذا الطلب حتى الآن.',
         icon: Icons.location_off_outlined,
@@ -225,26 +237,42 @@ class _CustomerRequestTrackingScreenState
           );
         }
 
-        final workerData = snapshot.data?.data() ?? <String, dynamic>{};
-        final workerLat = _readDouble(workerData['lat']);
-        final workerLng = _readDouble(workerData['lng']);
+        final data = snapshot.data?.data();
+
+        if (data == null) {
+          return const _MapPlaceholder(
+            title: 'بانتظار بدء التتبع',
+            subtitle: 'سيظهر موقع العامل هنا عند بدء الشحن',
+            icon: Icons.hourglass_empty,
+          );
+        }
+
+        final workerLat = _readDouble(data['lat']);
+        final workerLng = _readDouble(data['lng']);
+        final updatedAt = data['updatedAt'];
+
+        if (updatedAt is Timestamp) {
+          _lastUpdatedAt = updatedAt.toDate();
+        }
 
         if (workerLat == null || workerLng == null) {
-          return _MapPlaceholder(
-            title: 'موقع العامل غير متوفر بعد',
-            subtitle: 'سيظهر هنا بمجرد بدء العامل بإرسال موقعه.',
-            icon: Icons.my_location_outlined,
+          return const _MapPlaceholder(
+            title: 'موقع العامل غير متوفر',
+            subtitle: 'لم يبدأ العامل التتبع بعد',
+            icon: Icons.location_disabled,
           );
         }
 
         final workerLatLng = LatLng(workerLat, workerLng);
+        _lastWorkerLocation = workerLatLng;
+
         final targetLatLng = _requestTargetLatLng(request);
 
         final markers = <Marker>{
           Marker(
             markerId: const MarkerId('worker'),
             position: workerLatLng,
-            infoWindow: const InfoWindow(title: 'موقع العامل'),
+            infoWindow: const InfoWindow(title: 'العامل'),
           ),
         };
 
@@ -253,18 +281,13 @@ class _CustomerRequestTrackingScreenState
             Marker(
               markerId: const MarkerId('target'),
               position: targetLatLng,
-              infoWindow: const InfoWindow(title: 'موقع التسليم'),
               icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueAzure,
               ),
+              infoWindow: const InfoWindow(title: 'موقع التسليم'),
             ),
           );
         }
-
-        final initialCamera = CameraPosition(
-          target: workerLatLng,
-          zoom: 14,
-        );
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_mapController != null) {
@@ -274,21 +297,63 @@ class _CustomerRequestTrackingScreenState
           }
         });
 
-        return SizedBox(
-          height: 260,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: GoogleMap(
-              initialCameraPosition: initialCamera,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: true,
-              markers: markers,
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
+        return Stack(
+          children: [
+            SizedBox(
+              height: 260,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: workerLatLng,
+                    zoom: 14,
+                  ),
+                  markers: markers,
+                  zoomControlsEnabled: false,
+                  myLocationButtonEnabled: false,
+                  compassEnabled: true,
+                  onMapCreated: (controller) {
+                    _mapController = controller;
+                  },
+                ),
+              ),
             ),
-          ),
+            Positioned(
+              bottom: 10,
+              right: 10,
+              child: FloatingActionButton(
+                mini: true,
+                backgroundColor: Colors.black87,
+                onPressed: () {
+                  if (_lastWorkerLocation != null && _mapController != null) {
+                    _mapController!.animateCamera(
+                      CameraUpdate.newLatLng(_lastWorkerLocation!),
+                    );
+                  }
+                },
+                child: const Icon(Icons.my_location),
+              ),
+            ),
+            if (_lastUpdatedAt != null)
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'آخر تحديث: ${_formatTime(_lastUpdatedAt!)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
