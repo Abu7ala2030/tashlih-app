@@ -7,6 +7,7 @@ import '../../../providers/request_provider.dart';
 import '../../../providers/vehicle_provider.dart';
 import '../profile/worker_profile_screen.dart';
 import '../requests/worker_request_details_screen.dart';
+import '../vehicles/add_vehicle_screen.dart';
 
 class WorkerDashboardScreen extends StatefulWidget {
   const WorkerDashboardScreen({super.key});
@@ -19,10 +20,20 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<VehicleProvider>().listenToMyVehicles();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final pages = [
       const _WorkerOverviewTab(),
       const _WorkerRequestsTab(),
+      const _WorkerVehiclesTab(),
       const WorkerProfileScreen(),
     ];
 
@@ -46,6 +57,11 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment),
             label: 'الطلبات',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.directions_car_outlined),
+            selectedIcon: Icon(Icons.directions_car),
+            label: 'مركباتي',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -129,6 +145,326 @@ class _WorkerRequestsTab extends StatelessWidget {
   }
 }
 
+class _WorkerVehiclesTab extends StatelessWidget {
+  const _WorkerVehiclesTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicleProvider = context.watch<VehicleProvider>();
+
+    if (vehicleProvider.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (vehicleProvider.errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('مركباتي'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              vehicleProvider.errorMessage!,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            final created = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AddVehicleScreen(),
+              ),
+            );
+
+            if (created == true && context.mounted) {
+              context.read<VehicleProvider>().listenToMyVehicles();
+            }
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('إضافة مركبة'),
+        ),
+      );
+    }
+
+    final vehicles = vehicleProvider.vehicles;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('مركباتي'),
+      ),
+      body: vehicles.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1D21),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_photo_alternate_outlined, size: 48),
+                      SizedBox(height: 12),
+                      Text(
+                        'لا توجد مركبات مضافة بعد',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'أضف مركبتك وارفع الصور حتى تظهر للإدارة للمراجعة.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: () async {
+                context.read<VehicleProvider>().listenToMyVehicles();
+                await Future<void>.delayed(const Duration(milliseconds: 300));
+              },
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                itemCount: vehicles.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final vehicle = vehicles[index];
+
+                  final make = (vehicle['make'] ?? '').toString();
+                  final model = (vehicle['model'] ?? '').toString();
+                  final year = (vehicle['year'] ?? '').toString();
+                  final city = (vehicle['city'] ?? '').toString();
+                  final status = (vehicle['status'] ?? '').toString();
+                  final coverImage = (vehicle['coverImage'] ??
+                          vehicle['cover'] ??
+                          vehicle['vehicleCoverImage'] ??
+                          '')
+                      .toString();
+
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1D21),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (coverImage.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
+                            child: Image.network(
+                              coverImage,
+                              width: double.infinity,
+                              height: 180,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) {
+                                return Container(
+                                  width: double.infinity,
+                                  height: 180,
+                                  color: Colors.white10,
+                                  child: const Icon(
+                                    Icons.image_not_supported_outlined,
+                                    size: 48,
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        else
+                          Container(
+                            width: double.infinity,
+                            height: 180,
+                            decoration: const BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(20),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.directions_car_outlined,
+                              size: 48,
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '$make $model $year',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(status).withOpacity(.18),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      _statusText(status),
+                                      style: TextStyle(
+                                        color: _statusColor(status),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              _VehicleInfoRow(
+                                label: 'المدينة',
+                                value: city.isEmpty ? '-' : city,
+                              ),
+                              _VehicleInfoRow(
+                                label: 'نوع الضرر',
+                                value: _damageTypeText(
+                                  (vehicle['damageType'] ?? '').toString(),
+                                ),
+                              ),
+                              _VehicleInfoRow(
+                                label: 'التشليح',
+                                value:
+                                    (vehicle['scrapyardName'] ?? '-').toString(),
+                                isLast: true,
+                              ),
+                              if ((vehicle['visibleParts'] as List?) != null &&
+                                  (vehicle['visibleParts'] as List).isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: (vehicle['visibleParts'] as List)
+                                      .map(
+                                        (part) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white10,
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            part.toString(),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final created = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AddVehicleScreen(),
+            ),
+          );
+
+          if (created == true && context.mounted) {
+            context.read<VehicleProvider>().listenToMyVehicles();
+          }
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('إضافة مركبة'),
+      ),
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'published':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'rejected':
+        return Colors.redAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _statusText(String status) {
+    switch (status) {
+      case 'published':
+        return 'منشورة';
+      case 'pending':
+        return 'قيد المراجعة';
+      case 'rejected':
+        return 'مرفوضة';
+      default:
+        return 'غير محدد';
+    }
+  }
+
+  String _damageTypeText(String value) {
+    switch (value) {
+      case 'front':
+        return 'أمامي';
+      case 'rear':
+        return 'خلفي';
+      case 'leftSide':
+        return 'جهة يسار';
+      case 'rightSide':
+        return 'جهة يمين';
+      case 'rollover':
+        return 'انقلاب';
+      case 'flood':
+        return 'غرق';
+      case 'fire':
+        return 'حريق';
+      default:
+        return 'غير محدد';
+    }
+  }
+}
+
 class _WorkerOverviewTab extends StatelessWidget {
   const _WorkerOverviewTab();
 
@@ -136,13 +472,21 @@ class _WorkerOverviewTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final vehicleProvider = context.watch<VehicleProvider>();
     final requestProvider = context.watch<RequestProvider>();
+    final currentUserId = vehicleProvider.currentUserId ?? '';
 
-    final allVehicles = vehicleProvider.vehicles;
-    final pendingVehicles = allVehicles
+    final myVehicles = vehicleProvider.vehicles.where((v) {
+      final workerId = (v['workerId'] ?? '').toString().trim();
+      return workerId == currentUserId;
+    }).toList();
+
+    final pendingVehicles = myVehicles
         .where((v) => (v['status'] ?? '') == 'pending')
         .toList();
-    final publishedVehicles = allVehicles
+    final publishedVehicles = myVehicles
         .where((v) => (v['status'] ?? '') == 'published')
+        .toList();
+    final rejectedVehicles = myVehicles
+        .where((v) => (v['status'] ?? '') == 'rejected')
         .toList();
 
     final allRequests = requestProvider.requests;
@@ -225,7 +569,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'الطلبات الجديدة تظهر لك في تبويب الطلبات، وتستطيع متابعة حالتها من هنا.',
+                        'أضف مركباتك من تبويب "مركباتي" ثم تابع مراجعتها واعتمادها من الإدارة.',
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w900,
@@ -244,8 +588,8 @@ class _WorkerOverviewTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'كل المركبات',
-                        value: allVehicles.length.toString(),
+                        label: 'مركباتي',
+                        value: myVehicles.length.toString(),
                         icon: Icons.directions_car_outlined,
                       ),
                     ),
@@ -292,9 +636,9 @@ class _WorkerOverviewTab extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'متوفرة',
-                        value: availableRequests.length.toString(),
-                        icon: Icons.check_circle_outline,
+                        label: 'مرفوضة',
+                        value: rejectedVehicles.length.toString(),
+                        icon: Icons.cancel_outlined,
                       ),
                     ),
                   ],
@@ -324,15 +668,15 @@ class _WorkerOverviewTab extends StatelessWidget {
                     children: [
                       _SummaryRow(
                         label: 'المركبات المضافة',
-                        value: allVehicles.length.toString(),
+                        value: myVehicles.length.toString(),
                       ),
                       _SummaryRow(
                         label: 'المركبات بانتظار الاعتماد',
                         value: pendingVehicles.length.toString(),
                       ),
                       _SummaryRow(
-                        label: 'الطلبات الجديدة',
-                        value: newRequests.length.toString(),
+                        label: 'المركبات المنشورة',
+                        value: publishedVehicles.length.toString(),
                       ),
                       _SummaryRow(
                         label: 'الطلبات المتوفرة',
@@ -389,6 +733,55 @@ class _SummaryRow extends StatelessWidget {
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isLast;
+
+  const _VehicleInfoRow({
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+              ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
