@@ -24,7 +24,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final colorController = TextEditingController();
   final cityController = TextEditingController();
   final scrapyardNameController = TextEditingController();
-  final scrapyardLocationController = TextEditingController();
   final descriptionController = TextEditingController();
 
   final ImagePicker _picker = ImagePicker();
@@ -34,6 +33,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   String selectedDamageType = 'front';
   final List<String> selectedParts = [];
+
+  double? scrapyardLat;
+  double? scrapyardLng;
+  String? scrapyardGoogleMapsUrl;
 
   final List<String> allParts = const [
     'باب',
@@ -62,7 +65,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     colorController.dispose();
     cityController.dispose();
     scrapyardNameController.dispose();
-    scrapyardLocationController.dispose();
     descriptionController.dispose();
     super.dispose();
   }
@@ -87,12 +89,23 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       scrapyardNameController.text =
           (data['scrapyardName'] ?? '').toString().trim();
 
-      scrapyardLocationController.text =
-          (data['scrapyardGoogleMapsUrl'] ??
-                  data['scrapyardLocation'] ??
-                  '')
-              .toString()
-              .trim();
+      scrapyardGoogleMapsUrl =
+          (data['scrapyardGoogleMapsUrl'] ?? '').toString().trim();
+
+      final latValue = data['scrapyardLat'];
+      final lngValue = data['scrapyardLng'];
+
+      if (latValue is num) {
+        scrapyardLat = latValue.toDouble();
+      } else {
+        scrapyardLat = double.tryParse(latValue?.toString() ?? '');
+      }
+
+      if (lngValue is num) {
+        scrapyardLng = lngValue.toDouble();
+      } else {
+        scrapyardLng = double.tryParse(lngValue?.toString() ?? '');
+      }
 
       if (cityController.text.trim().isEmpty) {
         cityController.text = (data['city'] ?? '').toString().trim();
@@ -141,6 +154,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     return urls;
   }
 
+  String _locationText() {
+    if (scrapyardLat == null || scrapyardLng == null) {
+      return 'لم يتم تحديث الموقع الفعلي بعد';
+    }
+    return '${scrapyardLat!.toStringAsFixed(6)}, ${scrapyardLng!.toStringAsFixed(6)}';
+  }
+
   Future<void> _submit() async {
     if (makeController.text.trim().isEmpty ||
         modelController.text.trim().isEmpty ||
@@ -163,10 +183,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       return;
     }
 
-    if (scrapyardLocationController.text.trim().isEmpty) {
+    if (scrapyardLat == null || scrapyardLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('أدخل رابط موقع التشليح على Google Maps'),
+          content: Text('حدّث موقع التشليح الفعلي أولًا من شاشة حسابي'),
         ),
       );
       return;
@@ -219,7 +239,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         'workerId': currentUser.uid,
         'listedByWorkerId': currentUser.uid,
         'scrapyardName': scrapyardNameController.text.trim(),
-        'scrapyardLocation': scrapyardLocationController.text.trim(),
+        'scrapyardLat': scrapyardLat,
+        'scrapyardLng': scrapyardLng,
+        'scrapyardGoogleMapsUrl': scrapyardGoogleMapsUrl ?? '',
+        'scrapyardLocation': scrapyardGoogleMapsUrl ?? '',
         'media': imageUrls,
         'coverImage': imageUrls.first,
         'createdAtLocal': DateTime.now().toIso8601String(),
@@ -496,10 +519,53 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                 hint: 'مثال: تشليح الدمام الحديث',
                               ),
                               const SizedBox(height: 12),
-                              _InputField(
-                                controller: scrapyardLocationController,
-                                label: 'رابط موقع التشليح (Google Maps)',
-                                hint: 'الصق رابط الموقع من قوقل',
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white10,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'موقع التشليح الفعلي',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _locationText(),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                    if ((scrapyardGoogleMapsUrl ?? '').isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          scrapyardGoogleMapsUrl!,
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      'لتحديث الموقع اذهب إلى تبويب "حسابي" ثم اضغط "استخدام موقعي الحالي".',
+                                      style: TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 12,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 12),
                               const Align(
