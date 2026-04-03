@@ -27,6 +27,9 @@ dependencies:
   google_maps_flutter: ^2.12.3
   geolocator: ^14.0.2
 
+  # Routes API
+  http: ^1.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
