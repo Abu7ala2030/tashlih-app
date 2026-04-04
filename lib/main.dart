@@ -16,6 +16,7 @@ import 'routes/route_generator.dart';
 import 'providers/auth_provider.dart';
 import 'features/session/session_gate.dart';
 import '../features/customer/home/customer_home_screen.dart';
+import 'core/services/notification_navigation_service.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -93,7 +94,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => RequestProvider()),
       ],
       child: MaterialApp(
-        navigatorKey: appNavigatorKey,
+        navigatorKey: NotificationNavigationService.instance.navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'Tashlih App',
         theme: AppTheme.darkTheme,
