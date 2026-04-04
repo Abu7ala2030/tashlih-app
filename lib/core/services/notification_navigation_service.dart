@@ -5,6 +5,7 @@ import '../../data/services/firestore_paths.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/customer/requests/customer_request_offers_screen.dart';
 import '../../features/customer/requests/customer_request_tracking_screen.dart';
+import '../../features/driver/requests/driver_request_details_screen.dart';
 
 class NotificationNavigationService {
   static final NotificationNavigationService instance =
@@ -26,7 +27,13 @@ class NotificationNavigationService {
 
       case 'request_accepted':
       case 'request_shipped':
+      case 'request_delivered':
+      case 'driver_assigned_customer':
         await _openTracking(data, requestId: requestId);
+        return;
+
+      case 'driver_assigned':
+        await _openDriverRequestDetails(data, requestId: requestId);
         return;
 
       case 'chat_message':
@@ -78,6 +85,25 @@ class NotificationNavigationService {
     navigator.push(
       MaterialPageRoute(
         builder: (_) => CustomerRequestTrackingScreen(
+          request: request,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDriverRequestDetails(
+    Map<String, dynamic> data, {
+    required String requestId,
+  }) async {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    final request = await _resolveRequest(data, requestId: requestId);
+    if (request == null) return;
+
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => DriverRequestDetailsScreen(
           request: request,
         ),
       ),
