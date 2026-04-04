@@ -5,7 +5,7 @@
       "name": "tashlih_app",
       "request": "launch",
       "type": "dart",
-      "args": [
+      "toolArgs": [
         "--dart-define=GOOGLE_MAPS_API_KEY=AIzaSyCADmgFQlwAywKfu5JmXKLeuhnCRlVhcDY"
       ]
     }

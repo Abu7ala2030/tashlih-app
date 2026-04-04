@@ -226,14 +226,10 @@ class _WorkerRequestDetailsScreenState
             requestId: _requestId,
           );
 
-      await LocationService.instance.startTracking(
-        workerId: _workerId,
-      );
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('بدأ التتبع وتم تحديث الطلب إلى تم الشحن'),
+          content: Text('تم تحديث الطلب إلى تم الشحن'),
         ),
       );
       Navigator.pop(context);
@@ -691,7 +687,7 @@ class _WorkerRequestDetailsScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'تم تحديث الطلب إلى مرحلة الشحن، ويجري الآن تتبع موقعك مباشرة للعميل.',
+            'تم تحديث الطلب إلى مرحلة الشحن، ويجري الآن تتبع موقع السائق مباشرة للعميل.',
             style: TextStyle(
               color: Colors.white70,
               height: 1.6,

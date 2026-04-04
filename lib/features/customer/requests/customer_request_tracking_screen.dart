@@ -9,13 +9,13 @@ import '../../../data/services/firestore_paths.dart';
 import '../../../data/services/routes_service.dart';
 import '../../chat/chat_screen.dart';
 
+LatLng? _lastRouteWorker;
+LatLng? _lastRouteTarget;
+
 class CustomerRequestTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> request;
 
-  const CustomerRequestTrackingScreen({
-    super.key,
-    required this.request,
-  });
+  const CustomerRequestTrackingScreen({super.key, required this.request});
 
   @override
   State<CustomerRequestTrackingScreen> createState() =>
@@ -154,17 +154,14 @@ class _CustomerRequestTrackingScreenState
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ChatScreen(
-            chatId: chatId,
-            title: 'محادثة العامل',
-          ),
+          builder: (_) => ChatScreen(chatId: chatId, title: 'محادثة العامل'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل فتح المحادثة: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشل فتح المحادثة: $e')));
     } finally {
       if (mounted) {
         setState(() => isOpeningChat = false);
@@ -179,9 +176,9 @@ class _CustomerRequestTrackingScreenState
 
     if (phone.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رقم العامل غير متوفر')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('رقم العامل غير متوفر')));
       return;
     }
 
@@ -192,9 +189,9 @@ class _CustomerRequestTrackingScreenState
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر إجراء الاتصال')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تعذر إجراء الاتصال')));
   }
 
   Future<void> _openMapUrl(String url) async {
@@ -209,9 +206,9 @@ class _CustomerRequestTrackingScreenState
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح الموقع')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تعذر فتح الموقع')));
   }
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _requestStream() {
@@ -283,7 +280,21 @@ class _CustomerRequestTrackingScreenState
         }
 
         if (target != null) {
-          _updateRoute(worker, target);
+          final shouldRefreshRoute =
+              _lastRouteWorker == null ||
+              _lastRouteTarget == null ||
+              _lastRouteWorker!.latitude != worker.latitude ||
+              _lastRouteWorker!.longitude != worker.longitude ||
+              _lastRouteTarget!.latitude != target.latitude ||
+              _lastRouteTarget!.longitude != target.longitude;
+
+          if (shouldRefreshRoute) {
+            _lastRouteWorker = worker;
+            _lastRouteTarget = target;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateRoute(worker, target);
+            });
+          }
         }
 
         final markers = <Marker>{
@@ -400,11 +411,7 @@ class _CustomerRequestTrackingScreenState
     if (_requestId.isEmpty) {
       return const Scaffold(
         body: AppGradientBackground(
-          child: SafeArea(
-            child: Center(
-              child: Text('تعذر تحميل الطلب'),
-            ),
-          ),
+          child: SafeArea(child: Center(child: Text('تعذر تحميل الطلب'))),
         ),
       );
     }
@@ -413,15 +420,11 @@ class _CustomerRequestTrackingScreenState
       stream: _requestStream(),
       builder: (context, snapshot) {
         final liveData = snapshot.data?.data();
-        final request = {
-          ...widget.request,
-          ...?liveData,
-          'id': _requestId,
-        };
+        final request = {...widget.request, ...?liveData, 'id': _requestId};
 
         final status = (request['status'] ?? '').toString();
-        final scrapyardName =
-            (request['scrapyardName'] ?? 'غير محدد').toString();
+        final scrapyardName = (request['scrapyardName'] ?? 'غير محدد')
+            .toString();
         final scrapyardLocation =
             (request['scrapyardLocation'] ??
                     request['scrapyardGoogleMapsUrl'] ??
@@ -429,8 +432,9 @@ class _CustomerRequestTrackingScreenState
                 .toString()
                 .trim();
 
-        final deliveryAddress =
-            (request['deliveryAddress'] ?? '').toString().trim();
+        final deliveryAddress = (request['deliveryAddress'] ?? '')
+            .toString()
+            .trim();
         final deliveryLat = _readDouble(request['deliveryLat']);
         final deliveryLng = _readDouble(request['deliveryLng']);
 
@@ -598,7 +602,8 @@ class _CustomerRequestTrackingScreenState
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  onPressed: () => _openMapUrl(scrapyardLocation),
+                                  onPressed: () =>
+                                      _openMapUrl(scrapyardLocation),
                                   icon: const Icon(Icons.location_on_outlined),
                                   label: const Text('فتح موقع التشليح'),
                                 ),
@@ -640,7 +645,8 @@ class _CustomerRequestTrackingScreenState
                                     height: 1.6,
                                   ),
                                 ),
-                              if (deliveryLat != null && deliveryLng != null) ...[
+                              if (deliveryLat != null &&
+                                  deliveryLng != null) ...[
                                 const SizedBox(height: 10),
                                 Text(
                                   'الإحداثيات: ${deliveryLat.toStringAsFixed(6)}, ${deliveryLng.toStringAsFixed(6)}',
@@ -680,10 +686,10 @@ class _CustomerRequestTrackingScreenState
                               status == 'assigned'
                                   ? 'تم اعتماد العرض وبدأت مرحلة التنفيذ. يمكنك الآن التواصل مع العامل مباشرة.'
                                   : status == 'shipped'
-                                      ? 'الطلب في مرحلة الشحن. يمكنك متابعة موقع العامل والتنسيق معه عبر المحادثة.'
-                                      : status == 'delivered'
-                                          ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
-                                          : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
+                                  ? 'الطلب في مرحلة الشحن. يمكنك متابعة موقع العامل والتنسيق معه عبر المحادثة.'
+                                  : status == 'delivered'
+                                  ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
+                                  : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 height: 1.6,
@@ -693,7 +699,8 @@ class _CustomerRequestTrackingScreenState
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
-                                onPressed: (_canOpenChat(request) && !isOpeningChat)
+                                onPressed:
+                                    (_canOpenChat(request) && !isOpeningChat)
                                     ? () => _openChat(request)
                                     : null,
                                 icon: isOpeningChat
@@ -756,9 +763,7 @@ class _InfoRow extends StatelessWidget {
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
-              ),
+            : Border(bottom: BorderSide(color: Colors.white.withOpacity(.08))),
       ),
       child: Row(
         children: [
@@ -826,10 +831,7 @@ class _MapPlaceholder extends StatelessWidget {
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  height: 1.5,
-                ),
+                style: const TextStyle(color: Colors.white70, height: 1.5),
               ),
             ],
           ),

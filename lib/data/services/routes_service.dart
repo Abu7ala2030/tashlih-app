@@ -11,7 +11,7 @@ class RoutesService {
   /// يفضّل تمرير المفتاح عبر --dart-define
   /// مثال:
   /// flutter run --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
-  static const String _apiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+  static const String _apiKey = String.fromEnvironment('AIzaSyCADmgFQlwAywKfu5JmXKLeuhnCRlVhcDY');
 
   static const String _endpoint =
       'https://routes.googleapis.com/directions/v2:computeRoutes';
