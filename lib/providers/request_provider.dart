@@ -65,6 +65,26 @@ class RequestProvider extends ChangeNotifier {
     }
   }
 
+  Future<String?> _findPrimaryDriverId() async {
+    final snapshot = await _db
+        .collection(FirestorePaths.users)
+        .where('role', isEqualTo: 'driver')
+        .limit(10)
+        .get();
+
+    if (snapshot.docs.isEmpty) return null;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final isActive = data['isActive'];
+      if (isActive == true) {
+        return doc.id;
+      }
+    }
+
+    return snapshot.docs.first.id;
+  }
+
   String _notificationDedupKey({
     required String type,
     required String requestId,
@@ -809,6 +829,23 @@ class RequestProvider extends ChangeNotifier {
       customerId: customerId,
       workerId: workerId,
     );
+
+    final driverId = await _findPrimaryDriverId();
+    if (driverId != null && driverId.isNotEmpty) {
+      await assignRequestToDriver(
+        requestId: requestId,
+        driverId: driverId,
+      );
+    } else {
+      await _addTimelineEvent(
+        requestId: requestId,
+        type: 'driver_assignment_pending',
+        title: 'بانتظار تعيين السائق',
+        description: 'تم قبول العرض ولكن لا يوجد حساب سائق جاهز حاليًا.',
+        actorId: currentUserId ?? '',
+        actorRole: 'system',
+      );
+    }
 
     if ((requestData['commissionEligible'] ?? false) == true) {
       await _db.collection(FirestorePaths.commissions).add({
