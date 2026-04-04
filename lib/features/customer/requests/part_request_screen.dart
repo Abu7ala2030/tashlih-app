@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/services/address_search_service.dart';
+import '../../../data/services/firestore_paths.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/home_provider.dart';
 import '../../../providers/request_provider.dart';
 
@@ -199,6 +202,40 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
     }
   }
 
+  void _applySavedAddress(Map<String, dynamic> item) {
+    final address = (item['deliveryAddress'] ?? '').toString().trim();
+    final lat = item['deliveryLat'];
+    final lng = item['deliveryLng'];
+
+    double? parsedLat;
+    double? parsedLng;
+
+    if (lat is num) {
+      parsedLat = lat.toDouble();
+    } else {
+      parsedLat = double.tryParse(lat?.toString() ?? '');
+    }
+
+    if (lng is num) {
+      parsedLng = lng.toDouble();
+    } else {
+      parsedLng = double.tryParse(lng?.toString() ?? '');
+    }
+
+    if (address.isEmpty || parsedLat == null || parsedLng == null) return;
+
+    setState(() {
+      _deliveryAddress = address;
+      _deliveryLat = parsedLat;
+      _deliveryLng = parsedLng;
+      _deliveryPlaceId = (item['deliveryPlaceId'] ?? '').toString().trim().isEmpty
+          ? null
+          : (item['deliveryPlaceId'] ?? '').toString().trim();
+      addressSearchController.text = address;
+      _suggestions = [];
+    });
+  }
+
   Future<void> _submit() async {
     final selectedVehicle = context.read<HomeProvider>().selectedVehicle;
 
@@ -279,6 +316,7 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedVehicle = context.watch<HomeProvider>().selectedVehicle;
+    final uid = context.watch<AuthProvider>().uid;
 
     return Scaffold(
       appBar: AppBar(
@@ -366,6 +404,78 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
               ),
             ),
             const SizedBox(height: 8),
+
+            if (uid != null && uid.isNotEmpty)
+              StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection(FirestorePaths.requests)
+                    .where('customerId', isEqualTo: uid)
+                    .where('needsShipping', isEqualTo: true)
+                    .orderBy('createdAt', descending: true)
+                    .limit(10)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final docs = snapshot.data?.docs ?? [];
+                  final unique = <String, Map<String, dynamic>>{};
+
+                  for (final doc in docs) {
+                    final data = doc.data();
+                    final address =
+                        (data['deliveryAddress'] ?? '').toString().trim();
+                    if (address.isEmpty) continue;
+                    unique.putIfAbsent(address, () => data);
+                  }
+
+                  final savedAddresses = unique.values.toList();
+
+                  if (savedAddresses.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'العناوين المحفوظة',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 46,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: savedAddresses.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final item = savedAddresses[index];
+                            final address =
+                                (item['deliveryAddress'] ?? '').toString();
+
+                            final isSelected =
+                                _deliveryAddress != null &&
+                                    _deliveryAddress == address;
+
+                            return ChoiceChip(
+                              label: Text(
+                                address,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              selected: isSelected,
+                              onSelected: (_) => _applySavedAddress(item),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                  );
+                },
+              ),
+
             TextField(
               controller: addressSearchController,
               onChanged: _onAddressChanged,
