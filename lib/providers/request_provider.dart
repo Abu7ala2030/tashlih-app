@@ -314,6 +314,10 @@ class RequestProvider extends ChangeNotifier {
     required String phone,
     String notes = '',
     bool needsShipping = true,
+    String? deliveryAddress,
+    double? deliveryLat,
+    double? deliveryLng,
+    String? deliveryPlaceId,
   }) async {
     final uid = currentUserId;
     if (uid == null) {
@@ -332,6 +336,10 @@ class RequestProvider extends ChangeNotifier {
       'phone': phone,
       'notes': notes,
       'needsShipping': needsShipping,
+      'deliveryAddress': deliveryAddress ?? '',
+      'deliveryLat': deliveryLat,
+      'deliveryLng': deliveryLng,
+      'deliveryPlaceId': deliveryPlaceId ?? '',
       'listedByWorkerId': (vehicle['listedByWorkerId'] ?? '').toString(),
       'scrapyardName': (vehicle['scrapyardName'] ?? '').toString(),
       'scrapyardLocation': (vehicle['scrapyardLocation'] ?? '').toString(),
@@ -352,6 +360,7 @@ class RequestProvider extends ChangeNotifier {
       extra: {
         'partName': partName,
         'vehicleId': (vehicle['id'] ?? '').toString(),
+        'deliveryAddress': deliveryAddress ?? '',
       },
     );
   }
