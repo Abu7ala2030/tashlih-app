@@ -35,7 +35,22 @@ class AddressSearchService {
 
   static final AddressSearchService instance = AddressSearchService._();
 
-  static const String _apiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+  /// أولوية المفتاح:
+  /// 1) --dart-define=GOOGLE_MAPS_API_KEY
+  /// 2) fallback ثابت مؤقتًا حتى لا يتعطل البحث أثناء الاختبار
+  ///
+  /// بعد اكتمال الاختبارات يمكنك إبقاء dart-define فقط وحذف fallback.
+  static const String _fallbackApiKey =
+      'AIzaSyCADmgFQlwAywKfu5JmXKLeuhnCRlVhcDY';
+
+  static const String _envApiKey =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+
+  static String get _apiKey {
+    final env = _envApiKey.trim();
+    if (env.isNotEmpty) return env;
+    return _fallbackApiKey.trim();
+  }
 
   Future<List<AddressSuggestion>> autocomplete(
     String input, {
@@ -43,9 +58,9 @@ class AddressSearchService {
     double? latitude,
     double? longitude,
   }) async {
-    if (_apiKey.trim().isEmpty) {
+    if (_apiKey.isEmpty) {
       throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define',
+        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define أو أضف fallback key',
       );
     }
 
@@ -56,7 +71,8 @@ class AddressSearchService {
       'input': query,
       'languageCode': 'ar',
       'includedRegionCodes': ['SA'],
-      'sessionToken': sessionToken ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      'sessionToken':
+          sessionToken ?? DateTime.now().millisecondsSinceEpoch.toString(),
     };
 
     if (latitude != null && longitude != null) {
@@ -104,9 +120,11 @@ class AddressSearchService {
       final mainText =
           ((structured['mainText'] as Map<String, dynamic>? ?? {})['text'] ?? '')
               .toString();
-      final secondaryText =
-          ((structured['secondaryText'] as Map<String, dynamic>? ?? {})['text'] ?? '')
-              .toString();
+      final secondaryText = ((structured['secondaryText']
+                  as Map<String, dynamic>? ??
+              {})['text'] ??
+          '')
+          .toString();
       final fullText =
           ((prediction['text'] as Map<String, dynamic>? ?? {})['text'] ?? '')
               .toString();
@@ -121,9 +139,9 @@ class AddressSearchService {
   }
 
   Future<AddressDetails> getPlaceDetails(String placeId) async {
-    if (_apiKey.trim().isEmpty) {
+    if (_apiKey.isEmpty) {
       throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define',
+        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define أو أضف fallback key',
       );
     }
 
@@ -163,9 +181,9 @@ class AddressSearchService {
     required double latitude,
     required double longitude,
   }) async {
-    if (_apiKey.trim().isEmpty) {
+    if (_apiKey.isEmpty) {
       throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define',
+        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define أو أضف fallback key',
       );
     }
 
@@ -194,7 +212,8 @@ class AddressSearchService {
     }
 
     final first = results.first as Map<String, dynamic>;
-    final formattedAddress = (first['formattedAddress'] ?? '').toString().trim();
+    final formattedAddress =
+        (first['formattedAddress'] ?? '').toString().trim();
 
     if (formattedAddress.isNotEmpty) return formattedAddress;
     return '$latitude, $longitude';
