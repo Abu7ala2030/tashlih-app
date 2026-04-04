@@ -6,39 +6,31 @@ import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../../providers/auth_provider.dart';
 
-class CustomerProfileScreen extends StatelessWidget {
+class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
 
-  Future<_CustomerProfileData> _loadProfileData() async {
-    final uid = FirebaseFirestore.instance.app.options.projectId.isNotEmpty
-        ? null
-        : null;
+  @override
+  State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
+}
 
-    final authUser = FirebaseFirestore.instance.app.name;
-    // السطران أعلاه لا يُستخدمان، لكن الإبقاء عليهما غير ضروري.
-    // سنعتمد مباشرة على AuthProvider من الواجهة.
-
-    return const _CustomerProfileData.empty();
-  }
+class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Future<_CustomerProfileViewModel> _loadViewModel(String uid) async {
-    final db = FirebaseFirestore.instance;
+    final userFuture = _db.collection(FirestorePaths.users).doc(uid).get();
 
-    final userFuture =
-        db.collection(FirestorePaths.users).doc(uid).get();
-
-    final requestsFuture = db
+    final requestsFuture = _db
         .collection(FirestorePaths.requests)
         .where('customerId', isEqualTo: uid)
         .get();
 
-    final favoritesFuture = db
+    final favoritesFuture = _db
         .collection(FirestorePaths.users)
         .doc(uid)
         .collection('favoriteWorkers')
         .get();
 
-    final notificationsFuture = db
+    final notificationsFuture = _db
         .collection(FirestorePaths.users)
         .doc(uid)
         .collection('notifications')
@@ -63,6 +55,15 @@ class CustomerProfileScreen extends StatelessWidget {
     final phone = (userData['phone'] ?? '').toString().trim();
     final email = (userData['email'] ?? '').toString().trim();
 
+    final savedAddresses = <String>{};
+    for (final doc in requestsSnap.docs) {
+      final data = doc.data();
+      final address = (data['deliveryAddress'] ?? '').toString().trim();
+      if (address.isNotEmpty) {
+        savedAddresses.add(address);
+      }
+    }
+
     return _CustomerProfileViewModel(
       name: name.isNotEmpty ? name : 'مستخدم',
       phone: phone.isNotEmpty ? phone : 'غير مضاف',
@@ -70,12 +71,388 @@ class CustomerProfileScreen extends StatelessWidget {
       requestsCount: requestsSnap.docs.length,
       favoritesCount: favoritesSnap.docs.length,
       unreadNotificationsCount: notificationsSnap.docs.length,
+      savedAddresses: savedAddresses.toList(),
     );
   }
 
-  void _showComingSoon(BuildContext context, String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$title قريبًا')),
+  Future<void> _saveProfile({
+    required String uid,
+    required String name,
+    required String phone,
+  }) async {
+    await _db.collection(FirestorePaths.users).doc(uid).set({
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  void _showSupportSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return const SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'الدعم الفني',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'إذا واجهت مشكلة أثناء الطلب أو تتبع الشحنة:\n'
+                  '1) تأكد من اختيار عنوان صحيح.\n'
+                  '2) تأكد من رقم التواصل.\n'
+                  '3) راجع حالة الطلب من "طلباتي".\n'
+                  '4) إذا لم يظهر التتبع فانتظر حتى يبدأ العامل مرحلة الشحن.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    height: 1.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPersonalDataSheet({
+    required String uid,
+    required _CustomerProfileViewModel data,
+  }) {
+    final nameController = TextEditingController(text: data.name);
+    final phoneController =
+        TextEditingController(text: data.phone == 'غير مضاف' ? '' : data.phone);
+
+    bool isSaving = false;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  MediaQuery.of(context).viewInsets.bottom + 28,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'البيانات الشخصية',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _InputField(
+                      controller: nameController,
+                      label: 'الاسم',
+                      hint: 'اكتب اسمك',
+                    ),
+                    const SizedBox(height: 12),
+                    _InputField(
+                      controller: phoneController,
+                      label: 'رقم الجوال',
+                      hint: '05xxxxxxxx',
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final name = nameController.text.trim();
+                                final phone = phoneController.text.trim();
+
+                                if (name.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('يرجى إدخال الاسم'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                if (phone.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('يرجى إدخال رقم الجوال'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setModalState(() => isSaving = true);
+
+                                try {
+                                  await _saveProfile(
+                                    uid: uid,
+                                    name: name,
+                                    phone: phone,
+                                  );
+
+                                  if (!mounted) return;
+                                  Navigator.pop(context);
+                                  setState(() {});
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('تم حفظ البيانات بنجاح'),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('فشل حفظ البيانات: $e'),
+                                    ),
+                                  );
+                                } finally {
+                                  if (context.mounted) {
+                                    setModalState(() => isSaving = false);
+                                  }
+                                }
+                              },
+                        child: isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('حفظ'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      nameController.dispose();
+      phoneController.dispose();
+    });
+  }
+
+  void _showAddressesSheet(List<String> addresses) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.68,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'العناوين المحفوظة',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: addresses.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'لا توجد عناوين محفوظة بعد.\nسيتم حفظ العناوين تلقائيًا عند إنشاء طلبات شحن جديدة.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                height: 1.7,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                          itemCount: addresses.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final address = addresses[index];
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1D21),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.location_on_outlined),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      address,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showNotificationsSheet(String uid) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF171A1F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.72,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'آخر الإشعارات',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: _db
+                        .collection(FirestorePaths.users)
+                        .doc(uid)
+                        .collection('notifications')
+                        .orderBy('createdAt', descending: true)
+                        .limit(20)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      final docs = snapshot.data?.docs ?? [];
+
+                      if (docs.isEmpty) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'لا توجد إشعارات حتى الآن',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        itemCount: docs.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = docs[index].data();
+                          final title = (item['title'] ?? 'إشعار').toString();
+                          final body = (item['body'] ?? '').toString();
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A1D21),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  body.isEmpty ? 'بدون تفاصيل' : body,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -239,9 +616,9 @@ class CustomerProfileScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _MiniStatCard(
-                              label: 'المحفوظات',
-                              value: data.favoritesCount.toString(),
-                              icon: Icons.bookmark_border,
+                              label: 'العناوين',
+                              value: data.savedAddresses.length.toString(),
+                              icon: Icons.location_on_outlined,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -273,29 +650,32 @@ class CustomerProfileScreen extends StatelessWidget {
                           _ProfileTile(
                             icon: Icons.person_outline,
                             title: 'البيانات الشخصية',
-                            subtitle: 'الاسم ورقم الجوال ومعلومات الحساب',
-                            onTap: () => _showComingSoon(context, 'البيانات الشخصية'),
+                            subtitle: 'تعديل الاسم ورقم الجوال ومعلومات الحساب',
+                            onTap: () => _showPersonalDataSheet(
+                              uid: uid,
+                              data: data,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.location_on_outlined,
                             title: 'العناوين',
-                            subtitle: 'إدارة المدن والعناوين المرتبطة بطلباتك',
-                            onTap: () => _showComingSoon(context, 'العناوين'),
+                            subtitle: 'عرض العناوين المحفوظة من طلبات الشحن السابقة',
+                            onTap: () => _showAddressesSheet(data.savedAddresses),
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileTile(
+                            icon: Icons.notifications_none,
+                            title: 'الإشعارات',
+                            subtitle: 'اعرض آخر الإشعارات المرتبطة بطلباتك',
+                            onTap: () => _showNotificationsSheet(uid),
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.support_agent_outlined,
                             title: 'الدعم الفني',
-                            subtitle: 'تواصل مع الدعم عند وجود مشكلة أو استفسار',
-                            onTap: () => _showComingSoon(context, 'الدعم الفني'),
-                          ),
-                          const SizedBox(height: 12),
-                          _ProfileTile(
-                            icon: Icons.settings_outlined,
-                            title: 'إعدادات التطبيق',
-                            subtitle: 'الإشعارات واللغة والتفضيلات العامة',
-                            onTap: () => _showComingSoon(context, 'إعدادات التطبيق'),
+                            subtitle: 'مساعدة سريعة لحل أبرز مشاكل الطلب والتتبع',
+                            onTap: _showSupportSheet,
                           ),
                         ],
                       ),
@@ -448,8 +828,58 @@ class _ProfileTile extends StatelessWidget {
   }
 }
 
-class _CustomerProfileData {
-  const _CustomerProfileData.empty();
+class _InputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final int maxLines;
+  final TextInputType? keyboardType;
+
+  const _InputField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    this.maxLines = 1,
+    this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: Colors.white10,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _CustomerProfileViewModel {
@@ -459,6 +889,7 @@ class _CustomerProfileViewModel {
   final int requestsCount;
   final int favoritesCount;
   final int unreadNotificationsCount;
+  final List<String> savedAddresses;
 
   const _CustomerProfileViewModel({
     required this.name,
@@ -467,6 +898,7 @@ class _CustomerProfileViewModel {
     required this.requestsCount,
     required this.favoritesCount,
     required this.unreadNotificationsCount,
+    required this.savedAddresses,
   });
 
   const _CustomerProfileViewModel.empty()
@@ -475,5 +907,6 @@ class _CustomerProfileViewModel {
         email = 'غير مضاف',
         requestsCount = 0,
         favoritesCount = 0,
-        unreadNotificationsCount = 0;
+        unreadNotificationsCount = 0,
+        savedAddresses = const [];
 }
