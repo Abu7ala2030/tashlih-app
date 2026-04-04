@@ -1054,687 +1054,816 @@ class _CustomerRequestOffersScreenState
                         ),
                       ),
                       Expanded(
-                        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                           stream: FirebaseFirestore.instance
                               .collection(FirestorePaths.requests)
                               .doc(requestId)
-                              .collection('offers')
-                              .orderBy('createdAt', descending: true)
                               .snapshots(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
+                          builder: (context, requestSnapshot) {
+                            final request = {
+                              ...widget.request,
+                              ...?requestSnapshot.data?.data(),
+                              'id': requestId,
+                            };
 
-                            if (snapshot.hasError) {
-                              return Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text(
-                                    'فشل تحميل العروض: ${snapshot.error}',
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              );
-                            }
+                            final deliveryAddress =
+                                (request['deliveryAddress'] ?? '').toString().trim();
+                            final deliveryLat = _readDouble(request['deliveryLat']);
+                            final deliveryLng = _readDouble(request['deliveryLng']);
+                            final scrapyardName =
+                                (request['scrapyardName'] ?? 'غير محدد').toString();
+                            final city = (request['city'] ?? '-').toString();
 
-                            final offers = snapshot.data?.docs ?? [];
-
-                            if (offers.isEmpty) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(24),
-                                  child: Text(
-                                    'لا توجد عروض على هذا الطلب حتى الآن',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            return FutureBuilder<List<_OfferViewData>>(
-                              future: _buildSortedOffers(offers),
-                              builder: (context, sortedSnapshot) {
-                                if (sortedSnapshot.connectionState ==
+                            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                              stream: FirebaseFirestore.instance
+                                  .collection(FirestorePaths.requests)
+                                  .doc(requestId)
+                                  .collection('offers')
+                                  .orderBy('createdAt', descending: true)
+                                  .snapshots(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
                                     ConnectionState.waiting) {
                                   return const Center(
                                     child: CircularProgressIndicator(),
                                   );
                                 }
 
-                                if (sortedSnapshot.hasError) {
+                                if (snapshot.hasError) {
                                   return Center(
                                     child: Padding(
                                       padding: const EdgeInsets.all(24),
                                       child: Text(
-                                        'فشل تجهيز بيانات العروض: ${sortedSnapshot.error}',
+                                        'فشل تحميل العروض: ${snapshot.error}',
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
                                   );
                                 }
 
-                                final sortedOffers = sortedSnapshot.data ?? [];
-                                final pendingOffers =
-                                    sortedOffers.where(_isPendingOffer).toList();
+                                final offers = snapshot.data?.docs ?? [];
 
-                                final bestPendingOffer = pendingOffers.isNotEmpty
-                                    ? pendingOffers.first
-                                    : null;
+                                return FutureBuilder<List<_OfferViewData>>(
+                                  future: _buildSortedOffers(offers),
+                                  builder: (context, sortedSnapshot) {
+                                    if (sortedSnapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Center(
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    }
 
-                                return Column(
-                                  children: [
-                                    if (bestPendingOffer != null)
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          8,
-                                          16,
-                                          0,
-                                        ),
-                                        child: Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.all(14),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withOpacity(.10),
-                                            borderRadius:
-                                                BorderRadius.circular(18),
-                                            border: Border.all(
-                                              color: Colors.green.withOpacity(.25),
-                                            ),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'إجراء سريع',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                _primaryRecommendationReason(
-                                                  bestPendingOffer,
-                                                  pendingOffers,
-                                                ),
-                                                style: const TextStyle(
-                                                  color: Colors.white70,
-                                                  height: 1.5,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              SizedBox(
-                                                width: double.infinity,
-                                                child: FilledButton.icon(
-                                                  onPressed: isSubmitting
-                                                      ? null
-                                                      : () => _openBestOfferActionsSheet(
-                                                            pendingOffers,
-                                                            isFavorite:
-                                                                favoriteIds.contains(
-                                                              bestPendingOffer
-                                                                  .workerId,
-                                                            ),
-                                                          ),
-                                                  icon: const Icon(
-                                                    Icons.bolt_outlined,
-                                                  ),
-                                                  label: const Text(
-                                                    'فتح إجراءات أفضل عرض',
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                    if (sortedSnapshot.hasError) {
+                                      return Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Text(
+                                            'فشل تجهيز بيانات العروض: ${sortedSnapshot.error}',
+                                            textAlign: TextAlign.center,
                                           ),
                                         ),
-                                      ),
-                                    Expanded(
-                                      child: ListView.separated(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          16,
-                                          16,
-                                          120,
-                                        ),
-                                        itemCount: sortedOffers.length,
-                                        separatorBuilder: (_, __) =>
-                                            const SizedBox(height: 12),
-                                        itemBuilder: (context, index) {
-                                          final item = sortedOffers[index];
-                                          final data = item.offerData;
-                                          final workerData = item.workerData;
+                                      );
+                                    }
 
-                                          final workerId = item.workerId;
-                                          final status =
-                                              (data['status'] ?? 'pending')
-                                                  .toString();
+                                    final sortedOffers = sortedSnapshot.data ?? [];
+                                    final pendingOffers =
+                                        sortedOffers.where(_isPendingOffer).toList();
 
-                                          final price =
-                                              _readDouble(data['price']);
-                                          final workerName =
-                                              (workerData['name'] ?? '')
-                                                  .toString()
-                                                  .trim();
-                                          final scrapyardName =
-                                              (workerData['scrapyardName'] ??
-                                                      widget.request[
-                                                          'scrapyardName'] ??
-                                                      '')
-                                                  .toString()
-                                                  .trim();
-                                          final workerPhone =
-                                              (workerData['phone'] ?? '')
-                                                  .toString()
-                                                  .trim();
-                                          final rating =
-                                              _readDouble(workerData['rating']);
-                                          final completedOrders = _readInt(
-                                            workerData['completedOrders'],
-                                          );
-                                          final isVerified =
-                                              workerData['isVerified'] == true;
-                                          final joinedAt = workerData['createdAt'];
-                                          final workerPhotoUrl =
-                                              _workerPhotoUrl(workerData);
-                                          final scrapyardLogoUrl =
-                                              _scrapyardLogoUrl(workerData);
+                                    final bestPendingOffer = pendingOffers.isNotEmpty
+                                        ? pendingOffers.first
+                                        : null;
 
-                                          final displayWorkerName =
-                                              workerName.isNotEmpty
-                                                  ? workerName
-                                                  : 'عامل غير معروف';
-                                          final displayScrapyardName =
-                                              scrapyardName.isNotEmpty
-                                                  ? scrapyardName
-                                                  : 'تشليح غير محدد';
-                                          final displayWorkerPhone =
-                                              workerPhone.isNotEmpty
-                                                  ? workerPhone
-                                                  : 'غير متوفر';
-
-                                          final isBestPending =
-                                              bestPendingOffer != null &&
-                                                  item.offerId ==
-                                                      bestPendingOffer.offerId;
-                                          final isFavorite = favoriteIds
-                                              .contains(workerId);
-
-                                          return Container(
-                                            padding: const EdgeInsets.all(16),
+                                    return Column(
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            8,
+                                            16,
+                                            0,
+                                          ),
+                                          child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.all(14),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF1A1D21),
+                                              color: Colors.white.withOpacity(.05),
                                               borderRadius:
-                                                  BorderRadius.circular(20),
+                                                  BorderRadius.circular(18),
                                               border: Border.all(
-                                                color: Colors.white10,
+                                                color: Colors.white.withOpacity(.08),
                                               ),
                                             ),
                                             child: Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                Row(
-                                                  children: [
-                                                    _networkCircleImage(
-                                                      imageUrl: workerPhotoUrl,
-                                                      radius: 24,
-                                                      fallbackIcon:
-                                                          Icons.person_outline,
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    _networkRectImage(
-                                                      imageUrl: scrapyardLogoUrl,
-                                                      size: 48,
-                                                      fallbackIcon: Icons
-                                                          .storefront_outlined,
-                                                      radius: 12,
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: Row(
-                                                        children: [
-                                                          const Expanded(
-                                                            child: Text(
-                                                              'عرض سعر',
-                                                              style: TextStyle(
-                                                                fontSize: 18,
-                                                                fontWeight:
-                                                                    FontWeight.w900,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          if (isBestPending)
-                                                            Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                horizontal: 10,
-                                                                vertical: 5,
-                                                              ),
-                                                              decoration:
-                                                                  BoxDecoration(
-                                                                color: Colors
-                                                                    .amber
-                                                                    .withOpacity(.18),
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                  999,
-                                                                ),
-                                                              ),
-                                                              child: const Text(
-                                                                'الأفضل حاليًا',
-                                                                style: TextStyle(
-                                                                  color: Colors
-                                                                      .amber,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w900,
-                                                                  fontSize: 11,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    IconButton(
-                                                      onPressed: () =>
-                                                          _toggleFavoriteWorker(
-                                                        item,
-                                                      ),
-                                                      icon: Icon(
-                                                        isFavorite
-                                                            ? Icons.favorite
-                                                            : Icons
-                                                                .favorite_border,
-                                                        color: Colors.redAccent,
-                                                      ),
-                                                      tooltip: isFavorite
-                                                          ? 'إزالة من المفضلة'
-                                                          : 'إضافة إلى المفضلة',
-                                                    ),
-                                                    Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 5,
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: _statusColor(
-                                                          status,
-                                                        ).withOpacity(.18),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                          999,
-                                                        ),
-                                                      ),
-                                                      child: Text(
-                                                        _statusText(status),
-                                                        style: TextStyle(
-                                                          color: _statusColor(
-                                                            status,
-                                                          ),
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                          fontSize: 11,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 12),
-                                                _InfoRow(
-                                                  label: 'السعر',
-                                                  value:
-                                                      '${price.toStringAsFixed(0)} ريال',
-                                                ),
-                                                _InfoRow(
-                                                  label: 'اسم العامل',
-                                                  value: displayWorkerName,
-                                                ),
-                                                _InfoRow(
-                                                  label: 'التشليح',
-                                                  value: displayScrapyardName,
-                                                ),
-                                                _InfoRow(
-                                                  label: 'الجوال',
-                                                  value: displayWorkerPhone,
-                                                ),
-                                                _InfoRow(
-                                                  label: 'وقت العرض',
-                                                  value: data['createdAt']
-                                                          is Timestamp
-                                                      ? (data['createdAt']
-                                                              as Timestamp)
-                                                          .toDate()
-                                                          .toString()
-                                                      : '-',
-                                                  isLast: true,
-                                                ),
-                                                if (isBestPending) ...[
-                                                  const SizedBox(height: 14),
-                                                  Container(
-                                                    width: double.infinity,
-                                                    padding:
-                                                        const EdgeInsets.all(14),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.amber
-                                                          .withOpacity(.08),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                        16,
-                                                      ),
-                                                      border: Border.all(
-                                                        color: Colors.amber
-                                                            .withOpacity(.22),
-                                                      ),
-                                                    ),
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text(
-                                                          _primaryRecommendationReason(
-                                                            item,
-                                                            pendingOffers,
-                                                          ),
-                                                          style: const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.w900,
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(height: 10),
-                                                        Wrap(
-                                                          spacing: 8,
-                                                          runSpacing: 8,
-                                                          children:
-                                                              _recommendationTags(
-                                                            item,
-                                                            pendingOffers,
-                                                          ).map((tag) {
-                                                            return Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                horizontal: 10,
-                                                                vertical: 6,
-                                                              ),
-                                                              decoration:
-                                                                  BoxDecoration(
-                                                                color: Colors
-                                                                    .white
-                                                                    .withOpacity(.06),
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                  999,
-                                                                ),
-                                                                border:
-                                                                    Border.all(
-                                                                  color: Colors
-                                                                      .white
-                                                                      .withOpacity(.08),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                tag,
-                                                                style:
-                                                                    const TextStyle(
-                                                                  fontSize: 11,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
-                                                                  color: Colors
-                                                                      .white,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }).toList(),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                                const SizedBox(height: 14),
-                                                Container(
-                                                  width: double.infinity,
-                                                  padding:
-                                                      const EdgeInsets.all(14),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withOpacity(.05),
-                                                    borderRadius:
-                                                        BorderRadius.circular(16),
-                                                    border: Border.all(
-                                                      color: Colors.white
-                                                          .withOpacity(.08),
-                                                    ),
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment.start,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .verified_user_outlined,
-                                                            size: 18,
-                                                            color: Colors.amber,
-                                                          ),
-                                                          const SizedBox(width: 8),
-                                                          const Expanded(
-                                                            child: Text(
-                                                              'بطاقة ثقة العامل',
-                                                              style: TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w900,
-                                                                fontSize: 15,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                              horizontal: 10,
-                                                              vertical: 6,
-                                                            ),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: isVerified
-                                                                  ? Colors.green
-                                                                      .withOpacity(
-                                                                    .18,
-                                                                  )
-                                                                  : Colors.orange
-                                                                      .withOpacity(
-                                                                    .18,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                999,
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              isVerified
-                                                                  ? 'موثّق'
-                                                                  : 'غير موثّق',
-                                                              style: TextStyle(
-                                                                color: isVerified
-                                                                    ? Colors
-                                                                        .greenAccent
-                                                                    : Colors
-                                                                        .orangeAccent,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800,
-                                                                fontSize: 11,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child:
-                                                                _MiniStatTile(
-                                                              icon: Icons
-                                                                  .star_outline,
-                                                              label: 'التقييم',
-                                                              value: rating > 0
-                                                                  ? rating
-                                                                      .toStringAsFixed(
-                                                                    1,
-                                                                  )
-                                                                  : 'جديد',
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 10),
-                                                          Expanded(
-                                                            child:
-                                                                _MiniStatTile(
-                                                              icon: Icons
-                                                                  .inventory_2_outlined,
-                                                              label:
-                                                                  'طلبات منجزة',
-                                                              value:
-                                                                  completedOrders
-                                                                      .toString(),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      if (rating > 0) ...[
-                                                        const SizedBox(height: 10),
-                                                        Center(
-                                                          child:
-                                                              _buildRatingStars(
-                                                            rating,
-                                                            size: 18,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                      const SizedBox(height: 10),
-                                                      _InfoRow(
-                                                        label: 'تاريخ الانضمام',
-                                                        value:
-                                                            _formatJoinedDate(
-                                                          joinedAt,
-                                                        ),
-                                                        isLast: true,
-                                                      ),
-                                                    ],
+                                                const Text(
+                                                  'تفاصيل الطلب',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w900,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 10),
-                                                SizedBox(
-                                                  width: double.infinity,
-                                                  child: OutlinedButton.icon(
-                                                    onPressed: () =>
-                                                        _showWorkerDetailsDialog(
-                                                      item,
-                                                      isFavorite: isFavorite,
-                                                    ),
-                                                    icon: const Icon(
-                                                      Icons.info_outline,
-                                                    ),
-                                                    label: const Text(
-                                                      'عرض كل تفاصيل العامل',
-                                                    ),
-                                                  ),
+                                                _InfoRow(
+                                                  label: 'القطعة',
+                                                  value: partName.isEmpty ? '-' : partName,
                                                 ),
-                                                if (workerPhone.isNotEmpty) ...[
-                                                  const SizedBox(height: 14),
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child:
-                                                            OutlinedButton.icon(
-                                                          onPressed: () =>
-                                                              _makePhoneCall(
-                                                            workerPhone,
-                                                          ),
-                                                          icon: const Icon(
-                                                            Icons.call_outlined,
-                                                          ),
-                                                          label: const Text(
-                                                            'اتصال',
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 10),
-                                                      Expanded(
-                                                        child:
-                                                            OutlinedButton.icon(
-                                                          onPressed: () =>
-                                                              _openWhatsApp(
-                                                            workerPhone,
-                                                          ),
-                                                          icon: const Icon(
-                                                            Icons.chat_outlined,
-                                                          ),
-                                                          label: const Text(
-                                                            'واتساب',
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
+                                                _InfoRow(
+                                                  label: 'المركبة',
+                                                  value: vehicleLine.trim().isEmpty
+                                                      ? '-'
+                                                      : vehicleLine.trim(),
+                                                ),
+                                                _InfoRow(
+                                                  label: 'المدينة',
+                                                  value: city,
+                                                ),
+                                                _InfoRow(
+                                                  label: 'التشليح',
+                                                  value: scrapyardName,
+                                                ),
+                                                _InfoRow(
+                                                  label: 'عنوان التوصيل',
+                                                  value: deliveryAddress.isEmpty
+                                                      ? 'لم يتم تحديد عنوان بعد'
+                                                      : deliveryAddress,
+                                                  isLast: deliveryLat == 0 && deliveryLng == 0,
+                                                ),
+                                                if (deliveryLat > 0 && deliveryLng > 0)
+                                                  _InfoRow(
+                                                    label: 'الإحداثيات',
+                                                    value:
+                                                        '${deliveryLat.toStringAsFixed(6)}, ${deliveryLng.toStringAsFixed(6)}',
+                                                    isLast: true,
                                                   ),
-                                                ],
-                                                if (status == 'pending') ...[
-                                                  const SizedBox(height: 14),
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: FilledButton(
-                                                          onPressed: isSubmitting
-                                                              ? null
-                                                              : () => _acceptOffer(
-                                                                    offerId:
-                                                                        item.offerId,
-                                                                    workerId:
-                                                                        workerId,
-                                                                  ),
-                                                          child: const Text(
-                                                            'قبول العرض',
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 10),
-                                                      Expanded(
-                                                        child: OutlinedButton(
-                                                          onPressed: isSubmitting
-                                                              ? null
-                                                              : () =>
-                                                                  _rejectOffer(
-                                                                    offerId:
-                                                                        item.offerId,
-                                                                  ),
-                                                          child: const Text(
-                                                            'رفض',
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
                                               ],
                                             ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
+                                          ),
+                                        ),
+                                        if (bestPendingOffer != null)
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                              16,
+                                              12,
+                                              16,
+                                              0,
+                                            ),
+                                            child: Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(14),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.withOpacity(.10),
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                                border: Border.all(
+                                                  color: Colors.green.withOpacity(.25),
+                                                ),
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'إجراء سريع',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w900,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    _primaryRecommendationReason(
+                                                      bestPendingOffer,
+                                                      pendingOffers,
+                                                    ),
+                                                    style: const TextStyle(
+                                                      color: Colors.white70,
+                                                      height: 1.5,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  SizedBox(
+                                                    width: double.infinity,
+                                                    child: FilledButton.icon(
+                                                      onPressed: isSubmitting
+                                                          ? null
+                                                          : () => _openBestOfferActionsSheet(
+                                                                pendingOffers,
+                                                                isFavorite:
+                                                                    favoriteIds.contains(
+                                                                  bestPendingOffer
+                                                                      .workerId,
+                                                                ),
+                                                              ),
+                                                      icon: const Icon(
+                                                        Icons.bolt_outlined,
+                                                      ),
+                                                      label: const Text(
+                                                        'فتح إجراءات أفضل عرض',
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        Expanded(
+                                          child: offers.isEmpty
+                                              ? const Center(
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(24),
+                                                    child: Text(
+                                                      'لا توجد عروض على هذا الطلب حتى الآن',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                              : ListView.separated(
+                                                  padding: const EdgeInsets.fromLTRB(
+                                                    16,
+                                                    16,
+                                                    16,
+                                                    120,
+                                                  ),
+                                                  itemCount: sortedOffers.length,
+                                                  separatorBuilder: (_, __) =>
+                                                      const SizedBox(height: 12),
+                                                  itemBuilder: (context, index) {
+                                                    final item = sortedOffers[index];
+                                                    final data = item.offerData;
+                                                    final workerData = item.workerData;
+
+                                                    final workerId = item.workerId;
+                                                    final status =
+                                                        (data['status'] ?? 'pending')
+                                                            .toString();
+
+                                                    final price =
+                                                        _readDouble(data['price']);
+                                                    final workerName =
+                                                        (workerData['name'] ?? '')
+                                                            .toString()
+                                                            .trim();
+                                                    final scrapyardName =
+                                                        (workerData['scrapyardName'] ??
+                                                                request[
+                                                                    'scrapyardName'] ??
+                                                                '')
+                                                            .toString()
+                                                            .trim();
+                                                    final workerPhone =
+                                                        (workerData['phone'] ?? '')
+                                                            .toString()
+                                                            .trim();
+                                                    final rating = _readDouble(
+                                                      workerData['rating'],
+                                                    );
+                                                    final completedOrders = _readInt(
+                                                      workerData['completedOrders'],
+                                                    );
+                                                    final isVerified =
+                                                        workerData['isVerified'] == true;
+                                                    final joinedAt =
+                                                        workerData['createdAt'];
+                                                    final workerPhotoUrl =
+                                                        _workerPhotoUrl(workerData);
+                                                    final scrapyardLogoUrl =
+                                                        _scrapyardLogoUrl(workerData);
+
+                                                    final displayWorkerName =
+                                                        workerName.isNotEmpty
+                                                            ? workerName
+                                                            : 'عامل غير معروف';
+                                                    final displayScrapyardName =
+                                                        scrapyardName.isNotEmpty
+                                                            ? scrapyardName
+                                                            : 'تشليح غير محدد';
+                                                    final displayWorkerPhone =
+                                                        workerPhone.isNotEmpty
+                                                            ? workerPhone
+                                                            : 'غير متوفر';
+
+                                                    final isBestPending =
+                                                        bestPendingOffer != null &&
+                                                            item.offerId ==
+                                                                bestPendingOffer.offerId;
+                                                    final isFavorite = favoriteIds
+                                                        .contains(workerId);
+
+                                                    return Container(
+                                                      padding: const EdgeInsets.all(16),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF1A1D21),
+                                                        borderRadius:
+                                                            BorderRadius.circular(20),
+                                                        border: Border.all(
+                                                          color: Colors.white10,
+                                                        ),
+                                                      ),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment.start,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              _networkCircleImage(
+                                                                imageUrl: workerPhotoUrl,
+                                                                radius: 24,
+                                                                fallbackIcon: Icons
+                                                                    .person_outline,
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              _networkRectImage(
+                                                                imageUrl:
+                                                                    scrapyardLogoUrl,
+                                                                size: 48,
+                                                                fallbackIcon: Icons
+                                                                    .storefront_outlined,
+                                                                radius: 12,
+                                                              ),
+                                                              const SizedBox(width: 10),
+                                                              Expanded(
+                                                                child: Row(
+                                                                  children: [
+                                                                    const Expanded(
+                                                                      child: Text(
+                                                                        'عرض سعر',
+                                                                        style: TextStyle(
+                                                                          fontSize: 18,
+                                                                          fontWeight:
+                                                                              FontWeight.w900,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    if (isBestPending)
+                                                                      Container(
+                                                                        padding:
+                                                                            const EdgeInsets.symmetric(
+                                                                          horizontal: 10,
+                                                                          vertical: 5,
+                                                                        ),
+                                                                        decoration:
+                                                                            BoxDecoration(
+                                                                          color: Colors
+                                                                              .amber
+                                                                              .withOpacity(.18),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(
+                                                                            999,
+                                                                          ),
+                                                                        ),
+                                                                        child:
+                                                                            const Text(
+                                                                          'الأفضل حاليًا',
+                                                                          style: TextStyle(
+                                                                            color: Colors
+                                                                                .amber,
+                                                                            fontWeight:
+                                                                                FontWeight.w900,
+                                                                            fontSize: 11,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              IconButton(
+                                                                onPressed: () =>
+                                                                    _toggleFavoriteWorker(
+                                                                  item,
+                                                                ),
+                                                                icon: Icon(
+                                                                  isFavorite
+                                                                      ? Icons.favorite
+                                                                      : Icons
+                                                                          .favorite_border,
+                                                                  color: Colors.redAccent,
+                                                                ),
+                                                                tooltip: isFavorite
+                                                                    ? 'إزالة من المفضلة'
+                                                                    : 'إضافة إلى المفضلة',
+                                                              ),
+                                                              Container(
+                                                                padding: const EdgeInsets
+                                                                    .symmetric(
+                                                                  horizontal: 10,
+                                                                  vertical: 5,
+                                                                ),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: _statusColor(
+                                                                    status,
+                                                                  ).withOpacity(.18),
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                    999,
+                                                                  ),
+                                                                ),
+                                                                child: Text(
+                                                                  _statusText(status),
+                                                                  style: TextStyle(
+                                                                    color: _statusColor(
+                                                                      status,
+                                                                    ),
+                                                                    fontWeight:
+                                                                        FontWeight.w800,
+                                                                    fontSize: 11,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(height: 12),
+                                                          _InfoRow(
+                                                            label: 'السعر',
+                                                            value:
+                                                                '${price.toStringAsFixed(0)} ريال',
+                                                          ),
+                                                          _InfoRow(
+                                                            label: 'اسم العامل',
+                                                            value: displayWorkerName,
+                                                          ),
+                                                          _InfoRow(
+                                                            label: 'التشليح',
+                                                            value:
+                                                                displayScrapyardName,
+                                                          ),
+                                                          _InfoRow(
+                                                            label: 'الجوال',
+                                                            value: displayWorkerPhone,
+                                                          ),
+                                                          _InfoRow(
+                                                            label: 'وقت العرض',
+                                                            value: data['createdAt']
+                                                                    is Timestamp
+                                                                ? (data['createdAt']
+                                                                        as Timestamp)
+                                                                    .toDate()
+                                                                    .toString()
+                                                                : '-',
+                                                            isLast: true,
+                                                          ),
+                                                          if (isBestPending) ...[
+                                                            const SizedBox(height: 14),
+                                                            Container(
+                                                              width:
+                                                                  double.infinity,
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .all(14),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: Colors.amber
+                                                                    .withOpacity(.08),
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                  16,
+                                                                ),
+                                                                border: Border.all(
+                                                                  color: Colors.amber
+                                                                      .withOpacity(.22),
+                                                                ),
+                                                              ),
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Text(
+                                                                    _primaryRecommendationReason(
+                                                                      item,
+                                                                      pendingOffers,
+                                                                    ),
+                                                                    style:
+                                                                        const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w900,
+                                                                      fontSize: 14,
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    height: 10,
+                                                                  ),
+                                                                  Wrap(
+                                                                    spacing: 8,
+                                                                    runSpacing: 8,
+                                                                    children:
+                                                                        _recommendationTags(
+                                                                      item,
+                                                                      pendingOffers,
+                                                                    ).map((tag) {
+                                                                      return Container(
+                                                                        padding:
+                                                                            const EdgeInsets.symmetric(
+                                                                          horizontal:
+                                                                              10,
+                                                                          vertical: 6,
+                                                                        ),
+                                                                        decoration:
+                                                                            BoxDecoration(
+                                                                          color: Colors
+                                                                              .white
+                                                                              .withOpacity(.06),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(
+                                                                            999,
+                                                                          ),
+                                                                          border:
+                                                                              Border.all(
+                                                                            color: Colors
+                                                                                .white
+                                                                                .withOpacity(.08),
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          tag,
+                                                                          style:
+                                                                              const TextStyle(
+                                                                            fontSize:
+                                                                                11,
+                                                                            fontWeight:
+                                                                                FontWeight.w800,
+                                                                            color: Colors.white,
+                                                                          ),
+                                                                        ),
+                                                                      );
+                                                                    }).toList(),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                          const SizedBox(height: 14),
+                                                          Container(
+                                                            width: double.infinity,
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(14),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: Colors.white
+                                                                  .withOpacity(.05),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                16,
+                                                              ),
+                                                              border: Border.all(
+                                                                color: Colors.white
+                                                                    .withOpacity(.08),
+                                                              ),
+                                                            ),
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    const Icon(
+                                                                      Icons
+                                                                          .verified_user_outlined,
+                                                                      size: 18,
+                                                                      color: Colors
+                                                                          .amber,
+                                                                    ),
+                                                                    const SizedBox(
+                                                                      width: 8,
+                                                                    ),
+                                                                    const Expanded(
+                                                                      child: Text(
+                                                                        'بطاقة ثقة العامل',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          fontWeight:
+                                                                              FontWeight.w900,
+                                                                          fontSize:
+                                                                              15,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    Container(
+                                                                      padding:
+                                                                          const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            10,
+                                                                        vertical: 6,
+                                                                      ),
+                                                                      decoration:
+                                                                          BoxDecoration(
+                                                                        color: isVerified
+                                                                            ? Colors.green.withOpacity(
+                                                                                .18,
+                                                                              )
+                                                                            : Colors.orange.withOpacity(
+                                                                                .18,
+                                                                              ),
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(
+                                                                          999,
+                                                                        ),
+                                                                      ),
+                                                                      child: Text(
+                                                                        isVerified
+                                                                            ? 'موثّق'
+                                                                            : 'غير موثّق',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          color: isVerified
+                                                                              ? Colors.greenAccent
+                                                                              : Colors.orangeAccent,
+                                                                          fontWeight:
+                                                                              FontWeight.w800,
+                                                                          fontSize:
+                                                                              11,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                const SizedBox(
+                                                                  height: 12,
+                                                                ),
+                                                                Row(
+                                                                  children: [
+                                                                    Expanded(
+                                                                      child:
+                                                                          _MiniStatTile(
+                                                                        icon: Icons
+                                                                            .star_outline,
+                                                                        label:
+                                                                            'التقييم',
+                                                                        value: rating >
+                                                                                0
+                                                                            ? rating.toStringAsFixed(
+                                                                                1,
+                                                                              )
+                                                                            : 'جديد',
+                                                                      ),
+                                                                    ),
+                                                                    const SizedBox(
+                                                                      width: 10,
+                                                                    ),
+                                                                    Expanded(
+                                                                      child:
+                                                                          _MiniStatTile(
+                                                                        icon: Icons
+                                                                            .inventory_2_outlined,
+                                                                        label:
+                                                                            'طلبات منجزة',
+                                                                        value:
+                                                                            completedOrders.toString(),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                if (rating > 0) ...[
+                                                                  const SizedBox(
+                                                                    height: 10,
+                                                                  ),
+                                                                  Center(
+                                                                    child:
+                                                                        _buildRatingStars(
+                                                                      rating,
+                                                                      size: 18,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                                const SizedBox(
+                                                                  height: 10,
+                                                                ),
+                                                                _InfoRow(
+                                                                  label:
+                                                                      'تاريخ الانضمام',
+                                                                  value:
+                                                                      _formatJoinedDate(
+                                                                    joinedAt,
+                                                                  ),
+                                                                  isLast: true,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(height: 10),
+                                                          SizedBox(
+                                                            width: double.infinity,
+                                                            child:
+                                                                OutlinedButton.icon(
+                                                              onPressed: () =>
+                                                                  _showWorkerDetailsDialog(
+                                                                item,
+                                                                isFavorite:
+                                                                    isFavorite,
+                                                              ),
+                                                              icon: const Icon(
+                                                                Icons.info_outline,
+                                                              ),
+                                                              label: const Text(
+                                                                'عرض كل تفاصيل العامل',
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          if (workerPhone.isNotEmpty) ...[
+                                                            const SizedBox(
+                                                              height: 14,
+                                                            ),
+                                                            Row(
+                                                              children: [
+                                                                Expanded(
+                                                                  child:
+                                                                      OutlinedButton.icon(
+                                                                    onPressed:
+                                                                        () =>
+                                                                            _makePhoneCall(
+                                                                      workerPhone,
+                                                                    ),
+                                                                    icon: const Icon(
+                                                                      Icons
+                                                                          .call_outlined,
+                                                                    ),
+                                                                    label: const Text(
+                                                                      'اتصال',
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 10,
+                                                                ),
+                                                                Expanded(
+                                                                  child:
+                                                                      OutlinedButton.icon(
+                                                                    onPressed:
+                                                                        () =>
+                                                                            _openWhatsApp(
+                                                                      workerPhone,
+                                                                    ),
+                                                                    icon: const Icon(
+                                                                      Icons
+                                                                          .chat_outlined,
+                                                                    ),
+                                                                    label: const Text(
+                                                                      'واتساب',
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ],
+                                                          if (status == 'pending') ...[
+                                                            const SizedBox(height: 14),
+                                                            Row(
+                                                              children: [
+                                                                Expanded(
+                                                                  child:
+                                                                      FilledButton(
+                                                                    onPressed:
+                                                                        isSubmitting
+                                                                            ? null
+                                                                            : () => _acceptOffer(
+                                                                                  offerId: item.offerId,
+                                                                                  workerId: workerId,
+                                                                                ),
+                                                                    child:
+                                                                        const Text(
+                                                                      'قبول العرض',
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 10,
+                                                                ),
+                                                                Expanded(
+                                                                  child:
+                                                                      OutlinedButton(
+                                                                    onPressed:
+                                                                        isSubmitting
+                                                                            ? null
+                                                                            : () => _rejectOffer(
+                                                                                  offerId: item.offerId,
+                                                                                ),
+                                                                    child:
+                                                                        const Text(
+                                                                      'رفض',
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 );
                               },
                             );
