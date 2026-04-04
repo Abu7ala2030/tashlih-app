@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../admin/dashboard/admin_dashboard_screen.dart';
 import '../auth/simple_login_screen.dart';
 import '../customer/home/customer_home_screen.dart';
+import '../driver/dashboard/driver_dashboard_screen.dart';
 import '../worker/dashboard/worker_dashboard_screen.dart';
 
 class SessionGate extends StatelessWidget {
@@ -38,6 +39,9 @@ class SessionGate extends StatelessWidget {
 
       case 'worker':
         return const WorkerDashboardScreen();
+
+      case 'driver':
+        return const DriverDashboardScreen();
 
       case 'customer':
       default:

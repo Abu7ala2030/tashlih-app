@@ -24,36 +24,33 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen> {
   }
 
   Future<void> _submit() async {
-  final auth = context.read<AuthProvider>();
-  final email = emailController.text.trim();
-  final password = passwordController.text;
+    final auth = context.read<AuthProvider>();
+    final email = emailController.text.trim();
+    final password = passwordController.text;
 
-  if (email.isEmpty || password.isEmpty) return;
+    if (email.isEmpty || password.isEmpty) return;
 
-  if (isRegister) {
-    await auth.registerWithEmail(
-      email: email,
-      password: password,
-      role: selectedRole,
-    );
-  } else {
-    await auth.loginWithEmail(
-      email: email,
-      password: password,
-    );
+    if (isRegister) {
+      await auth.registerWithEmail(
+        email: email,
+        password: password,
+        role: selectedRole,
+      );
+    } else {
+      await auth.loginWithEmail(
+        email: email,
+        password: password,
+      );
+    }
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.errorMessage!)),
+      );
+    }
   }
-
-  if (!mounted) return;
-
-  if (auth.errorMessage != null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(auth.errorMessage!)),
-    );
-    return;
-  }
-
-  // ❌ لا يوجد Navigator هنا
-}
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +81,7 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen> {
                 items: const [
                   DropdownMenuItem(value: 'customer', child: Text('عميل')),
                   DropdownMenuItem(value: 'worker', child: Text('عامل')),
+                  DropdownMenuItem(value: 'driver', child: Text('سائق')),
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => selectedRole = v);
@@ -96,18 +94,34 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen> {
               child: FilledButton(
                 onPressed: auth.isLoading ? null : _submit,
                 child: auth.isLoading
-                    ? const CircularProgressIndicator()
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : Text(isRegister ? 'إنشاء الحساب' : 'دخول'),
               ),
             ),
+            const SizedBox(height: 8),
             TextButton(
               onPressed: () => setState(() => isRegister = !isRegister),
               child: Text(
-                isRegister
-                    ? 'عندي حساب بالفعل'
-                    : 'إنشاء حساب جديد',
+                isRegister ? 'عندي حساب بالفعل' : 'إنشاء حساب جديد',
               ),
             ),
+            if (isRegister)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'ملاحظة: تسجيل السائق من داخل التطبيق مناسب حاليًا للاختبار. لاحقًا الأفضل إنشاء حساب السائق من الإدارة فقط.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
