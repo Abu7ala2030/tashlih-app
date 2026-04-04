@@ -5,6 +5,7 @@ import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/request_provider.dart';
+import '../requests/driver_request_details_screen.dart';
 
 class DriverDashboardScreen extends StatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -80,7 +81,8 @@ class _DriverOverviewTab extends StatelessWidget {
     final pendingPickup = driverRequests.where((request) {
       final deliveryStatus =
           (request['deliveryStatus'] ?? '').toString().trim();
-      return deliveryStatus.isEmpty || deliveryStatus == 'pending_pickup';
+      return deliveryStatus == 'pending_pickup' ||
+          deliveryStatus == 'awaiting_driver_assignment';
     }).length;
 
     final onTheWay = driverRequests.where((request) {
@@ -245,6 +247,8 @@ class _DriverAssignedOrdersTab extends StatelessWidget {
     final status = (request['status'] ?? '').toString().trim();
 
     switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
+        return 'بانتظار بدء التنفيذ';
       case 'pending_pickup':
         return 'بانتظار الاستلام';
       case 'picked_up':
@@ -267,6 +271,7 @@ class _DriverAssignedOrdersTab extends StatelessWidget {
     final status = (request['status'] ?? '').toString().trim();
 
     switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
       case 'pending_pickup':
         return Colors.orange;
       case 'picked_up':
@@ -330,62 +335,73 @@ class _DriverAssignedOrdersTab extends StatelessWidget {
           final statusText = _deliveryStatusText(request);
           final statusColor = _deliveryStatusColor(request);
 
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1D21),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        partName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
+          return InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DriverRequestDetailsScreen(request: request),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1D21),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          partName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(.18),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        statusText,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(.18),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _DriverInfoRow(
-                  label: 'المركبة',
-                  value: vehicle.isEmpty ? '-' : vehicle,
-                ),
-                _DriverInfoRow(
-                  label: 'عنوان العميل',
-                  value: deliveryAddress.isEmpty ? 'غير محدد' : deliveryAddress,
-                ),
-                _DriverInfoRow(
-                  label: 'هاتف العميل',
-                  value: customerPhone.isEmpty ? 'غير متوفر' : customerPhone,
-                  isLast: true,
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _DriverInfoRow(
+                    label: 'المركبة',
+                    value: vehicle.isEmpty ? '-' : vehicle,
+                  ),
+                  _DriverInfoRow(
+                    label: 'عنوان العميل',
+                    value: deliveryAddress.isEmpty ? 'غير محدد' : deliveryAddress,
+                  ),
+                  _DriverInfoRow(
+                    label: 'هاتف العميل',
+                    value: customerPhone.isEmpty ? 'غير متوفر' : customerPhone,
+                    isLast: true,
+                  ),
+                ],
+              ),
             ),
           );
         },

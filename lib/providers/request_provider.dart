@@ -54,6 +54,8 @@ class RequestProvider extends ChangeNotifier {
         return 'العميل';
       case 'worker':
         return 'العامل';
+      case 'driver':
+        return 'السائق';
       case 'admin':
         return 'الإدارة';
       case 'system':
@@ -385,6 +387,56 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
+  Future<void> assignRequestToDriver({
+    required String requestId,
+    required String driverId,
+  }) async {
+    final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
+    final requestSnap = await requestRef.get();
+    final requestData = requestSnap.data() ?? <String, dynamic>{};
+
+    await requestRef.set({
+      'assignedDriverId': driverId,
+      'deliveryStatus': 'pending_pickup',
+      'driverAssignedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await _addTimelineEvent(
+      requestId: requestId,
+      type: 'driver_assigned',
+      title: 'تم تعيين السائق',
+      description: 'تم إسناد الطلب إلى السائق لمتابعة التوصيل.',
+      actorId: currentUserId ?? '',
+      actorRole: 'admin',
+      extra: {'driverId': driverId},
+    );
+
+    await _sendUserNotification(
+      userId: driverId,
+      title: 'تم إسناد طلب جديد لك',
+      body: 'يوجد طلب جديد بانتظار الاستلام والتوصيل.',
+      type: 'driver_assigned',
+      requestId: requestId,
+      dedupWithin: const Duration(hours: 12),
+      extra: {
+        'deliveryStatus': 'pending_pickup',
+      },
+    );
+
+    final customerId = (requestData['customerId'] ?? '').toString();
+    if (customerId.isNotEmpty) {
+      await _sendUserNotification(
+        userId: customerId,
+        title: 'تم تعيين سائق للطلب',
+        body: 'تم تعيين سائق لطلبك وسيبدأ الاستلام قريبًا.',
+        type: 'driver_assigned_customer',
+        requestId: requestId,
+        dedupWithin: const Duration(hours: 12),
+      );
+    }
+  }
+
   Future<void> updateRequestStatus({
     required String requestId,
     required String status,
@@ -405,6 +457,113 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
+  Future<void> markDriverPickedUp({
+    required String requestId,
+  }) async {
+    final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
+    final requestSnap = await requestRef.get();
+    final requestData = requestSnap.data() ?? <String, dynamic>{};
+
+    await requestRef.set({
+      'deliveryStatus': 'picked_up',
+      'pickedUpAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await _addTimelineEvent(
+      requestId: requestId,
+      type: 'driver_picked_up',
+      title: 'استلم السائق الطلب',
+      description: 'تم استلام الطلب من العامل أو التشليح.',
+      actorId: currentUserId ?? '',
+      actorRole: 'driver',
+    );
+
+    final customerId = (requestData['customerId'] ?? '').toString();
+    if (customerId.isNotEmpty) {
+      await _sendUserNotification(
+        userId: customerId,
+        title: 'تم استلام الطلب',
+        body: 'استلم السائق طلبك وجارٍ تجهيزه للتوصيل.',
+        type: 'driver_picked_up',
+        requestId: requestId,
+        dedupWithin: const Duration(hours: 6),
+      );
+    }
+  }
+
+  Future<void> markDriverOnTheWay({
+    required String requestId,
+  }) async {
+    final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
+    final requestSnap = await requestRef.get();
+    final requestData = requestSnap.data() ?? <String, dynamic>{};
+
+    await requestRef.set({
+      'deliveryStatus': 'on_the_way',
+      'status': 'shipped',
+      'shippedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await _addTimelineEvent(
+      requestId: requestId,
+      type: 'driver_on_the_way',
+      title: 'السائق في الطريق',
+      description: 'بدأ السائق التوصيل إلى عنوان العميل.',
+      actorId: currentUserId ?? '',
+      actorRole: 'driver',
+    );
+
+    final customerId = (requestData['customerId'] ?? '').toString();
+    if (customerId.isNotEmpty) {
+      await _sendUserNotification(
+        userId: customerId,
+        title: 'السائق في الطريق',
+        body: 'طلبك الآن في الطريق إليك.',
+        type: 'request_shipped',
+        requestId: requestId,
+        dedupWithin: const Duration(hours: 6),
+      );
+    }
+  }
+
+  Future<void> markDriverDelivered({
+    required String requestId,
+  }) async {
+    final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
+    final requestSnap = await requestRef.get();
+    final requestData = requestSnap.data() ?? <String, dynamic>{};
+
+    await requestRef.set({
+      'deliveryStatus': 'delivered',
+      'status': 'delivered',
+      'deliveredAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await _addTimelineEvent(
+      requestId: requestId,
+      type: 'driver_delivered',
+      title: 'تم التسليم',
+      description: 'أكد السائق تسليم الطلب للعميل.',
+      actorId: currentUserId ?? '',
+      actorRole: 'driver',
+    );
+
+    final customerId = (requestData['customerId'] ?? '').toString();
+    if (customerId.isNotEmpty) {
+      await _sendUserNotification(
+        userId: customerId,
+        title: 'تم تسليم الطلب',
+        body: 'أكد السائق تسليم طلبك بنجاح.',
+        type: 'request_delivered',
+        requestId: requestId,
+        dedupWithin: const Duration(hours: 12),
+      );
+    }
+  }
+
   Future<void> markRequestShipped({
     required String requestId,
   }) async {
@@ -415,6 +574,7 @@ class RequestProvider extends ChangeNotifier {
 
     await _db.collection(FirestorePaths.requests).doc(requestId).update({
       'status': 'shipped',
+      'deliveryStatus': 'on_the_way',
       'shippedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -448,6 +608,7 @@ class RequestProvider extends ChangeNotifier {
 
     await _db.collection(FirestorePaths.requests).doc(requestId).update({
       'status': 'delivered',
+      'deliveryStatus': 'delivered',
       'deliveredAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -589,6 +750,7 @@ class RequestProvider extends ChangeNotifier {
         'newOffersCount': 0,
         'bestOfferPrice': acceptedOfferPrice,
         'status': 'assigned',
+        'deliveryStatus': 'awaiting_driver_assignment',
         'assignedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
