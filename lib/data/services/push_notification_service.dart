@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../../core/services/notification_navigation_service.dart';
 import 'firestore_paths.dart';
 
 class PushNotificationService {
@@ -28,9 +30,7 @@ class PushNotificationService {
   );
 
   String? _lastSavedToken;
-
-  void Function(String chatId)? _onOpenChat;
-  void Function(String requestId)? _onOpenRequest;
+  bool _listenersRegistered = false;
 
   String? get currentUserId => _auth.currentUser?.uid;
 
@@ -38,29 +38,28 @@ class PushNotificationService {
     await _requestPermission();
     await _setupForegroundPresentation();
     await _initializeLocalNotifications();
+    _registerMessageListeners();
     _listenTokenRefresh();
     await syncCurrentUserToken();
   }
 
-  Future<void> bindForegroundListeners({
-    required void Function(String chatId) onOpenChat,
-    required void Function(String requestId) onOpenRequest,
-  }) async {
-    _onOpenChat = onOpenChat;
-    _onOpenRequest = onOpenRequest;
+  void _registerMessageListeners() {
+    if (_listenersRegistered) return;
+    _listenersRegistered = true;
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       await _showForegroundNotification(message);
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleRemoteNavigation(message);
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+      await _handleNotificationData(message.data);
     });
 
-    final initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) {
-      _handleRemoteNavigation(initialMessage);
-    }
+    _messaging.getInitialMessage().then((message) async {
+      if (message != null) {
+        await _handleNotificationData(message.data);
+      }
+    });
   }
 
   Future<void> _initializeLocalNotifications() async {
@@ -76,15 +75,23 @@ class PushNotificationService {
     );
 
     await _localNotifications.initialize(
-      settings: initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
         final payload = response.payload;
         if (payload == null || payload.isEmpty) return;
 
         try {
-          final data = jsonDecode(payload) as Map<String, dynamic>;
-          _handleLocalNavigation(data);
-        } catch (_) {}
+          final decoded = jsonDecode(payload);
+          if (decoded is Map<String, dynamic>) {
+            await _handleNotificationData(decoded);
+          } else if (decoded is Map) {
+            await _handleNotificationData(
+              Map<String, dynamic>.from(decoded),
+            );
+          }
+        } catch (e) {
+          debugPrint('Failed to parse notification payload: $e');
+        }
       },
     );
 
@@ -121,8 +128,7 @@ class PushNotificationService {
     final title = (notification?.title ?? data['title'] ?? 'إشعار جديد')
         .toString()
         .trim();
-    final body =
-        (notification?.body ?? data['body'] ?? '').toString().trim();
+    final body = (notification?.body ?? data['body'] ?? '').toString().trim();
 
     if (title.isEmpty && body.isEmpty) return;
 
@@ -143,57 +149,23 @@ class PushNotificationService {
       macOS: darwinDetails,
     );
 
-    final payload = jsonEncode({
-      'type': (data['type'] ?? '').toString(),
-      'chatId': (data['chatId'] ?? '').toString(),
-      'requestId': (data['requestId'] ?? '').toString(),
-    });
+    final payload = jsonEncode(Map<String, dynamic>.from(data));
 
     final notificationId =
         DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
     await _localNotifications.show(
-      id: notificationId,
-      title: title,
-      body: body.isEmpty ? null : body,
-      notificationDetails: details,
+      notificationId,
+      title,
+      body.isEmpty ? null : body,
+      details,
       payload: payload,
     );
   }
 
-  void _handleLocalNavigation(Map<String, dynamic> data) {
-    final type = (data['type'] ?? '').toString();
-
-    if (type == 'chat_message') {
-      final chatId = (data['chatId'] ?? '').toString();
-      if (chatId.isNotEmpty && _onOpenChat != null) {
-        _onOpenChat!(chatId);
-      }
-      return;
-    }
-
-    final requestId = (data['requestId'] ?? '').toString();
-    if (requestId.isNotEmpty && _onOpenRequest != null) {
-      _onOpenRequest!(requestId);
-    }
-  }
-
-  void _handleRemoteNavigation(RemoteMessage message) {
-    final data = message.data;
-    final type = (data['type'] ?? '').toString();
-
-    if (type == 'chat_message') {
-      final chatId = (data['chatId'] ?? '').toString();
-      if (chatId.isNotEmpty && _onOpenChat != null) {
-        _onOpenChat!(chatId);
-      }
-      return;
-    }
-
-    final requestId = (data['requestId'] ?? '').toString();
-    if (requestId.isNotEmpty && _onOpenRequest != null) {
-      _onOpenRequest!(requestId);
-    }
+  Future<void> _handleNotificationData(Map<String, dynamic> data) async {
+    if (data.isEmpty) return;
+    await NotificationNavigationService.instance.handleNotification(data);
   }
 
   Future<void> _requestPermission() async {

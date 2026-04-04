@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../data/services/firestore_paths.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/customer/requests/customer_request_offers_screen.dart';
 import '../../features/customer/requests/customer_request_tracking_screen.dart';
@@ -10,32 +12,51 @@ class NotificationNavigationService {
 
   NotificationNavigationService._();
 
-  final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  void handleNotification(Map<String, dynamic> data) {
-    final type = data['type'];
+  Future<void> handleNotification(Map<String, dynamic> data) async {
+    final type = (data['type'] ?? '').toString().trim();
+    final chatId = (data['chatId'] ?? '').toString().trim();
+    final requestId = (data['requestId'] ?? '').toString().trim();
 
     switch (type) {
       case 'new_offer':
-        _openOffers(data);
-        break;
+        await _openOffers(data, requestId: requestId);
+        return;
 
       case 'request_accepted':
       case 'request_shipped':
-        _openTracking(data);
-        break;
+        await _openTracking(data, requestId: requestId);
+        return;
 
+      case 'chat_message':
       case 'new_message':
-        _openChat(data);
-        break;
+        _openChat(chatId);
+        return;
+
+      default:
+        if (chatId.isNotEmpty) {
+          _openChat(chatId);
+          return;
+        }
+
+        if (requestId.isNotEmpty) {
+          await _openTracking(data, requestId: requestId);
+        }
     }
   }
 
-  void _openOffers(Map<String, dynamic> data) {
-    final request = data['request'];
+  Future<void> _openOffers(
+    Map<String, dynamic> data, {
+    required String requestId,
+  }) async {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
 
-    navigatorKey.currentState?.push(
+    final request = await _resolveRequest(data, requestId: requestId);
+    if (request == null) return;
+
+    navigator.push(
       MaterialPageRoute(
         builder: (_) => CustomerRequestOffersScreen(
           request: request,
@@ -44,10 +65,17 @@ class NotificationNavigationService {
     );
   }
 
-  void _openTracking(Map<String, dynamic> data) {
-    final request = data['request'];
+  Future<void> _openTracking(
+    Map<String, dynamic> data, {
+    required String requestId,
+  }) async {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
 
-    navigatorKey.currentState?.push(
+    final request = await _resolveRequest(data, requestId: requestId);
+    if (request == null) return;
+
+    navigator.push(
       MaterialPageRoute(
         builder: (_) => CustomerRequestTrackingScreen(
           request: request,
@@ -56,10 +84,11 @@ class NotificationNavigationService {
     );
   }
 
-  void _openChat(Map<String, dynamic> data) {
-    final chatId = data['chatId'];
+  void _openChat(String chatId) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null || chatId.isEmpty) return;
 
-    navigatorKey.currentState?.push(
+    navigator.push(
       MaterialPageRoute(
         builder: (_) => ChatScreen(
           chatId: chatId,
@@ -67,5 +96,32 @@ class NotificationNavigationService {
         ),
       ),
     );
+  }
+
+  Future<Map<String, dynamic>?> _resolveRequest(
+    Map<String, dynamic> data, {
+    required String requestId,
+  }) async {
+    final embeddedRequest = data['request'];
+    if (embeddedRequest is Map<String, dynamic>) {
+      return embeddedRequest;
+    }
+
+    if (embeddedRequest is Map) {
+      return Map<String, dynamic>.from(embeddedRequest);
+    }
+
+    if (requestId.isEmpty) return null;
+
+    final doc = await FirebaseFirestore.instance
+        .collection(FirestorePaths.requests)
+        .doc(requestId)
+        .get();
+
+    if (!doc.exists) return null;
+
+    final request = doc.data() ?? <String, dynamic>{};
+    request['id'] = doc.id;
+    return request;
   }
 }
