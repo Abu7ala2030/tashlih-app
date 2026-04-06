@@ -26,8 +26,14 @@ class CustomerRequestTrackingScreen extends StatefulWidget {
 
 class _CustomerRequestTrackingScreenState
     extends State<CustomerRequestTrackingScreen> {
+  static const double _driverRouteRefreshMeters = 40;
+  static const double _targetRouteRefreshMeters = 20;
+  static const int _routeRefreshSeconds = 20;
+  static const int _cameraRefreshMilliseconds = 1800;
+
   bool isOpeningChat = false;
   bool _followDriver = true;
+
   GoogleMapController? _mapController;
 
   LatLng? _lastTrackedLocation;
@@ -48,7 +54,7 @@ class _CustomerRequestTrackingScreenState
   BitmapDescriptor? _driverMarkerIcon;
   BitmapDescriptor? _workerMarkerIcon;
 
-  String get _requestId => (widget.request['id'] ?? '').toString();
+  String get _requestId => (widget.request['id'] ?? '').toString().trim();
 
   @override
   void initState() {
@@ -57,31 +63,33 @@ class _CustomerRequestTrackingScreenState
   }
 
   Future<void> _prepareMarkerIcons() async {
-    try {
-      final driver = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(96, 96)),
-        'assets/icons/driver_car_marker.png',
-      );
-      _driverMarkerIcon = driver;
-    } catch (_) {
-      _driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueAzure,
-      );
-    }
+    _driverMarkerIcon = await _loadMarkerIcon(
+      assetPath: 'assets/icons/driver_car_marker.png',
+      fallbackHue: BitmapDescriptor.hueAzure,
+    );
 
-    try {
-      final worker = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(96, 96)),
-        'assets/icons/worker_van_marker.png',
-      );
-      _workerMarkerIcon = worker;
-    } catch (_) {
-      _workerMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueOrange,
-      );
-    }
+    _workerMarkerIcon = await _loadMarkerIcon(
+      assetPath: 'assets/icons/worker_van_marker.png',
+      fallbackHue: BitmapDescriptor.hueOrange,
+    );
 
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<BitmapDescriptor> _loadMarkerIcon({
+    required String assetPath,
+    required double fallbackHue,
+  }) async {
+    try {
+      return await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(96, 96)),
+        assetPath,
+      );
+    } catch (_) {
+      return BitmapDescriptor.defaultMarkerWithHue(fallbackHue);
+    }
   }
 
   String _workerIdFromRequest(Map<String, dynamic> request) {
@@ -89,7 +97,8 @@ class _CustomerRequestTrackingScreenState
             request['assignedWorkerId'] ??
             request['acceptedWorkerId'] ??
             '')
-        .toString();
+        .toString()
+        .trim();
   }
 
   String _driverIdFromRequest(Map<String, dynamic> request) {
@@ -99,10 +108,10 @@ class _CustomerRequestTrackingScreenState
   }
 
   bool _canOpenChat(Map<String, dynamic> request) {
-    final requestId = (request['id'] ?? '').toString();
-    final customerId = (request['customerId'] ?? '').toString();
+    final requestId = (request['id'] ?? '').toString().trim();
+    final customerId = (request['customerId'] ?? '').toString().trim();
     final workerId = _workerIdFromRequest(request);
-    final status = (request['status'] ?? '').toString();
+    final status = (request['status'] ?? '').toString().trim();
 
     return requestId.isNotEmpty &&
         customerId.isNotEmpty &&
@@ -167,7 +176,7 @@ class _CustomerRequestTrackingScreenState
     return '${diff.inHours} ساعة';
   }
 
-  double _degToRad(double deg) => deg * math.pi / 180.0;
+  double _degToRad(double degrees) => degrees * math.pi / 180.0;
 
   double _distanceMeters(LatLng a, LatLng b) {
     const earthRadius = 6371000.0;
@@ -177,13 +186,13 @@ class _CustomerRequestTrackingScreenState
     final sinLat = math.sin(dLat / 2);
     final sinLng = math.sin(dLng / 2);
 
-    final aa = sinLat * sinLat +
+    final value = sinLat * sinLat +
         math.cos(_degToRad(a.latitude)) *
             math.cos(_degToRad(b.latitude)) *
             sinLng *
             sinLng;
 
-    final c = 2 * math.atan2(math.sqrt(aa), math.sqrt(1 - aa));
+    final c = 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value));
     return earthRadius * c;
   }
 
@@ -214,15 +223,17 @@ class _CustomerRequestTrackingScreenState
         : DateTime.now().difference(_lastRouteRequestedAt!).inSeconds;
 
     final originChanged = _lastRouteOrigin == null ||
-        _distanceMeters(_lastRouteOrigin!, origin) >= 40;
+        _distanceMeters(_lastRouteOrigin!, origin) >=
+            _driverRouteRefreshMeters;
 
     final destinationChanged = _lastRouteDestination == null ||
-        _distanceMeters(_lastRouteDestination!, destination) >= 20;
+        _distanceMeters(_lastRouteDestination!, destination) >=
+            _targetRouteRefreshMeters;
 
     if (originChanged || destinationChanged) return true;
     if (routeAgeSeconds == null) return true;
 
-    return routeAgeSeconds >= 20;
+    return routeAgeSeconds >= _routeRefreshSeconds;
   }
 
   void _scheduleRouteRefresh(LatLng origin, LatLng destination) {
@@ -249,6 +260,7 @@ class _CustomerRequestTrackingScreenState
       );
 
       if (!mounted) return;
+
       setState(() {
         _route = route;
       });
@@ -260,7 +272,7 @@ class _CustomerRequestTrackingScreenState
   }
 
   Future<void> _openChat(Map<String, dynamic> request) async {
-    final customerId = (request['customerId'] ?? '').toString();
+    final customerId = (request['customerId'] ?? '').toString().trim();
     final workerId = _workerIdFromRequest(request);
 
     if (!_canOpenChat(request) || isOpeningChat) return;
@@ -275,6 +287,7 @@ class _CustomerRequestTrackingScreenState
       );
 
       if (!mounted) return;
+
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -286,6 +299,7 @@ class _CustomerRequestTrackingScreenState
       );
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('فشل فتح المحادثة: $e')),
       );
@@ -370,7 +384,8 @@ class _CustomerRequestTrackingScreenState
 
     final now = DateTime.now();
     if (_lastCameraMoveAt != null &&
-        now.difference(_lastCameraMoveAt!).inMilliseconds < 1800) {
+        now.difference(_lastCameraMoveAt!).inMilliseconds <
+            _cameraRefreshMilliseconds) {
       return;
     }
 
@@ -423,7 +438,9 @@ class _CustomerRequestTrackingScreenState
               BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueOrange,
               )),
-      infoWindow: InfoWindow(title: isDriverTracking ? 'السائق' : 'العامل'),
+      infoWindow: InfoWindow(
+        title: isDriverTracking ? 'السائق' : 'العامل',
+      ),
     );
   }
 
@@ -499,6 +516,7 @@ class _CustomerRequestTrackingScreenState
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || _animatedTrackedPosition == null) return;
+
           _followTrackedPosition(
             _animatedTrackedPosition!,
             rotation: _animatedRotation,
@@ -511,10 +529,7 @@ class _CustomerRequestTrackingScreenState
 
         final markers = <Marker>{
           if (_animatedTrackedMarker != null) _animatedTrackedMarker!,
-        };
-
-        if (target != null) {
-          markers.add(
+          if (target != null)
             Marker(
               markerId: const MarkerId('target'),
               position: target,
@@ -523,8 +538,7 @@ class _CustomerRequestTrackingScreenState
               ),
               infoWindow: const InfoWindow(title: 'موقع التوصيل'),
             ),
-          );
-        }
+        };
 
         final polylines = _route == null
             ? <Polyline>{}
@@ -551,7 +565,7 @@ class _CustomerRequestTrackingScreenState
                   polylines: polylines,
                   zoomControlsEnabled: false,
                   myLocationButtonEnabled: false,
-                  onMapCreated: (c) => _mapController = c,
+                  onMapCreated: (controller) => _mapController = controller,
                   onCameraMoveStarted: () {
                     if (_followDriver) {
                       setState(() => _followDriver = false);
@@ -630,9 +644,11 @@ class _CustomerRequestTrackingScreenState
                     heroTag: 'toggle_follow_btn',
                     onPressed: () {
                       setState(() => _followDriver = !_followDriver);
-                      if (_followDriver && _lastTrackedLocation != null) {
+
+                      final trackedLocation = _lastTrackedLocation;
+                      if (_followDriver && trackedLocation != null) {
                         _followTrackedPosition(
-                          _lastTrackedLocation!,
+                          trackedLocation,
                           rotation: _animatedRotation,
                         );
                       }
@@ -646,9 +662,10 @@ class _CustomerRequestTrackingScreenState
                     mini: true,
                     heroTag: 'center_driver_btn',
                     onPressed: () {
-                      if (_mapController != null && _lastTrackedLocation != null) {
+                      final trackedLocation = _lastTrackedLocation;
+                      if (_mapController != null && trackedLocation != null) {
                         _mapController!.animateCamera(
-                          CameraUpdate.newLatLng(_lastTrackedLocation!),
+                          CameraUpdate.newLatLng(trackedLocation),
                         );
                       }
                     },
@@ -687,7 +704,7 @@ class _CustomerRequestTrackingScreenState
           'id': _requestId,
         };
 
-        final status = (request['status'] ?? '').toString();
+        final status = (request['status'] ?? '').toString().trim();
         final scrapyardName =
             (request['scrapyardName'] ?? 'غير محدد').toString();
         final scrapyardLocation =
@@ -784,7 +801,7 @@ class _CustomerRequestTrackingScreenState
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: _statusColor(status).withOpacity(.16),
+                                color: _statusColor(status).withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -961,9 +978,10 @@ class _CustomerRequestTrackingScreenState
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
-                                onPressed: (_canOpenChat(request) && !isOpeningChat)
-                                    ? () => _openChat(request)
-                                    : null,
+                                onPressed:
+                                    (_canOpenChat(request) && !isOpeningChat)
+                                        ? () => _openChat(request)
+                                        : null,
                                 icon: isOpeningChat
                                     ? const SizedBox(
                                         width: 18,
@@ -1025,7 +1043,9 @@ class _InfoRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
               ),
       ),
       child: Row(
