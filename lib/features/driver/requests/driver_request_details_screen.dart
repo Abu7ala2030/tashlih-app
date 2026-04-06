@@ -36,9 +36,14 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
   static const double _routeRefreshMeters = 30;
   static const int _routeRefreshSeconds = 20;
 
+  static const double _pickupAutoArrivalMeters = 80;
+  static const double _deliveryAutoArrivalMeters = 70;
+
   bool isSubmitting = false;
   bool _followDriver = true;
   bool _isSatelliteView = false;
+  bool _autoPickupHandled = false;
+  bool _autoDeliveryHandled = false;
 
   GoogleMapController? _mapController;
 
@@ -162,11 +167,40 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
     return double.tryParse(value?.toString() ?? '');
   }
 
-  LatLng? _targetLatLng(Map<String, dynamic> request) {
+  LatLng? _customerLatLng(Map<String, dynamic> request) {
     final lat = _toDouble(request['deliveryLat']);
     final lng = _toDouble(request['deliveryLng']);
     if (lat == null || lng == null) return null;
     return LatLng(lat, lng);
+  }
+
+  LatLng? _pickupLatLng(Map<String, dynamic> request) {
+    final lat = _toDouble(
+      request['pickupLat'] ?? request['scrapyardLat'] ?? request['workerLat'],
+    );
+    final lng = _toDouble(
+      request['pickupLng'] ?? request['scrapyardLng'] ?? request['workerLng'],
+    );
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  LatLng? _activeTarget(Map<String, dynamic> request) {
+    final deliveryStatus = (request['deliveryStatus'] ?? '').toString().trim();
+    if (deliveryStatus == 'awaiting_driver_assignment' ||
+        deliveryStatus == 'pending_pickup') {
+      return _pickupLatLng(request) ?? _customerLatLng(request);
+    }
+    return _customerLatLng(request);
+  }
+
+  String _activeTargetTitle(Map<String, dynamic> request) {
+    final deliveryStatus = (request['deliveryStatus'] ?? '').toString().trim();
+    if (deliveryStatus == 'awaiting_driver_assignment' ||
+        deliveryStatus == 'pending_pickup') {
+      return 'نقطة الاستلام';
+    }
+    return 'العميل';
   }
 
   Future<void> _callCustomer(Map<String, dynamic> request) async {
@@ -194,20 +228,18 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
     );
   }
 
-  Future<void> _openExternalMap(Map<String, dynamic> request) async {
-    final lat = _toDouble(request['deliveryLat']);
-    final lng = _toDouble(request['deliveryLng']);
-
-    if (lat == null || lng == null) {
+  Future<void> _openNavigationToActiveTarget(Map<String, dynamic> request) async {
+    final target = _activeTarget(request);
+    if (target == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('إحداثيات العميل غير متوفرة')),
+        const SnackBar(content: Text('الإحداثيات غير متوفرة')),
       );
       return;
     }
 
     final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      'https://www.google.com/maps/search/?api=1&query=${target.latitude},${target.longitude}',
     );
 
     if (await canLaunchUrl(uri)) {
@@ -225,22 +257,29 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
     required Future<void> Function() action,
     required String success,
     Future<void> Function()? beforeSuccess,
+    Future<void> Function()? afterSuccess,
+    bool popAfter = false,
   }) async {
     if (_requestId.isEmpty) return;
 
     setState(() => isSubmitting = true);
 
     try {
-      await action();
       if (beforeSuccess != null) {
         await beforeSuccess();
+      }
+      await action();
+      if (afterSuccess != null) {
+        await afterSuccess();
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(success)),
       );
-      Navigator.pop(context);
+      if (popAfter) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -270,6 +309,25 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
         if (status == 'shipped') return 'قيد التوصيل';
         if (status == 'delivered') return 'تم التسليم';
         return 'قيد المعالجة';
+    }
+  }
+
+  String _driverHelpText(String deliveryStatus, String status) {
+    switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
+      case 'pending_pickup':
+        return 'توجّه الآن إلى نقطة الاستلام. عند الوصول يمكنك تأكيد الاستلام يدويًا أو سيتم رصد الوصول تلقائيًا إذا كنت قريبًا جدًا.';
+      case 'picked_up':
+        return 'تم الاستلام بنجاح. ابدأ الآن التوصيل للعميل لتفعيل التتبع الحي في وضع التسليم.';
+      case 'on_the_way':
+        return 'أنت الآن في مرحلة التوصيل. راقب ETA والمسافة، ويمكن تأكيد التسليم يدويًا أو تلقائيًا عند الاقتراب.';
+      case 'delivered':
+        return 'هذا الطلب اكتمل بنجاح.';
+      default:
+        if (status == 'assigned') {
+          return 'الطلب جاهز لبدء التحرك إلى نقطة الاستلام.';
+        }
+        return 'تابع الرحلة من هذه الشاشة.';
     }
   }
 
@@ -409,7 +467,7 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
   Future<void> _fitDriverAndTarget(Map<String, dynamic> request) async {
     final controller = _mapController;
     final driver = _animatedTrackedPosition;
-    final target = _targetLatLng(request);
+    final target = _activeTarget(request);
 
     if (controller == null || driver == null || target == null) return;
 
@@ -527,8 +585,48 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
       ..forward();
   }
 
+  Future<void> _autoHandleArrival(Map<String, dynamic> request) async {
+    final driver = _animatedTrackedPosition;
+    if (driver == null || isSubmitting) return;
+
+    final deliveryStatus = (request['deliveryStatus'] ?? '').toString().trim();
+    final provider = context.read<RequestProvider>();
+
+    if ((deliveryStatus == 'awaiting_driver_assignment' ||
+            deliveryStatus == 'pending_pickup') &&
+        !_autoPickupHandled) {
+      final pickup = _pickupLatLng(request);
+      if (pickup != null &&
+          _distanceMeters(driver, pickup) <= _pickupAutoArrivalMeters) {
+        _autoPickupHandled = true;
+        await provider.markDriverPickedUp(requestId: _requestId);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم رصد الوصول لنقطة الاستلام تلقائيًا')),
+        );
+        return;
+      }
+    }
+
+    if ((deliveryStatus == 'on_the_way' ||
+            (request['status'] ?? '').toString().trim() == 'shipped') &&
+        !_autoDeliveryHandled) {
+      final customer = _customerLatLng(request);
+      if (customer != null &&
+          _distanceMeters(driver, customer) <= _deliveryAutoArrivalMeters) {
+        _autoDeliveryHandled = true;
+        await provider.markDriverDelivered(requestId: _requestId);
+        LocationService.instance.stopTracking();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم رصد الوصول للعميل تلقائيًا')),
+        );
+      }
+    }
+  }
+
   Widget _buildDriverMap(Map<String, dynamic> request) {
-    final target = _targetLatLng(request);
+    final target = _activeTarget(request);
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _driverStream(),
@@ -580,22 +678,29 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
               _updateRoute(livePosition, target);
             });
           }
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _autoHandleArrival(request);
+          });
         }
 
+        final activeTarget = _activeTarget(request);
+
         final initialTarget = _animatedTrackedPosition ??
-            target ??
+            activeTarget ??
             const LatLng(26.4207, 50.0888);
 
         final markers = <Marker>{
           if (_animatedTrackedMarker != null) _animatedTrackedMarker!,
-          if (target != null)
+          if (activeTarget != null)
             Marker(
-              markerId: const MarkerId('customer_target'),
-              position: target,
+              markerId: const MarkerId('active_target'),
+              position: activeTarget,
               icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueAzure,
               ),
-              infoWindow: const InfoWindow(title: 'العميل'),
+              infoWindow: InfoWindow(title: _activeTargetTitle(request)),
             ),
         };
 
@@ -882,6 +987,18 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
 
         final statusText = _deliveryStatusText(deliveryStatus, status);
         final statusColor = _statusColor(deliveryStatus, status);
+        final activeTargetTitle = _activeTargetTitle(request);
+
+        if (deliveryStatus == 'delivered' || status == 'delivered') {
+          _autoDeliveryHandled = true;
+        }
+        if (deliveryStatus == 'picked_up' ||
+            deliveryStatus == 'on_the_way' ||
+            deliveryStatus == 'delivered' ||
+            status == 'shipped' ||
+            status == 'delivered') {
+          _autoPickupHandled = true;
+        }
 
         return Stack(
           children: [
@@ -951,7 +1068,20 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                       const SizedBox(height: 12),
                       _SectionCard(
                         title: 'حالة الرحلة',
-                        child: _buildTripProgress(deliveryStatus, status),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildTripProgress(deliveryStatus, status),
+                            const SizedBox(height: 12),
+                            Text(
+                              _driverHelpText(deliveryStatus, status),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                height: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _SectionCard(
@@ -968,10 +1098,25 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                               value: vehicle.isEmpty ? '-' : vehicle,
                             ),
                             _DetailRow(
-                              label: 'عنوان العميل',
-                              value: deliveryAddress.isEmpty
-                                  ? 'غير محدد'
-                                  : deliveryAddress,
+                              label: activeTargetTitle,
+                              value: activeTargetTitle == 'نقطة الاستلام'
+                                  ? ((request['pickupAddress'] ??
+                                                  request['scrapyardLocation'] ??
+                                                  request['scrapyardName'] ??
+                                                  '')
+                                              .toString()
+                                              .trim()
+                                              .isEmpty
+                                          ? 'غير محدد'
+                                          : (request['pickupAddress'] ??
+                                                  request['scrapyardLocation'] ??
+                                                  request['scrapyardName'] ??
+                                                  '')
+                                              .toString()
+                                              .trim())
+                                  : (deliveryAddress.isEmpty
+                                      ? 'غير محدد'
+                                      : deliveryAddress),
                             ),
                             _DetailRow(
                               label: 'هاتف العميل',
@@ -1017,9 +1162,9 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: () => _openExternalMap(request),
+                                onPressed: () => _openNavigationToActiveTarget(request),
                                 icon: const Icon(Icons.navigation_outlined),
-                                label: const Text('فتح الملاحة إلى العميل'),
+                                label: Text('فتح الملاحة إلى $activeTargetTitle'),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -1051,11 +1196,6 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                                   onPressed: isSubmitting
                                       ? null
                                       : () => _runAction(
-                                            action: () => context
-                                                .read<RequestProvider>()
-                                                .markDriverOnTheWay(
-                                                  requestId: _requestId,
-                                                ),
                                             beforeSuccess: () async {
                                               final driverId = _currentDriverId;
                                               if (driverId.isNotEmpty) {
@@ -1067,6 +1207,16 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                                                   'updatedAt':
                                                       FieldValue.serverTimestamp(),
                                                 }, SetOptions(merge: true));
+                                              }
+                                            },
+                                            action: () => context
+                                                .read<RequestProvider>()
+                                                .markDriverOnTheWay(
+                                                  requestId: _requestId,
+                                                ),
+                                            afterSuccess: () async {
+                                              final driverId = _currentDriverId;
+                                              if (driverId.isNotEmpty) {
                                                 await LocationService.instance
                                                     .startTracking(
                                                   driverId: driverId,
@@ -1093,7 +1243,7 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                                                 .markDriverDelivered(
                                                   requestId: _requestId,
                                                 ),
-                                            beforeSuccess: () async {
+                                            afterSuccess: () async {
                                               LocationService.instance
                                                   .stopTracking();
                                             },
