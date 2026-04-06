@@ -84,7 +84,10 @@ class _CustomerRequestTrackingScreenState
   }) async {
     try {
       return await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(96, 96)),
+        const ImageConfiguration(
+          size: Size(56, 56),
+          devicePixelRatio: 2.0,
+        ),
         assetPath,
       );
     } catch (_) {
@@ -264,8 +267,8 @@ class _CustomerRequestTrackingScreenState
       setState(() {
         _route = route;
       });
-    } catch (e) {
-      debugPrint('Route error: $e');
+    } catch (_) {
+      // تجاهل فشل المسار حتى لا تنهار الشاشة
     } finally {
       _isLoadingRoute = false;
     }
@@ -428,7 +431,7 @@ class _CustomerRequestTrackingScreenState
       position: livePosition,
       rotation: _animatedRotation,
       flat: true,
-      anchor: const Offset(0.5, 0.5),
+      anchor: const Offset(0.5, 0.56),
       icon: isDriverTracking
           ? (_driverMarkerIcon ??
               BitmapDescriptor.defaultMarkerWithHue(
@@ -801,7 +804,8 @@ class _CustomerRequestTrackingScreenState
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: _statusColor(status).withValues(alpha: 0.16),
+                                color:
+                                    _statusColor(status).withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
