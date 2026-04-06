@@ -27,6 +27,7 @@ class CustomerRequestTrackingScreen extends StatefulWidget {
 class _CustomerRequestTrackingScreenState
     extends State<CustomerRequestTrackingScreen> {
   bool isOpeningChat = false;
+  bool _followDriver = true;
   GoogleMapController? _mapController;
 
   LatLng? _lastTrackedLocation;
@@ -42,8 +43,46 @@ class _CustomerRequestTrackingScreenState
   Marker? _animatedTrackedMarker;
   LatLng? _animatedTrackedPosition;
   double _animatedRotation = 0;
+  DateTime? _lastCameraMoveAt;
+
+  BitmapDescriptor? _driverMarkerIcon;
+  BitmapDescriptor? _workerMarkerIcon;
 
   String get _requestId => (widget.request['id'] ?? '').toString();
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareMarkerIcons();
+  }
+
+  Future<void> _prepareMarkerIcons() async {
+    try {
+      final driver = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(96, 96)),
+        'assets/icons/driver_car_marker.png',
+      );
+      _driverMarkerIcon = driver;
+    } catch (_) {
+      _driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueAzure,
+      );
+    }
+
+    try {
+      final worker = await BitmapDescriptor.asset(
+        const ImageConfiguration(size: Size(96, 96)),
+        'assets/icons/worker_van_marker.png',
+      );
+      _workerMarkerIcon = worker;
+    } catch (_) {
+      _workerMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueOrange,
+      );
+    }
+
+    if (mounted) setState(() {});
+  }
 
   String _workerIdFromRequest(Map<String, dynamic> request) {
     return (request['workerId'] ??
@@ -323,6 +362,34 @@ class _CustomerRequestTrackingScreenState
         .snapshots();
   }
 
+  Future<void> _followTrackedPosition(
+    LatLng position, {
+    required double rotation,
+  }) async {
+    if (!_followDriver || _mapController == null) return;
+
+    final now = DateTime.now();
+    if (_lastCameraMoveAt != null &&
+        now.difference(_lastCameraMoveAt!).inMilliseconds < 1800) {
+      return;
+    }
+
+    _lastCameraMoveAt = now;
+
+    try {
+      await _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: position,
+            zoom: 15.5,
+            bearing: rotation,
+            tilt: 45,
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
   void _syncAnimatedMarker({
     required LatLng livePosition,
     required bool isDriverTracking,
@@ -347,11 +414,15 @@ class _CustomerRequestTrackingScreenState
       rotation: _animatedRotation,
       flat: true,
       anchor: const Offset(0.5, 0.5),
-      icon: BitmapDescriptor.defaultMarkerWithHue(
-        isDriverTracking
-            ? BitmapDescriptor.hueAzure
-            : BitmapDescriptor.hueOrange,
-      ),
+      icon: isDriverTracking
+          ? (_driverMarkerIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ))
+          : (_workerMarkerIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueOrange,
+              )),
       infoWindow: InfoWindow(title: isDriverTracking ? 'السائق' : 'العامل'),
     );
   }
@@ -426,6 +497,14 @@ class _CustomerRequestTrackingScreenState
           heading: heading,
         );
 
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _animatedTrackedPosition == null) return;
+          _followTrackedPosition(
+            _animatedTrackedPosition!,
+            rotation: _animatedRotation,
+          );
+        });
+
         if (target != null) {
           _scheduleRouteRefresh(trackedPosition, target);
         }
@@ -473,28 +552,55 @@ class _CustomerRequestTrackingScreenState
                   zoomControlsEnabled: false,
                   myLocationButtonEnabled: false,
                   onMapCreated: (c) => _mapController = c,
+                  onCameraMoveStarted: () {
+                    if (_followDriver) {
+                      setState(() => _followDriver = false);
+                    }
+                  },
                 ),
               ),
             ),
-            if (_route != null)
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(12),
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Row(
+                children: [
+                  if (_route != null)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('الوقت: ${_route!.etaLabel}'),
+                          Text('المسافة: ${_route!.distanceLabel}'),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _followDriver ? Colors.green : Colors.black87,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _followDriver ? 'متابعة تلقائية' : 'متابعة متوقفة',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('الوقت: ${_route!.etaLabel}'),
-                      Text('المسافة: ${_route!.distanceLabel}'),
-                    ],
-                  ),
-                ),
+                ],
               ),
+            ),
             if (_lastUpdatedAt != null)
               Positioned(
                 top: 10,
@@ -517,16 +623,38 @@ class _CustomerRequestTrackingScreenState
             Positioned(
               bottom: 10,
               right: 10,
-              child: FloatingActionButton(
-                mini: true,
-                onPressed: () {
-                  if (_mapController != null && _lastTrackedLocation != null) {
-                    _mapController!.animateCamera(
-                      CameraUpdate.newLatLng(_lastTrackedLocation!),
-                    );
-                  }
-                },
-                child: const Icon(Icons.my_location),
+              child: Column(
+                children: [
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'toggle_follow_btn',
+                    onPressed: () {
+                      setState(() => _followDriver = !_followDriver);
+                      if (_followDriver && _lastTrackedLocation != null) {
+                        _followTrackedPosition(
+                          _lastTrackedLocation!,
+                          rotation: _animatedRotation,
+                        );
+                      }
+                    },
+                    child: Icon(
+                      _followDriver ? Icons.gps_fixed : Icons.gps_not_fixed,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'center_driver_btn',
+                    onPressed: () {
+                      if (_mapController != null && _lastTrackedLocation != null) {
+                        _mapController!.animateCamera(
+                          CameraUpdate.newLatLng(_lastTrackedLocation!),
+                        );
+                      }
+                    },
+                    child: const Icon(Icons.my_location),
+                  ),
+                ],
               ),
             ),
           ],
