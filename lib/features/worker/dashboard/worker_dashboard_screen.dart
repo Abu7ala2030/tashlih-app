@@ -26,7 +26,9 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<VehicleProvider>().listenToMyVehicles();
-      context.read<RequestProvider>().listenToWorkerRequests();
+      context.read<RequestProvider>().listenToWorkerRequests(
+            includeOpenRequests: false,
+          );
     });
   }
 
@@ -88,22 +90,13 @@ class _WorkerRequestsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RequestProvider>();
-    final currentUserId = provider.currentUserId ?? '';
+    final workerRequests = provider.requests;
 
-    final workerRequests = provider.requests.where((request) {
-      final assignedWorkerId =
-          (request['assignedWorkerId'] ?? '').toString().trim();
-      final workerId = (request['workerId'] ?? '').toString().trim();
-      final acceptedWorkerId =
-          (request['acceptedWorkerId'] ?? '').toString().trim();
-      final listedByWorkerId =
-          (request['listedByWorkerId'] ?? '').toString().trim();
-
-      return assignedWorkerId == currentUserId ||
-          workerId == currentUserId ||
-          acceptedWorkerId == currentUserId ||
-          listedByWorkerId == currentUserId;
-    }).toList();
+    if (provider.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     if (workerRequests.isEmpty) {
       return const Scaffold(
@@ -497,15 +490,15 @@ class _WorkerOverviewTab extends StatelessWidget {
         .where((v) => (v['status'] ?? '') == 'rejected')
         .toList();
 
-    final allRequests = requestProvider.requests;
-    final newRequests = allRequests
-        .where((r) => (r['status'] ?? '') == 'newRequest')
+    final myRequests = requestProvider.requests;
+    final assignedRequests = myRequests
+        .where((r) => (r['status'] ?? '') == 'assigned')
         .toList();
-    final checkingRequests = allRequests
-        .where((r) => (r['status'] ?? '') == 'checkingAvailability')
+    final shippedRequests = myRequests
+        .where((r) => (r['status'] ?? '') == 'shipped')
         .toList();
-    final availableRequests = allRequests
-        .where((r) => (r['status'] ?? '') == 'available')
+    final deliveredRequests = myRequests
+        .where((r) => (r['status'] ?? '') == 'delivered')
         .toList();
 
     return AppGradientBackground(
@@ -577,7 +570,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'أضف مركباتك من تبويب "مركباتي" ثم تابع مراجعتها واعتمادها من الإدارة.',
+                        'أضف مركباتك من تبويب "مركباتي" ثم تابع طلباتك المسندة لك فقط لتقليل الضغط على التطبيق.',
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w900,
@@ -628,25 +621,25 @@ class _WorkerOverviewTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'طلبات جديدة',
-                        value: newRequests.length.toString(),
-                        icon: Icons.fiber_new_outlined,
+                        label: 'طلباتي',
+                        value: myRequests.length.toString(),
+                        icon: Icons.assignment_outlined,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'جاري التحقق',
-                        value: checkingRequests.length.toString(),
-                        icon: Icons.search_outlined,
+                        label: 'قيد التنفيذ',
+                        value: assignedRequests.length.toString(),
+                        icon: Icons.build_circle_outlined,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'مرفوضة',
-                        value: rejectedVehicles.length.toString(),
-                        icon: Icons.cancel_outlined,
+                        label: 'تم الشحن',
+                        value: shippedRequests.length.toString(),
+                        icon: Icons.local_shipping_outlined,
                       ),
                     ),
                   ],
@@ -687,8 +680,8 @@ class _WorkerOverviewTab extends StatelessWidget {
                         value: publishedVehicles.length.toString(),
                       ),
                       _SummaryRow(
-                        label: 'الطلبات المتوفرة',
-                        value: availableRequests.length.toString(),
+                        label: 'الطلبات المكتملة',
+                        value: deliveredRequests.length.toString(),
                         isLast: true,
                       ),
                     ],
