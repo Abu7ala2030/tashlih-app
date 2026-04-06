@@ -73,77 +73,6 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
-  void listenToAllRequests() {
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .orderBy('createdAt', descending: true);
-
-    _bindQuery(query, listenerName: 'all_requests');
-  }
-
-  void listenToMyRequests() {
-    final uid = currentUserId;
-    if (uid == null) {
-      requests = [];
-      _setError('لا يوجد مستخدم مسجل');
-      notifyListeners();
-      return;
-    }
-
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .where('customerId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true);
-
-    _bindQuery(query, listenerName: 'customer_requests');
-  }
-
-  void listenToWorkerRequests({bool includeOpenRequests = true}) {
-    final uid = currentUserId;
-    if (uid == null) {
-      requests = [];
-      _setError('لا يوجد مستخدم مسجل');
-      notifyListeners();
-      return;
-    }
-
-    if (includeOpenRequests) {
-      final query = _db
-          .collection(FirestorePaths.requests)
-          .orderBy('createdAt', descending: true);
-
-      _bindQuery(
-        query,
-        listenerName: 'worker_requests_open_and_assigned',
-      );
-      return;
-    }
-
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .where('workerId', isEqualTo: uid)
-        .orderBy('updatedAt', descending: true);
-
-    _bindQuery(query, listenerName: 'worker_requests_assigned_only');
-  }
-
-  void listenToDriverRequests() {
-    final uid = currentUserId;
-    if (uid == null) {
-      requests = [];
-      _setError('لا يوجد مستخدم مسجل');
-      notifyListeners();
-      return;
-    }
-
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .where('assignedDriverId', isEqualTo: uid)
-        .orderBy('updatedAt', descending: true);
-
-    _bindQuery(query, listenerName: 'driver_requests');
-  }
-
   Future<String> _resolveActorName({
     String? actorId,
     String? fallbackRole,
@@ -358,6 +287,96 @@ class RequestProvider extends ChangeNotifier {
       'createdAt': FieldValue.serverTimestamp(),
       ...?extra,
     });
+  }
+
+  void listenToAllRequests() {
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .orderBy('createdAt', descending: true);
+
+    _bindQuery(
+      query,
+      listenerName: 'all_requests',
+    );
+  }
+
+  void listenToMyRequests() {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
+
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('customerId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true);
+
+    _bindQuery(
+      query,
+      listenerName: 'customer_requests',
+    );
+  }
+
+  void listenToOpenRequests() {
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('status', whereIn: ['newRequest', 'checkingAvailability', 'available'])
+        .orderBy('createdAt', descending: true);
+
+    _bindQuery(
+      query,
+      listenerName: 'open_requests',
+    );
+  }
+
+  void listenToWorkerRequests({
+    bool includeOpenRequests = false,
+  }) {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
+
+    if (includeOpenRequests) {
+      listenToOpenRequests();
+      return;
+    }
+
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('workerId', isEqualTo: uid)
+        .orderBy('updatedAt', descending: true);
+
+    _bindQuery(
+      query,
+      listenerName: 'worker_requests_assigned_only',
+    );
+  }
+
+  void listenToDriverRequests() {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
+
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('assignedDriverId', isEqualTo: uid)
+        .orderBy('updatedAt', descending: true);
+
+    _bindQuery(
+      query,
+      listenerName: 'driver_requests',
+    );
   }
 
   Future<void> addRequest(Map<String, dynamic> data) async {
