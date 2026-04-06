@@ -33,14 +33,20 @@ class _CustomerRequestTrackingScreenState
   static const int _routeRefreshSeconds = 20;
   static const int _cameraRefreshMilliseconds = 1800;
   static const int _markerAnimationMilliseconds = 900;
+  static const double _cameraZoomFollow = 15.4;
+  static const double _cameraTiltFollow = 38;
+  static const double _cameraMoveThresholdMeters = 5;
 
   bool isOpeningChat = false;
   bool _followDriver = true;
+  bool _isSatelliteView = false;
 
   GoogleMapController? _mapController;
 
   LatLng? _lastTrackedLocation;
   DateTime? _lastUpdatedAt;
+  double? _lastSpeedKmh;
+  double? _lastAccuracyMeters;
 
   RouteDetails? _route;
   bool _isLoadingRoute = false;
@@ -284,6 +290,44 @@ class _CustomerRequestTrackingScreenState
     return '${diff.inHours} ساعة';
   }
 
+  String _formatSpeed(double? speedKmh) {
+    if (speedKmh == null || !speedKmh.isFinite || speedKmh <= 0) {
+      return '0 كم/س';
+    }
+    return '${speedKmh.toStringAsFixed(0)} كم/س';
+  }
+
+  String _formatAccuracy(double? accuracyMeters) {
+    if (accuracyMeters == null || !accuracyMeters.isFinite || accuracyMeters <= 0) {
+      return 'غير معروف';
+    }
+    if (accuracyMeters < 10) return '${accuracyMeters.toStringAsFixed(0)} م';
+    return '${accuracyMeters.toStringAsFixed(0)} متر';
+  }
+
+  int _tripStageIndex(Map<String, dynamic> request) {
+    final deliveryStatus = (request['deliveryStatus'] ?? '').toString().trim();
+    final status = (request['status'] ?? '').toString().trim();
+
+    switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
+        return 0;
+      case 'pending_pickup':
+        return 1;
+      case 'picked_up':
+        return 2;
+      case 'on_the_way':
+        return 3;
+      case 'delivered':
+        return 4;
+      default:
+        if (status == 'assigned') return 1;
+        if (status == 'shipped') return 3;
+        if (status == 'delivered') return 4;
+        return 0;
+    }
+  }
+
   double _degToRad(double degrees) => degrees * math.pi / 180.0;
 
   double _distanceMeters(LatLng a, LatLng b) {
@@ -388,6 +432,28 @@ class _CustomerRequestTrackingScreenState
     } finally {
       _isLoadingRoute = false;
     }
+  }
+
+  Future<void> _fitDriverAndTarget() async {
+    final controller = _mapController;
+    final driver = _animatedTrackedPosition;
+    final target = _lastRouteDestination ?? _requestTargetLatLng(widget.request);
+
+    if (controller == null || driver == null || target == null) return;
+
+    final south = math.min(driver.latitude, target.latitude);
+    final north = math.max(driver.latitude, target.latitude);
+    final west = math.min(driver.longitude, target.longitude);
+    final east = math.max(driver.longitude, target.longitude);
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
+
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 70));
+    } catch (_) {}
   }
 
   Future<void> _openChat(Map<String, dynamic> request) async {
@@ -503,10 +569,17 @@ class _CustomerRequestTrackingScreenState
     if (!_followDriver || _mapController == null) return;
 
     final now = DateTime.now();
+
     if (!force &&
         _lastCameraMoveAt != null &&
         now.difference(_lastCameraMoveAt!).inMilliseconds <
             _cameraRefreshMilliseconds) {
+      return;
+    }
+
+    if (!force &&
+        _lastTrackedLocation != null &&
+        _distanceMeters(_lastTrackedLocation!, position) < _cameraMoveThresholdMeters) {
       return;
     }
 
@@ -517,9 +590,9 @@ class _CustomerRequestTrackingScreenState
         CameraUpdate.newCameraPosition(
           CameraPosition(
             target: position,
-            zoom: 15.5,
+            zoom: _cameraZoomFollow,
             bearing: rotation,
-            tilt: 45,
+            tilt: _cameraTiltFollow,
           ),
         ),
       );
@@ -646,6 +719,8 @@ class _CustomerRequestTrackingScreenState
         final lat = _readDouble(data?['lat']);
         final lng = _readDouble(data?['lng']);
         final heading = _readDouble(data?['heading']);
+        final speedMps = _readDouble(data?['speed']);
+        final accuracyMeters = _readDouble(data?['accuracy']);
 
         if ((lat == null || lng == null) && _animatedTrackedMarker == null) {
           return _MapPlaceholder(
@@ -662,6 +737,8 @@ class _CustomerRequestTrackingScreenState
           final target = _requestTargetLatLng(request);
 
           _lastTrackedLocation = trackedPosition;
+          _lastSpeedKmh = speedMps == null ? null : (speedMps * 3.6);
+          _lastAccuracyMeters = accuracyMeters;
 
           final updatedAt = data?['updatedAt'];
           if (updatedAt is Timestamp) {
@@ -712,7 +789,7 @@ class _CustomerRequestTrackingScreenState
         return Stack(
           children: [
             SizedBox(
-              height: 260,
+              height: 280,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(18),
                 child: GoogleMap(
@@ -720,10 +797,14 @@ class _CustomerRequestTrackingScreenState
                     target: initialTarget,
                     zoom: 14,
                   ),
+                  mapType: _isSatelliteView ? MapType.hybrid : MapType.normal,
                   markers: markers,
                   polylines: polylines,
                   zoomControlsEnabled: false,
                   myLocationButtonEnabled: false,
+                  compassEnabled: false,
+                  buildingsEnabled: true,
+                  trafficEnabled: true,
                   onMapCreated: (controller) => _mapController = controller,
                   onCameraMoveStarted: () {
                     if (_followDriver) {
@@ -770,6 +851,24 @@ class _CustomerRequestTrackingScreenState
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 10,
+              left: 10,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MapInfoChip(
+                    icon: Icons.speed_outlined,
+                    text: _formatSpeed(_lastSpeedKmh),
+                  ),
+                  _MapInfoChip(
+                    icon: Icons.gps_fixed,
+                    text: _formatAccuracy(_lastAccuracyMeters),
                   ),
                 ],
               ),
@@ -831,12 +930,71 @@ class _CustomerRequestTrackingScreenState
                     },
                     child: const Icon(Icons.my_location),
                   ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'fit_driver_target_btn',
+                    onPressed: _fitDriverAndTarget,
+                    child: const Icon(Icons.fit_screen_outlined),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'map_type_toggle_btn',
+                    onPressed: () {
+                      setState(() => _isSatelliteView = !_isSatelliteView);
+                    },
+                    child: Icon(
+                      _isSatelliteView
+                          ? Icons.layers_clear_outlined
+                          : Icons.layers_outlined,
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildTripProgress(Map<String, dynamic> request) {
+    final stages = const [
+      'تعيين السائق',
+      'الاستلام',
+      'بدء التوصيل',
+      'في الطريق',
+      'التسليم',
+    ];
+    final currentIndex = _tripStageIndex(request);
+
+    return Column(
+      children: [
+        Row(
+          children: List.generate(stages.length, (index) {
+            final isActive = index <= currentIndex;
+            return Expanded(
+              child: Container(
+                margin: EdgeInsetsDirectional.only(end: index == stages.length - 1 ? 0 : 6),
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isActive ? Colors.green : Colors.white12,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          stages[currentIndex.clamp(0, stages.length - 1)],
+          style: const TextStyle(
+            color: Colors.white70,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 
@@ -988,22 +1146,29 @@ class _CustomerRequestTrackingScreenState
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(color: Colors.white10),
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              _tripStageIcon(request),
-                              color: Colors.white70,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _tripStageText(request),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
+                            Row(
+                              children: [
+                                Icon(
+                                  _tripStageIcon(request),
+                                  color: Colors.white70,
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _tripStageText(request),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 14),
+                            _buildTripProgress(request),
                           ],
                         ),
                       ),
@@ -1216,6 +1381,41 @@ class _CustomerRequestTrackingScreenState
   }
 }
 
+class _MapInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _MapInfoChip({
+    required this.icon,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -1279,7 +1479,7 @@ class _MapPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 260,
+      height: 280,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white10,
