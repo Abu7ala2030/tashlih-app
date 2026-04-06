@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -25,11 +26,13 @@ class CustomerRequestTrackingScreen extends StatefulWidget {
 }
 
 class _CustomerRequestTrackingScreenState
-    extends State<CustomerRequestTrackingScreen> {
+    extends State<CustomerRequestTrackingScreen>
+    with SingleTickerProviderStateMixin {
   static const double _driverRouteRefreshMeters = 40;
   static const double _targetRouteRefreshMeters = 20;
   static const int _routeRefreshSeconds = 20;
   static const int _cameraRefreshMilliseconds = 1800;
+  static const int _markerAnimationMilliseconds = 900;
 
   bool isOpeningChat = false;
   bool _followDriver = true;
@@ -54,12 +57,69 @@ class _CustomerRequestTrackingScreenState
   BitmapDescriptor? _driverMarkerIcon;
   BitmapDescriptor? _workerMarkerIcon;
 
+  late final AnimationController _markerAnimationController;
+  LatLng? _animationStartPosition;
+  LatLng? _animationEndPosition;
+  double _animationStartRotation = 0;
+  double _animationEndRotation = 0;
+  bool _animationIsDriverTracking = true;
+
   String get _requestId => (widget.request['id'] ?? '').toString().trim();
 
   @override
   void initState() {
     super.initState();
+    _markerAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _markerAnimationMilliseconds),
+    )..addListener(_onMarkerAnimationTick);
+
     _prepareMarkerIcons();
+  }
+
+  @override
+  void dispose() {
+    _markerAnimationController
+      ..removeListener(_onMarkerAnimationTick)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onMarkerAnimationTick() {
+    final start = _animationStartPosition;
+    final end = _animationEndPosition;
+
+    if (start == null || end == null) return;
+
+    final t = Curves.easeOutCubic.transform(_markerAnimationController.value);
+
+    final lat = ui.lerpDouble(start.latitude, end.latitude, t) ?? end.latitude;
+    final lng = ui.lerpDouble(start.longitude, end.longitude, t) ?? end.longitude;
+    final rotation = _lerpRotation(
+      _animationStartRotation,
+      _animationEndRotation,
+      t,
+    );
+
+    final interpolated = LatLng(lat, lng);
+
+    _animatedTrackedPosition = interpolated;
+    _animatedRotation = rotation;
+    _animatedTrackedMarker = _buildTrackedMarker(
+      position: interpolated,
+      rotation: rotation,
+      isDriverTracking: _animationIsDriverTracking,
+    );
+
+    if (mounted) {
+      setState(() {});
+    }
+
+    _followTrackedPosition(
+      interpolated,
+      rotation: rotation,
+      force: false,
+    );
   }
 
   Future<void> _prepareMarkerIcons() async {
@@ -152,6 +212,51 @@ class _CustomerRequestTrackingScreenState
     }
   }
 
+  String _tripStageText(Map<String, dynamic> request) {
+    final deliveryStatus = (request['deliveryStatus'] ?? '').toString().trim();
+    final status = (request['status'] ?? '').toString().trim();
+
+    switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
+        return 'بانتظار تعيين السائق';
+      case 'pending_pickup':
+        return 'السائق في طريقه للاستلام';
+      case 'picked_up':
+        return 'تم الاستلام';
+      case 'on_the_way':
+        return 'السائق في الطريق إليك';
+      case 'delivered':
+        return 'تم التسليم';
+      default:
+        if (status == 'assigned') return 'تم اختيار العرض';
+        if (status == 'shipped') return 'السائق في الطريق إليك';
+        if (status == 'delivered') return 'تم التسليم';
+        return 'جاري تجهيز الطلب';
+    }
+  }
+
+  IconData _tripStageIcon(Map<String, dynamic> request) {
+    final deliveryStatus = (request['deliveryStatus'] ?? '').toString().trim();
+    final status = (request['status'] ?? '').toString().trim();
+
+    switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
+        return Icons.person_search_outlined;
+      case 'pending_pickup':
+        return Icons.store_mall_directory_outlined;
+      case 'picked_up':
+        return Icons.inventory_2_outlined;
+      case 'on_the_way':
+        return Icons.local_shipping_outlined;
+      case 'delivered':
+        return Icons.verified_outlined;
+      default:
+        if (status == 'shipped') return Icons.local_shipping_outlined;
+        if (status == 'delivered') return Icons.verified_outlined;
+        return Icons.timelapse_outlined;
+    }
+  }
+
   Color _statusColor(String status) {
     switch (status) {
       case 'assigned':
@@ -220,14 +325,25 @@ class _CustomerRequestTrackingScreenState
     return _normalizeRotation(bearing);
   }
 
+  double _lerpRotation(double start, double end, double t) {
+    final normalizedStart = _normalizeRotation(start);
+    final normalizedEnd = _normalizeRotation(end);
+    var delta = normalizedEnd - normalizedStart;
+
+    if (delta.abs() > 180) {
+      delta = delta > 0 ? delta - 360 : delta + 360;
+    }
+
+    return _normalizeRotation(normalizedStart + (delta * t));
+  }
+
   bool _shouldRefreshRoute(LatLng origin, LatLng destination) {
     final routeAgeSeconds = _lastRouteRequestedAt == null
         ? null
         : DateTime.now().difference(_lastRouteRequestedAt!).inSeconds;
 
     final originChanged = _lastRouteOrigin == null ||
-        _distanceMeters(_lastRouteOrigin!, origin) >=
-            _driverRouteRefreshMeters;
+        _distanceMeters(_lastRouteOrigin!, origin) >= _driverRouteRefreshMeters;
 
     final destinationChanged = _lastRouteDestination == null ||
         _distanceMeters(_lastRouteDestination!, destination) >=
@@ -382,11 +498,13 @@ class _CustomerRequestTrackingScreenState
   Future<void> _followTrackedPosition(
     LatLng position, {
     required double rotation,
+    bool force = false,
   }) async {
     if (!_followDriver || _mapController == null) return;
 
     final now = DateTime.now();
-    if (_lastCameraMoveAt != null &&
+    if (!force &&
+        _lastCameraMoveAt != null &&
         now.difference(_lastCameraMoveAt!).inMilliseconds <
             _cameraRefreshMilliseconds) {
       return;
@@ -408,28 +526,15 @@ class _CustomerRequestTrackingScreenState
     } catch (_) {}
   }
 
-  void _syncAnimatedMarker({
-    required LatLng livePosition,
+  Marker _buildTrackedMarker({
+    required LatLng position,
+    required double rotation,
     required bool isDriverTracking,
-    required double? heading,
   }) {
-    final previousPosition = _animatedTrackedPosition;
-    _animatedTrackedPosition = livePosition;
-
-    var rotation = _animatedRotation;
-
-    if (heading != null && heading.isFinite && heading > 0) {
-      rotation = _normalizeRotation(heading);
-    } else if (previousPosition != null &&
-        _distanceMeters(previousPosition, livePosition) >= 3) {
-      rotation = _bearingBetween(previousPosition, livePosition);
-    }
-
-    _animatedRotation = rotation;
-    _animatedTrackedMarker = Marker(
+    return Marker(
       markerId: const MarkerId('tracked'),
-      position: livePosition,
-      rotation: _animatedRotation,
+      position: position,
+      rotation: rotation,
       flat: true,
       anchor: const Offset(0.5, 0.56),
       icon: isDriverTracking
@@ -445,6 +550,56 @@ class _CustomerRequestTrackingScreenState
         title: isDriverTracking ? 'السائق' : 'العامل',
       ),
     );
+  }
+
+  void _animateTrackedMarker({
+    required LatLng livePosition,
+    required bool isDriverTracking,
+    required double? heading,
+  }) {
+    final previousPosition = _animatedTrackedPosition;
+    var targetRotation = _animatedRotation;
+
+    if (heading != null && heading.isFinite && heading > 0) {
+      targetRotation = _normalizeRotation(heading);
+    } else if (previousPosition != null &&
+        _distanceMeters(previousPosition, livePosition) >= 2) {
+      targetRotation = _bearingBetween(previousPosition, livePosition);
+    }
+
+    if (previousPosition == null) {
+      _animatedTrackedPosition = livePosition;
+      _animatedRotation = targetRotation;
+      _animatedTrackedMarker = _buildTrackedMarker(
+        position: livePosition,
+        rotation: targetRotation,
+        isDriverTracking: isDriverTracking,
+      );
+      return;
+    }
+
+    final movement = _distanceMeters(previousPosition, livePosition);
+    if (movement < 1.5) {
+      _animatedTrackedPosition = livePosition;
+      _animatedRotation = targetRotation;
+      _animatedTrackedMarker = _buildTrackedMarker(
+        position: livePosition,
+        rotation: targetRotation,
+        isDriverTracking: isDriverTracking,
+      );
+      return;
+    }
+
+    _animationStartPosition = previousPosition;
+    _animationEndPosition = livePosition;
+    _animationStartRotation = _animatedRotation;
+    _animationEndRotation = targetRotation;
+    _animationIsDriverTracking = isDriverTracking;
+
+    _markerAnimationController
+      ..stop()
+      ..reset()
+      ..forward();
   }
 
   Widget _buildTrackingMap(Map<String, dynamic> request) {
@@ -470,14 +625,15 @@ class _CustomerRequestTrackingScreenState
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            _animatedTrackedMarker == null) {
           return const SizedBox(
             height: 260,
             child: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (data == null) {
+        if (data == null && _animatedTrackedMarker == null) {
           return _MapPlaceholder(
             title: 'بانتظار بدء التتبع',
             subtitle: isDriverTracking
@@ -487,11 +643,11 @@ class _CustomerRequestTrackingScreenState
           );
         }
 
-        final lat = _readDouble(data['lat']);
-        final lng = _readDouble(data['lng']);
-        final heading = _readDouble(data['heading']);
+        final lat = _readDouble(data?['lat']);
+        final lng = _readDouble(data?['lng']);
+        final heading = _readDouble(data?['heading']);
 
-        if (lat == null || lng == null) {
+        if ((lat == null || lng == null) && _animatedTrackedMarker == null) {
           return _MapPlaceholder(
             title: 'الموقع غير متوفر',
             subtitle: isDriverTracking
@@ -501,34 +657,29 @@ class _CustomerRequestTrackingScreenState
           );
         }
 
-        final trackedPosition = LatLng(lat, lng);
-        final target = _requestTargetLatLng(request);
+        if (lat != null && lng != null) {
+          final trackedPosition = LatLng(lat, lng);
+          final target = _requestTargetLatLng(request);
 
-        _lastTrackedLocation = trackedPosition;
+          _lastTrackedLocation = trackedPosition;
 
-        final updatedAt = data['updatedAt'];
-        if (updatedAt is Timestamp) {
-          _lastUpdatedAt = updatedAt.toDate();
-        }
+          final updatedAt = data?['updatedAt'];
+          if (updatedAt is Timestamp) {
+            _lastUpdatedAt = updatedAt.toDate();
+          }
 
-        _syncAnimatedMarker(
-          livePosition: trackedPosition,
-          isDriverTracking: isDriverTracking,
-          heading: heading,
-        );
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _animatedTrackedPosition == null) return;
-
-          _followTrackedPosition(
-            _animatedTrackedPosition!,
-            rotation: _animatedRotation,
+          _animateTrackedMarker(
+            livePosition: trackedPosition,
+            isDriverTracking: isDriverTracking,
+            heading: heading,
           );
-        });
 
-        if (target != null) {
-          _scheduleRouteRefresh(trackedPosition, target);
+          if (target != null) {
+            _scheduleRouteRefresh(trackedPosition, target);
+          }
         }
+
+        final target = _requestTargetLatLng(request);
 
         final markers = <Marker>{
           if (_animatedTrackedMarker != null) _animatedTrackedMarker!,
@@ -553,6 +704,11 @@ class _CustomerRequestTrackingScreenState
                 ),
               };
 
+        final initialTarget = _animatedTrackedPosition ??
+            _lastTrackedLocation ??
+            target ??
+            const LatLng(26.4207, 50.0888);
+
         return Stack(
           children: [
             SizedBox(
@@ -561,7 +717,7 @@ class _CustomerRequestTrackingScreenState
                 borderRadius: BorderRadius.circular(18),
                 child: GoogleMap(
                   initialCameraPosition: CameraPosition(
-                    target: trackedPosition,
+                    target: initialTarget,
                     zoom: 14,
                   ),
                   markers: markers,
@@ -648,11 +804,12 @@ class _CustomerRequestTrackingScreenState
                     onPressed: () {
                       setState(() => _followDriver = !_followDriver);
 
-                      final trackedLocation = _lastTrackedLocation;
+                      final trackedLocation = _animatedTrackedPosition;
                       if (_followDriver && trackedLocation != null) {
                         _followTrackedPosition(
                           trackedLocation,
                           rotation: _animatedRotation,
+                          force: true,
                         );
                       }
                     },
@@ -665,7 +822,7 @@ class _CustomerRequestTrackingScreenState
                     mini: true,
                     heroTag: 'center_driver_btn',
                     onPressed: () {
-                      final trackedLocation = _lastTrackedLocation;
+                      final trackedLocation = _animatedTrackedPosition;
                       if (_mapController != null && trackedLocation != null) {
                         _mapController!.animateCamera(
                           CameraUpdate.newLatLng(trackedLocation),
@@ -813,6 +970,37 @@ class _CustomerRequestTrackingScreenState
                                 style: TextStyle(
                                   color: _statusColor(status),
                                   fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1D21),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _tripStageIcon(request),
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _tripStageText(request),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
                                 ),
                               ),
                             ),
