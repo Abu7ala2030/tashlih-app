@@ -24,16 +24,20 @@ class DriverRequestDetailsScreen extends StatefulWidget {
 class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen> {
   bool isSubmitting = false;
 
-  String get _requestId => (widget.request['id'] ?? '').toString();
+  String get _requestId => (widget.request['id'] ?? '').toString().trim();
 
-  String get _currentDriverId =>
-      context.read<AuthProvider>().uid?.trim() ?? '';
+  String get _currentDriverId => context.read<AuthProvider>().uid?.trim() ?? '';
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _requestStream() {
     return FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
         .snapshots();
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 
   Future<void> _callCustomer(Map<String, dynamic> request) async {
@@ -76,6 +80,7 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
     final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
     );
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
       return;
@@ -85,11 +90,6 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('تعذر فتح الملاحة')),
     );
-  }
-
-  double? _toDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '');
   }
 
   Future<void> _runAction({
@@ -118,7 +118,9 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
         SnackBar(content: Text('حدث خطأ: $e')),
       );
     } finally {
-      if (mounted) setState(() => isSubmitting = false);
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
     }
   }
 
@@ -166,9 +168,7 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
       return const Scaffold(
         body: AppGradientBackground(
           child: SafeArea(
-            child: Center(
-              child: Text('تعذر تحميل الطلب'),
-            ),
+            child: Center(child: Text('تعذر تحميل الطلب')),
           ),
         ),
       );
@@ -183,7 +183,7 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
           'id': _requestId,
         };
 
-        final partName = (request['partName'] ?? '').toString();
+        final partName = (request['partName'] ?? '').toString().trim();
         final vehicle =
             '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}'
                 .trim();
@@ -250,7 +250,7 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: statusColor.withOpacity(.18),
+                                color: statusColor.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -497,7 +497,9 @@ class _DetailRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
               ),
       ),
       child: Row(

@@ -29,8 +29,9 @@ class _WorkerRequestDetailsScreenState
   bool isOpeningChat = false;
   final TextEditingController priceController = TextEditingController();
 
-  String get _requestId => (widget.request['id'] ?? '').toString();
-  String get _customerId => (widget.request['customerId'] ?? '').toString();
+  String get _requestId => (widget.request['id'] ?? '').toString().trim();
+  String get _customerId =>
+      (widget.request['customerId'] ?? '').toString().trim();
 
   String get _workerId {
     final direct = (widget.request['workerId'] ?? '').toString().trim();
@@ -48,14 +49,13 @@ class _WorkerRequestDetailsScreenState
   }
 
   bool _canOpenChat(Map<String, dynamic> request) {
-    final requestId = (request['id'] ?? '').toString();
-    final customerId = (request['customerId'] ?? '').toString();
-    final workerId = _workerId;
-    final status = (request['status'] ?? '').toString();
+    final requestId = (request['id'] ?? '').toString().trim();
+    final customerId = (request['customerId'] ?? '').toString().trim();
+    final status = (request['status'] ?? '').toString().trim();
 
     return requestId.isNotEmpty &&
         customerId.isNotEmpty &&
-        workerId.isNotEmpty &&
+        _workerId.isNotEmpty &&
         (status == 'assigned' || status == 'shipped' || status == 'delivered');
   }
 
@@ -101,7 +101,9 @@ class _WorkerRequestDetailsScreenState
         SnackBar(content: Text('فشل فتح المحادثة: $e')),
       );
     } finally {
-      if (mounted) setState(() => isOpeningChat = false);
+      if (mounted) {
+        setState(() => isOpeningChat = false);
+      }
     }
   }
 
@@ -147,20 +149,20 @@ class _WorkerRequestDetailsScreenState
     );
   }
 
-  Future<void> _updateStatus(String status) async {
+  Future<void> _runAction({
+    required Future<void> Function() action,
+    required String success,
+  }) async {
     if (_requestId.isEmpty) return;
 
     setState(() => isSubmitting = true);
 
     try {
-      await context.read<RequestProvider>().updateRequestStatus(
-            requestId: _requestId,
-            status: status,
-          );
+      await action();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديث حالة الطلب')),
+        SnackBar(content: Text(success)),
       );
       Navigator.pop(context);
     } catch (e) {
@@ -169,7 +171,9 @@ class _WorkerRequestDetailsScreenState
         SnackBar(content: Text('حدث خطأ: $e')),
       );
     } finally {
-      if (mounted) setState(() => isSubmitting = false);
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
     }
   }
 
@@ -212,62 +216,41 @@ class _WorkerRequestDetailsScreenState
         SnackBar(content: Text('فشل إرسال العرض: $e')),
       );
     } finally {
-      if (mounted) setState(() => isSubmitting = false);
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
     }
   }
 
   Future<void> _markShipped() async {
-    if (_requestId.isEmpty) return;
-
-    setState(() => isSubmitting = true);
-
-    try {
-      await context.read<RequestProvider>().markRequestShipped(
+    await _runAction(
+      action: () => context.read<RequestProvider>().markRequestShipped(
             requestId: _requestId,
-          );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تحديث الطلب إلى تم الشحن'),
-        ),
-      );
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث حالة الشحن: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => isSubmitting = false);
-    }
+          ),
+      success: 'تم تحديث الطلب إلى تم الشحن',
+    );
   }
 
   Future<void> _markDelivered() async {
-    if (_requestId.isEmpty) return;
+    await _runAction(
+      action: () async {
+        await context.read<RequestProvider>().markRequestDelivered(
+              requestId: _requestId,
+            );
+        LocationService.instance.stopTracking();
+      },
+      success: 'تم تحديث الطلب إلى تم التسليم',
+    );
+  }
 
-    setState(() => isSubmitting = true);
-
-    try {
-      await context.read<RequestProvider>().markRequestDelivered(
+  Future<void> _updateStatus(String status) async {
+    await _runAction(
+      action: () => context.read<RequestProvider>().updateRequestStatus(
             requestId: _requestId,
-          );
-
-      LocationService.instance.stopTracking();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديث الطلب إلى تم التسليم')),
-      );
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث حالة التسليم: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => isSubmitting = false);
-    }
+            status: status,
+          ),
+      success: 'تم تحديث حالة الطلب',
+    );
   }
 
   @override
@@ -276,9 +259,7 @@ class _WorkerRequestDetailsScreenState
       return const Scaffold(
         body: AppGradientBackground(
           child: SafeArea(
-            child: Center(
-              child: Text('تعذر تحميل الطلب'),
-            ),
+            child: Center(child: Text('تعذر تحميل الطلب')),
           ),
         ),
       );
@@ -298,9 +279,10 @@ class _WorkerRequestDetailsScreenState
                 request['coverImage'] ??
                 request['vehicleImage'] ??
                 '')
-            .toString();
+            .toString()
+            .trim();
 
-        final status = (request['status'] ?? '').toString();
+        final status = (request['status'] ?? '').toString().trim();
         final scrapyardName =
             (request['scrapyardName'] ?? 'غير محدد').toString();
         final scrapyardLocation =
@@ -327,7 +309,7 @@ class _WorkerRequestDetailsScreenState
                                   ? Image.network(
                                       coverImage,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) {
+                                      errorBuilder: (context, error, stackTrace) {
                                         return Container(
                                           color: const Color(0xFF1A1D21),
                                           child: const Center(
@@ -356,9 +338,9 @@ class _WorkerRequestDetailsScreenState
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                     colors: [
-                                      Colors.black.withOpacity(0.18),
-                                      Colors.black.withOpacity(0.25),
-                                      Colors.black.withOpacity(0.88),
+                                      Colors.black.withValues(alpha: 0.18),
+                                      Colors.black.withValues(alpha: 0.25),
+                                      Colors.black.withValues(alpha: 0.88),
                                     ],
                                   ),
                                 ),
@@ -381,7 +363,7 @@ class _WorkerRequestDetailsScreenState
                                   vertical: 7,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _statusColor(status).withOpacity(.95),
+                                  color: _statusColor(status).withValues(alpha: 0.95),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
@@ -502,8 +484,7 @@ class _WorkerRequestDetailsScreenState
                                       width: double.infinity,
                                       child: OutlinedButton.icon(
                                         onPressed: () => _callCustomer(request),
-                                        icon:
-                                            const Icon(Icons.phone_outlined),
+                                        icon: const Icon(Icons.phone_outlined),
                                         label: const Text('اتصال بالعميل'),
                                       ),
                                     ),
@@ -519,13 +500,13 @@ class _WorkerRequestDetailsScreenState
                                             ? const SizedBox(
                                                 width: 18,
                                                 height: 18,
-                                                child:
-                                                    CircularProgressIndicator(
+                                                child: CircularProgressIndicator(
                                                   strokeWidth: 2,
                                                 ),
                                               )
                                             : const Icon(
-                                                Icons.chat_bubble_outline),
+                                                Icons.chat_bubble_outline,
+                                              ),
                                         label: Text(
                                           _canOpenChat(request)
                                               ? 'محادثة العميل'
@@ -540,11 +521,11 @@ class _WorkerRequestDetailsScreenState
                               if (status == 'newRequest' ||
                                   status == 'checkingAvailability' ||
                                   status == 'unavailable')
-                                _buildOfferSection(request)
+                                _buildOfferSection()
                               else if (status == 'assigned')
                                 _buildAssignedSection(request)
                               else if (status == 'shipped')
-                                _buildShippedSection(request)
+                                _buildShippedSection()
                               else
                                 _buildDeliveredSection(request),
                             ],
@@ -569,7 +550,7 @@ class _WorkerRequestDetailsScreenState
     );
   }
 
-  Widget _buildOfferSection(Map<String, dynamic> request) {
+  Widget _buildOfferSection() {
     return Column(
       children: [
         _SectionCard(
@@ -680,7 +661,7 @@ class _WorkerRequestDetailsScreenState
     );
   }
 
-  Widget _buildShippedSection(Map<String, dynamic> request) {
+  Widget _buildShippedSection() {
     return _SectionCard(
       title: 'الطلب في مرحلة الشحن',
       child: Column(
@@ -855,7 +836,9 @@ class _DetailRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
               ),
       ),
       child: Row(
