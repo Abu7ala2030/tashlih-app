@@ -16,12 +16,133 @@ class RequestProvider extends ChangeNotifier {
   String? errorMessage;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _requestsSubscription;
+  String _activeListener = 'none';
 
-  RequestProvider() {
-    listenToAllRequests();
-  }
+  RequestProvider();
 
   String? get currentUserId => _auth.currentUser?.uid;
+  String get activeListener => _activeListener;
+
+  void _setLoading(bool value) {
+    isLoading = value;
+    notifyListeners();
+  }
+
+  void _setError(String? value) {
+    errorMessage = value;
+    notifyListeners();
+  }
+
+  Future<void> stopListening({bool clear = false}) async {
+    await _requestsSubscription?.cancel();
+    _requestsSubscription = null;
+    _activeListener = 'none';
+
+    if (clear) {
+      requests = [];
+      errorMessage = null;
+      isLoading = false;
+    }
+
+    notifyListeners();
+  }
+
+  void _bindQuery(
+    Query<Map<String, dynamic>> query, {
+    required String listenerName,
+  }) {
+    _requestsSubscription?.cancel();
+    _activeListener = listenerName;
+    _setLoading(true);
+    _setError(null);
+
+    _requestsSubscription = query.snapshots().listen(
+      (snapshot) {
+        requests = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        _setLoading(false);
+      },
+      onError: (error) {
+        requests = [];
+        _setError(error.toString());
+        _setLoading(false);
+      },
+    );
+  }
+
+  void listenToAllRequests() {
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .orderBy('createdAt', descending: true);
+
+    _bindQuery(query, listenerName: 'all_requests');
+  }
+
+  void listenToMyRequests() {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
+
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('customerId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true);
+
+    _bindQuery(query, listenerName: 'customer_requests');
+  }
+
+  void listenToWorkerRequests({bool includeOpenRequests = true}) {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
+
+    if (includeOpenRequests) {
+      final query = _db
+          .collection(FirestorePaths.requests)
+          .orderBy('createdAt', descending: true);
+
+      _bindQuery(
+        query,
+        listenerName: 'worker_requests_open_and_assigned',
+      );
+      return;
+    }
+
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('workerId', isEqualTo: uid)
+        .orderBy('updatedAt', descending: true);
+
+    _bindQuery(query, listenerName: 'worker_requests_assigned_only');
+  }
+
+  void listenToDriverRequests() {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
+
+    final query = _db
+        .collection(FirestorePaths.requests)
+        .where('assignedDriverId', isEqualTo: uid)
+        .orderBy('updatedAt', descending: true);
+
+    _bindQuery(query, listenerName: 'driver_requests');
+  }
 
   Future<String> _resolveActorName({
     String? actorId,
@@ -207,38 +328,6 @@ class RequestProvider extends ChangeNotifier {
     }, SetOptions(merge: true));
   }
 
-  void _setLoading(bool value) {
-    isLoading = value;
-    notifyListeners();
-  }
-
-  void _setError(String? value) {
-    errorMessage = value;
-    notifyListeners();
-  }
-
-  void _bindQuery(Query<Map<String, dynamic>> query) {
-    _requestsSubscription?.cancel();
-    _setLoading(true);
-    _setError(null);
-
-    _requestsSubscription = query.snapshots().listen(
-      (snapshot) {
-        requests = snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-        _setLoading(false);
-      },
-      onError: (error) {
-        requests = [];
-        _setError(error.toString());
-        _setLoading(false);
-      },
-    );
-  }
-
   Future<void> _addTimelineEvent({
     required String requestId,
     required String type,
@@ -269,38 +358,6 @@ class RequestProvider extends ChangeNotifier {
       'createdAt': FieldValue.serverTimestamp(),
       ...?extra,
     });
-  }
-
-  void listenToAllRequests() {
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .orderBy('createdAt', descending: true);
-
-    _bindQuery(query);
-  }
-
-  void listenToMyRequests() {
-    final uid = currentUserId;
-    if (uid == null) {
-      requests = [];
-      _setError('لا يوجد مستخدم مسجل');
-      notifyListeners();
-      return;
-    }
-
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .where('customerId', isEqualTo: uid);
-
-    _bindQuery(query);
-  }
-
-  void listenToWorkerRequests() {
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .orderBy('createdAt', descending: true);
-
-    _bindQuery(query);
   }
 
   Future<void> addRequest(Map<String, dynamic> data) async {
