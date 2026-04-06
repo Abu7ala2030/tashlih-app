@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,13 +11,13 @@ import '../../../data/services/firestore_paths.dart';
 import '../../../data/services/routes_service.dart';
 import '../../chat/chat_screen.dart';
 
-LatLng? _lastRouteWorker;
-LatLng? _lastRouteTarget;
-
 class CustomerRequestTrackingScreen extends StatefulWidget {
   final Map<String, dynamic> request;
 
-  const CustomerRequestTrackingScreen({super.key, required this.request});
+  const CustomerRequestTrackingScreen({
+    super.key,
+    required this.request,
+  });
 
   @override
   State<CustomerRequestTrackingScreen> createState() =>
@@ -27,11 +29,19 @@ class _CustomerRequestTrackingScreenState
   bool isOpeningChat = false;
   GoogleMapController? _mapController;
 
-  LatLng? _lastWorkerLocation;
+  LatLng? _lastTrackedLocation;
   DateTime? _lastUpdatedAt;
 
   RouteDetails? _route;
   bool _isLoadingRoute = false;
+
+  LatLng? _lastRouteOrigin;
+  LatLng? _lastRouteDestination;
+  DateTime? _lastRouteRequestedAt;
+
+  Marker? _animatedTrackedMarker;
+  LatLng? _animatedTrackedPosition;
+  double _animatedRotation = 0;
 
   String get _requestId => (widget.request['id'] ?? '').toString();
 
@@ -41,6 +51,12 @@ class _CustomerRequestTrackingScreenState
             request['acceptedWorkerId'] ??
             '')
         .toString();
+  }
+
+  String _driverIdFromRequest(Map<String, dynamic> request) {
+    return (request['assignedDriverId'] ?? request['driverId'] ?? '')
+        .toString()
+        .trim();
   }
 
   bool _canOpenChat(Map<String, dynamic> request) {
@@ -112,25 +128,95 @@ class _CustomerRequestTrackingScreenState
     return '${diff.inHours} ساعة';
   }
 
-  Future<void> _updateRoute(LatLng worker, LatLng target) async {
+  double _degToRad(double deg) => deg * math.pi / 180.0;
+
+  double _distanceMeters(LatLng a, LatLng b) {
+    const earthRadius = 6371000.0;
+    final dLat = _degToRad(b.latitude - a.latitude);
+    final dLng = _degToRad(b.longitude - a.longitude);
+
+    final sinLat = math.sin(dLat / 2);
+    final sinLng = math.sin(dLng / 2);
+
+    final aa = sinLat * sinLat +
+        math.cos(_degToRad(a.latitude)) *
+            math.cos(_degToRad(b.latitude)) *
+            sinLng *
+            sinLng;
+
+    final c = 2 * math.atan2(math.sqrt(aa), math.sqrt(1 - aa));
+    return earthRadius * c;
+  }
+
+  double _normalizeRotation(double rotation) {
+    var value = rotation % 360;
+    if (value < 0) value += 360;
+    return value;
+  }
+
+  double _bearingBetween(LatLng from, LatLng to) {
+    final lat1 = _degToRad(from.latitude);
+    final lon1 = _degToRad(from.longitude);
+    final lat2 = _degToRad(to.latitude);
+    final lon2 = _degToRad(to.longitude);
+
+    final dLon = lon2 - lon1;
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+
+    final bearing = math.atan2(y, x) * 180 / math.pi;
+    return _normalizeRotation(bearing);
+  }
+
+  bool _shouldRefreshRoute(LatLng origin, LatLng destination) {
+    final routeAgeSeconds = _lastRouteRequestedAt == null
+        ? null
+        : DateTime.now().difference(_lastRouteRequestedAt!).inSeconds;
+
+    final originChanged = _lastRouteOrigin == null ||
+        _distanceMeters(_lastRouteOrigin!, origin) >= 40;
+
+    final destinationChanged = _lastRouteDestination == null ||
+        _distanceMeters(_lastRouteDestination!, destination) >= 20;
+
+    if (originChanged || destinationChanged) return true;
+    if (routeAgeSeconds == null) return true;
+
+    return routeAgeSeconds >= 20;
+  }
+
+  void _scheduleRouteRefresh(LatLng origin, LatLng destination) {
+    if (!_shouldRefreshRoute(origin, destination)) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _updateRoute(origin, destination);
+    });
+  }
+
+  Future<void> _updateRoute(LatLng origin, LatLng destination) async {
     if (_isLoadingRoute) return;
 
-    setState(() => _isLoadingRoute = true);
+    _isLoadingRoute = true;
+    _lastRouteOrigin = origin;
+    _lastRouteDestination = destination;
+    _lastRouteRequestedAt = DateTime.now();
 
     try {
       final route = await RoutesService.instance.computeRoute(
-        origin: worker,
-        destination: target,
+        origin: origin,
+        destination: destination,
       );
 
       if (!mounted) return;
-      setState(() => _route = route);
+      setState(() {
+        _route = route;
+      });
     } catch (e) {
       debugPrint('Route error: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoadingRoute = false);
-      }
+      _isLoadingRoute = false;
     }
   }
 
@@ -150,18 +236,20 @@ class _CustomerRequestTrackingScreenState
       );
 
       if (!mounted) return;
-
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ChatScreen(chatId: chatId, title: 'محادثة العامل'),
+          builder: (_) => ChatScreen(
+            chatId: chatId,
+            title: 'محادثة العامل',
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('فشل فتح المحادثة: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل فتح المحادثة: $e')),
+      );
     } finally {
       if (mounted) {
         setState(() => isOpeningChat = false);
@@ -176,9 +264,9 @@ class _CustomerRequestTrackingScreenState
 
     if (phone.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('رقم العامل غير متوفر')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رقم العامل غير متوفر')),
+      );
       return;
     }
 
@@ -189,9 +277,9 @@ class _CustomerRequestTrackingScreenState
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('تعذر إجراء الاتصال')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تعذر إجراء الاتصال')),
+    );
   }
 
   Future<void> _openMapUrl(String url) async {
@@ -206,9 +294,9 @@ class _CustomerRequestTrackingScreenState
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('تعذر فتح الموقع')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تعذر فتح الموقع')),
+    );
   }
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _requestStream() {
@@ -218,28 +306,76 @@ class _CustomerRequestTrackingScreenState
         .snapshots();
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> _workerLocationStream(
-    String workerId,
-  ) {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _trackingLocationStream({
+    required String trackingId,
+    required bool isDriver,
+  }) {
+    if (isDriver) {
+      return FirebaseFirestore.instance
+          .collection('drivers')
+          .doc(trackingId)
+          .snapshots();
+    }
+
     return FirebaseFirestore.instance
         .collection('workers')
-        .doc(workerId)
+        .doc(trackingId)
         .snapshots();
   }
 
+  void _syncAnimatedMarker({
+    required LatLng livePosition,
+    required bool isDriverTracking,
+    required double? heading,
+  }) {
+    final previousPosition = _animatedTrackedPosition;
+    _animatedTrackedPosition = livePosition;
+
+    var rotation = _animatedRotation;
+
+    if (heading != null && heading.isFinite && heading > 0) {
+      rotation = _normalizeRotation(heading);
+    } else if (previousPosition != null &&
+        _distanceMeters(previousPosition, livePosition) >= 3) {
+      rotation = _bearingBetween(previousPosition, livePosition);
+    }
+
+    _animatedRotation = rotation;
+    _animatedTrackedMarker = Marker(
+      markerId: const MarkerId('tracked'),
+      position: livePosition,
+      rotation: _animatedRotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      icon: BitmapDescriptor.defaultMarkerWithHue(
+        isDriverTracking
+            ? BitmapDescriptor.hueAzure
+            : BitmapDescriptor.hueOrange,
+      ),
+      infoWindow: InfoWindow(title: isDriverTracking ? 'السائق' : 'العامل'),
+    );
+  }
+
   Widget _buildTrackingMap(Map<String, dynamic> request) {
+    final driverId = _driverIdFromRequest(request);
     final workerId = _workerIdFromRequest(request);
 
-    if (workerId.isEmpty) {
+    final trackingId = driverId.isNotEmpty ? driverId : workerId;
+    final isDriverTracking = driverId.isNotEmpty;
+
+    if (trackingId.isEmpty) {
       return const _MapPlaceholder(
         title: 'لا يمكن عرض التتبع الآن',
-        subtitle: 'لم يتم ربط عامل بهذا الطلب حتى الآن.',
+        subtitle: 'لم يتم ربط عامل أو سائق بهذا الطلب حتى الآن.',
         icon: Icons.location_off_outlined,
       );
     }
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _workerLocationStream(workerId),
+      stream: _trackingLocationStream(
+        trackingId: trackingId,
+        isDriver: isDriverTracking,
+      ),
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
 
@@ -251,58 +387,51 @@ class _CustomerRequestTrackingScreenState
         }
 
         if (data == null) {
-          return const _MapPlaceholder(
+          return _MapPlaceholder(
             title: 'بانتظار بدء التتبع',
-            subtitle: 'سيظهر موقع العامل هنا عند بدء الشحن',
+            subtitle: isDriverTracking
+                ? 'سيظهر موقع السائق هنا عند بدء التوصيل'
+                : 'سيظهر موقع العامل هنا عند بدء الشحن',
             icon: Icons.hourglass_empty,
           );
         }
 
         final lat = _readDouble(data['lat']);
         final lng = _readDouble(data['lng']);
+        final heading = _readDouble(data['heading']);
 
         if (lat == null || lng == null) {
-          return const _MapPlaceholder(
+          return _MapPlaceholder(
             title: 'الموقع غير متوفر',
-            subtitle: 'لم يبدأ العامل التتبع بعد',
+            subtitle: isDriverTracking
+                ? 'لم يبدأ السائق التتبع بعد'
+                : 'لم يبدأ العامل التتبع بعد',
             icon: Icons.location_disabled,
           );
         }
 
-        final worker = LatLng(lat, lng);
+        final trackedPosition = LatLng(lat, lng);
         final target = _requestTargetLatLng(request);
 
-        _lastWorkerLocation = worker;
+        _lastTrackedLocation = trackedPosition;
 
         final updatedAt = data['updatedAt'];
         if (updatedAt is Timestamp) {
           _lastUpdatedAt = updatedAt.toDate();
         }
 
-        if (target != null) {
-          final shouldRefreshRoute =
-              _lastRouteWorker == null ||
-              _lastRouteTarget == null ||
-              _lastRouteWorker!.latitude != worker.latitude ||
-              _lastRouteWorker!.longitude != worker.longitude ||
-              _lastRouteTarget!.latitude != target.latitude ||
-              _lastRouteTarget!.longitude != target.longitude;
+        _syncAnimatedMarker(
+          livePosition: trackedPosition,
+          isDriverTracking: isDriverTracking,
+          heading: heading,
+        );
 
-          if (shouldRefreshRoute) {
-            _lastRouteWorker = worker;
-            _lastRouteTarget = target;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _updateRoute(worker, target);
-            });
-          }
+        if (target != null) {
+          _scheduleRouteRefresh(trackedPosition, target);
         }
 
         final markers = <Marker>{
-          Marker(
-            markerId: const MarkerId('worker'),
-            position: worker,
-            infoWindow: const InfoWindow(title: 'العامل'),
-          ),
+          if (_animatedTrackedMarker != null) _animatedTrackedMarker!,
         };
 
         if (target != null) {
@@ -336,7 +465,7 @@ class _CustomerRequestTrackingScreenState
                 borderRadius: BorderRadius.circular(18),
                 child: GoogleMap(
                   initialCameraPosition: CameraPosition(
-                    target: worker,
+                    target: trackedPosition,
                     zoom: 14,
                   ),
                   markers: markers,
@@ -391,9 +520,9 @@ class _CustomerRequestTrackingScreenState
               child: FloatingActionButton(
                 mini: true,
                 onPressed: () {
-                  if (_mapController != null && _lastWorkerLocation != null) {
+                  if (_mapController != null && _lastTrackedLocation != null) {
                     _mapController!.animateCamera(
-                      CameraUpdate.newLatLng(_lastWorkerLocation!),
+                      CameraUpdate.newLatLng(_lastTrackedLocation!),
                     );
                   }
                 },
@@ -411,7 +540,11 @@ class _CustomerRequestTrackingScreenState
     if (_requestId.isEmpty) {
       return const Scaffold(
         body: AppGradientBackground(
-          child: SafeArea(child: Center(child: Text('تعذر تحميل الطلب'))),
+          child: SafeArea(
+            child: Center(
+              child: Text('تعذر تحميل الطلب'),
+            ),
+          ),
         ),
       );
     }
@@ -420,11 +553,15 @@ class _CustomerRequestTrackingScreenState
       stream: _requestStream(),
       builder: (context, snapshot) {
         final liveData = snapshot.data?.data();
-        final request = {...widget.request, ...?liveData, 'id': _requestId};
+        final request = {
+          ...widget.request,
+          ...?liveData,
+          'id': _requestId,
+        };
 
         final status = (request['status'] ?? '').toString();
-        final scrapyardName = (request['scrapyardName'] ?? 'غير محدد')
-            .toString();
+        final scrapyardName =
+            (request['scrapyardName'] ?? 'غير محدد').toString();
         final scrapyardLocation =
             (request['scrapyardLocation'] ??
                     request['scrapyardGoogleMapsUrl'] ??
@@ -432,9 +569,8 @@ class _CustomerRequestTrackingScreenState
                 .toString()
                 .trim();
 
-        final deliveryAddress = (request['deliveryAddress'] ?? '')
-            .toString()
-            .trim();
+        final deliveryAddress =
+            (request['deliveryAddress'] ?? '').toString().trim();
         final deliveryLat = _readDouble(request['deliveryLat']);
         final deliveryLng = _readDouble(request['deliveryLng']);
 
@@ -602,8 +738,7 @@ class _CustomerRequestTrackingScreenState
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  onPressed: () =>
-                                      _openMapUrl(scrapyardLocation),
+                                  onPressed: () => _openMapUrl(scrapyardLocation),
                                   icon: const Icon(Icons.location_on_outlined),
                                   label: const Text('فتح موقع التشليح'),
                                 ),
@@ -645,8 +780,7 @@ class _CustomerRequestTrackingScreenState
                                     height: 1.6,
                                   ),
                                 ),
-                              if (deliveryLat != null &&
-                                  deliveryLng != null) ...[
+                              if (deliveryLat != null && deliveryLng != null) ...[
                                 const SizedBox(height: 10),
                                 Text(
                                   'الإحداثيات: ${deliveryLat.toStringAsFixed(6)}, ${deliveryLng.toStringAsFixed(6)}',
@@ -686,10 +820,10 @@ class _CustomerRequestTrackingScreenState
                               status == 'assigned'
                                   ? 'تم اعتماد العرض وبدأت مرحلة التنفيذ. يمكنك الآن التواصل مع العامل مباشرة.'
                                   : status == 'shipped'
-                                  ? 'الطلب في مرحلة الشحن. يمكنك متابعة موقع العامل والتنسيق معه عبر المحادثة.'
-                                  : status == 'delivered'
-                                  ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
-                                  : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
+                                      ? 'الطلب في مرحلة الشحن. يمكنك متابعة موقع السائق أو العامل والتنسيق عبر المحادثة.'
+                                      : status == 'delivered'
+                                          ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
+                                          : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 height: 1.6,
@@ -699,8 +833,7 @@ class _CustomerRequestTrackingScreenState
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
-                                onPressed:
-                                    (_canOpenChat(request) && !isOpeningChat)
+                                onPressed: (_canOpenChat(request) && !isOpeningChat)
                                     ? () => _openChat(request)
                                     : null,
                                 icon: isOpeningChat
@@ -763,7 +896,9 @@ class _InfoRow extends StatelessWidget {
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : Border(bottom: BorderSide(color: Colors.white.withOpacity(.08))),
+            : Border(
+                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+              ),
       ),
       child: Row(
         children: [
@@ -831,7 +966,10 @@ class _MapPlaceholder extends StatelessWidget {
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, height: 1.5),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  height: 1.5,
+                ),
               ),
             ],
           ),
