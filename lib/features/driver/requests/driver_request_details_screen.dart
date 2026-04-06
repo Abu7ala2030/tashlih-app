@@ -1,10 +1,15 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/routes_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/request_provider.dart';
 
@@ -21,12 +26,122 @@ class DriverRequestDetailsScreen extends StatefulWidget {
       _DriverRequestDetailsScreenState();
 }
 
-class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen> {
+class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
+    with SingleTickerProviderStateMixin {
+  static const int _cameraRefreshMilliseconds = 1800;
+  static const int _markerAnimationMilliseconds = 900;
+  static const double _cameraZoomFollow = 15.6;
+  static const double _cameraTiltFollow = 40;
+  static const double _cameraMoveThresholdMeters = 5;
+  static const double _routeRefreshMeters = 30;
+  static const int _routeRefreshSeconds = 20;
+
   bool isSubmitting = false;
+  bool _followDriver = true;
+  bool _isSatelliteView = false;
+
+  GoogleMapController? _mapController;
+
+  BitmapDescriptor? _driverMarkerIcon;
+  LatLng? _lastTrackedLocation;
+  DateTime? _lastUpdatedAt;
+  double? _lastSpeedKmh;
+  double? _lastAccuracyMeters;
+  DateTime? _lastCameraMoveAt;
+
+  RouteDetails? _route;
+  bool _isLoadingRoute = false;
+  LatLng? _lastRouteOrigin;
+  LatLng? _lastRouteDestination;
+  DateTime? _lastRouteRequestedAt;
+
+  Marker? _animatedTrackedMarker;
+  LatLng? _animatedTrackedPosition;
+  double _animatedRotation = 0;
+
+  late final AnimationController _markerAnimationController;
+  LatLng? _animationStartPosition;
+  LatLng? _animationEndPosition;
+  double _animationStartRotation = 0;
+  double _animationEndRotation = 0;
 
   String get _requestId => (widget.request['id'] ?? '').toString().trim();
 
   String get _currentDriverId => context.read<AuthProvider>().uid?.trim() ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _markerAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _markerAnimationMilliseconds),
+    )..addListener(_onMarkerAnimationTick);
+
+    _prepareMarkerIcon();
+  }
+
+  @override
+  void dispose() {
+    _markerAnimationController
+      ..removeListener(_onMarkerAnimationTick)
+      ..dispose();
+    super.dispose();
+  }
+
+  Future<void> _prepareMarkerIcon() async {
+    try {
+      _driverMarkerIcon = await BitmapDescriptor.asset(
+        const ImageConfiguration(
+          size: Size(56, 56),
+          devicePixelRatio: 2.0,
+        ),
+        'assets/icons/driver_car_marker.png',
+      );
+    } catch (_) {
+      _driverMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueAzure,
+      );
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onMarkerAnimationTick() {
+    final start = _animationStartPosition;
+    final end = _animationEndPosition;
+    if (start == null || end == null) return;
+
+    final t = Curves.easeOutCubic.transform(_markerAnimationController.value);
+
+    final lat = ui.lerpDouble(start.latitude, end.latitude, t) ?? end.latitude;
+    final lng = ui.lerpDouble(start.longitude, end.longitude, t) ?? end.longitude;
+    final rotation = _lerpRotation(
+      _animationStartRotation,
+      _animationEndRotation,
+      t,
+    );
+
+    final interpolated = LatLng(lat, lng);
+
+    _animatedTrackedPosition = interpolated;
+    _animatedRotation = rotation;
+    _animatedTrackedMarker = _buildDriverMarker(
+      position: interpolated,
+      rotation: rotation,
+    );
+
+    if (mounted) {
+      setState(() {});
+    }
+
+    _followTrackedPosition(
+      interpolated,
+      rotation: rotation,
+      force: false,
+    );
+  }
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _requestStream() {
     return FirebaseFirestore.instance
@@ -35,9 +150,23 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
         .snapshots();
   }
 
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _driverStream() {
+    return FirebaseFirestore.instance
+        .collection('drivers')
+        .doc(_currentDriverId)
+        .snapshots();
+  }
+
   double? _toDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '');
+  }
+
+  LatLng? _targetLatLng(Map<String, dynamic> request) {
+    final lat = _toDouble(request['deliveryLat']);
+    final lng = _toDouble(request['deliveryLng']);
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
   }
 
   Future<void> _callCustomer(Map<String, dynamic> request) async {
@@ -162,6 +291,561 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
     }
   }
 
+  int _tripStageIndex(String deliveryStatus, String status) {
+    switch (deliveryStatus) {
+      case 'awaiting_driver_assignment':
+        return 0;
+      case 'pending_pickup':
+        return 1;
+      case 'picked_up':
+        return 2;
+      case 'on_the_way':
+        return 3;
+      case 'delivered':
+        return 4;
+      default:
+        if (status == 'assigned') return 1;
+        if (status == 'shipped') return 3;
+        if (status == 'delivered') return 4;
+        return 0;
+    }
+  }
+
+  double _degToRad(double degrees) => degrees * math.pi / 180.0;
+
+  double _distanceMeters(LatLng a, LatLng b) {
+    const earthRadius = 6371000.0;
+    final dLat = _degToRad(b.latitude - a.latitude);
+    final dLng = _degToRad(b.longitude - a.longitude);
+
+    final sinLat = math.sin(dLat / 2);
+    final sinLng = math.sin(dLng / 2);
+
+    final value = sinLat * sinLat +
+        math.cos(_degToRad(a.latitude)) *
+            math.cos(_degToRad(b.latitude)) *
+            sinLng *
+            sinLng;
+
+    final c = 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value));
+    return earthRadius * c;
+  }
+
+  double _normalizeRotation(double rotation) {
+    var value = rotation % 360;
+    if (value < 0) value += 360;
+    return value;
+  }
+
+  double _bearingBetween(LatLng from, LatLng to) {
+    final lat1 = _degToRad(from.latitude);
+    final lon1 = _degToRad(from.longitude);
+    final lat2 = _degToRad(to.latitude);
+    final lon2 = _degToRad(to.longitude);
+
+    final dLon = lon2 - lon1;
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+
+    final bearing = math.atan2(y, x) * 180 / math.pi;
+    return _normalizeRotation(bearing);
+  }
+
+  double _lerpRotation(double start, double end, double t) {
+    final normalizedStart = _normalizeRotation(start);
+    final normalizedEnd = _normalizeRotation(end);
+    var delta = normalizedEnd - normalizedStart;
+
+    if (delta.abs() > 180) {
+      delta = delta > 0 ? delta - 360 : delta + 360;
+    }
+
+    return _normalizeRotation(normalizedStart + (delta * t));
+  }
+
+  bool _shouldRefreshRoute(LatLng origin, LatLng destination) {
+    final routeAgeSeconds = _lastRouteRequestedAt == null
+        ? null
+        : DateTime.now().difference(_lastRouteRequestedAt!).inSeconds;
+
+    final originChanged = _lastRouteOrigin == null ||
+        _distanceMeters(_lastRouteOrigin!, origin) >= _routeRefreshMeters;
+
+    final destinationChanged = _lastRouteDestination == null ||
+        _distanceMeters(_lastRouteDestination!, destination) >= _routeRefreshMeters;
+
+    if (originChanged || destinationChanged) return true;
+    if (routeAgeSeconds == null) return true;
+
+    return routeAgeSeconds >= _routeRefreshSeconds;
+  }
+
+  Future<void> _updateRoute(LatLng origin, LatLng destination) async {
+    if (_isLoadingRoute) return;
+
+    _isLoadingRoute = true;
+    _lastRouteOrigin = origin;
+    _lastRouteDestination = destination;
+    _lastRouteRequestedAt = DateTime.now();
+
+    try {
+      final route = await RoutesService.instance.computeRoute(
+        origin: origin,
+        destination: destination,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _route = route;
+      });
+    } catch (_) {
+      // ignore
+    } finally {
+      _isLoadingRoute = false;
+    }
+  }
+
+  Future<void> _fitDriverAndTarget(Map<String, dynamic> request) async {
+    final controller = _mapController;
+    final driver = _animatedTrackedPosition;
+    final target = _targetLatLng(request);
+
+    if (controller == null || driver == null || target == null) return;
+
+    final south = math.min(driver.latitude, target.latitude);
+    final north = math.max(driver.latitude, target.latitude);
+    final west = math.min(driver.longitude, target.longitude);
+    final east = math.max(driver.longitude, target.longitude);
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
+
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 70));
+    } catch (_) {}
+  }
+
+  Future<void> _followTrackedPosition(
+    LatLng position, {
+    required double rotation,
+    bool force = false,
+  }) async {
+    if (!_followDriver || _mapController == null) return;
+
+    final now = DateTime.now();
+    if (!force &&
+        _lastCameraMoveAt != null &&
+        now.difference(_lastCameraMoveAt!).inMilliseconds <
+            _cameraRefreshMilliseconds) {
+      return;
+    }
+
+    if (!force &&
+        _lastTrackedLocation != null &&
+        _distanceMeters(_lastTrackedLocation!, position) < _cameraMoveThresholdMeters) {
+      return;
+    }
+
+    _lastCameraMoveAt = now;
+
+    try {
+      await _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: position,
+            zoom: _cameraZoomFollow,
+            tilt: _cameraTiltFollow,
+            bearing: rotation,
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Marker _buildDriverMarker({
+    required LatLng position,
+    required double rotation,
+  }) {
+    return Marker(
+      markerId: const MarkerId('driver_marker'),
+      position: position,
+      rotation: rotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.56),
+      icon: _driverMarkerIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: const InfoWindow(title: 'موقعك الحالي'),
+    );
+  }
+
+  void _animateDriverMarker({
+    required LatLng livePosition,
+    required double? heading,
+  }) {
+    final previousPosition = _animatedTrackedPosition;
+    var targetRotation = _animatedRotation;
+
+    if (heading != null && heading.isFinite && heading > 0) {
+      targetRotation = _normalizeRotation(heading);
+    } else if (previousPosition != null &&
+        _distanceMeters(previousPosition, livePosition) >= 2) {
+      targetRotation = _bearingBetween(previousPosition, livePosition);
+    }
+
+    if (previousPosition == null) {
+      _animatedTrackedPosition = livePosition;
+      _animatedRotation = targetRotation;
+      _animatedTrackedMarker = _buildDriverMarker(
+        position: livePosition,
+        rotation: targetRotation,
+      );
+      return;
+    }
+
+    final movement = _distanceMeters(previousPosition, livePosition);
+    if (movement < 1.5) {
+      _animatedTrackedPosition = livePosition;
+      _animatedRotation = targetRotation;
+      _animatedTrackedMarker = _buildDriverMarker(
+        position: livePosition,
+        rotation: targetRotation,
+      );
+      return;
+    }
+
+    _animationStartPosition = previousPosition;
+    _animationEndPosition = livePosition;
+    _animationStartRotation = _animatedRotation;
+    _animationEndRotation = targetRotation;
+
+    _markerAnimationController
+      ..stop()
+      ..reset()
+      ..forward();
+  }
+
+  Widget _buildDriverMap(Map<String, dynamic> request) {
+    final target = _targetLatLng(request);
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _driverStream(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            _animatedTrackedMarker == null) {
+          return const SizedBox(
+            height: 280,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final lat = _toDouble(data?['lat']);
+        final lng = _toDouble(data?['lng']);
+        final heading = _toDouble(data?['heading']);
+        final speedMps = _toDouble(data?['speed']);
+        final accuracy = _toDouble(data?['accuracy']);
+
+        if ((lat == null || lng == null) && _animatedTrackedMarker == null) {
+          return const _MapPlaceholder(
+            title: 'لم يبدأ التتبع بعد',
+            subtitle: 'ابدأ التوصيل أو فعّل الموقع ليظهر مسارك هنا.',
+            icon: Icons.location_disabled,
+          );
+        }
+
+        if (lat != null && lng != null) {
+          final livePosition = LatLng(lat, lng);
+
+          _lastTrackedLocation = livePosition;
+          _lastSpeedKmh = speedMps == null ? null : speedMps * 3.6;
+          _lastAccuracyMeters = accuracy;
+
+          final updatedAt = data?['updatedAt'];
+          if (updatedAt is Timestamp) {
+            _lastUpdatedAt = updatedAt.toDate();
+          }
+
+          _animateDriverMarker(
+            livePosition: livePosition,
+            heading: heading,
+          );
+
+          if (target != null && _shouldRefreshRoute(livePosition, target)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _updateRoute(livePosition, target);
+            });
+          }
+        }
+
+        final initialTarget = _animatedTrackedPosition ??
+            target ??
+            const LatLng(26.4207, 50.0888);
+
+        final markers = <Marker>{
+          if (_animatedTrackedMarker != null) _animatedTrackedMarker!,
+          if (target != null)
+            Marker(
+              markerId: const MarkerId('customer_target'),
+              position: target,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ),
+              infoWindow: const InfoWindow(title: 'العميل'),
+            ),
+        };
+
+        final polylines = _route == null
+            ? <Polyline>{}
+            : {
+                Polyline(
+                  polylineId: const PolylineId('driver_route'),
+                  points: _route!.polylinePoints,
+                  width: 5,
+                ),
+              };
+
+        return Stack(
+          children: [
+            SizedBox(
+              height: 280,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: initialTarget,
+                    zoom: 14,
+                  ),
+                  mapType: _isSatelliteView ? MapType.hybrid : MapType.normal,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  trafficEnabled: true,
+                  buildingsEnabled: true,
+                  compassEnabled: false,
+                  markers: markers,
+                  polylines: polylines,
+                  onMapCreated: (controller) => _mapController = controller,
+                  onCameraMoveStarted: () {
+                    if (_followDriver) {
+                      setState(() => _followDriver = false);
+                    }
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Row(
+                children: [
+                  if (_route != null)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ETA: ${_route!.etaLabel}'),
+                          Text('المسافة: ${_route!.distanceLabel}'),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _followDriver ? Colors.green : Colors.black87,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _followDriver ? 'متابعة تلقائية' : 'متابعة متوقفة',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_lastUpdatedAt != null)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'آخر تحديث: ${_formatTime(_lastUpdatedAt!)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 10,
+              left: 10,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MapInfoChip(
+                    icon: Icons.speed_outlined,
+                    text: _formatSpeed(_lastSpeedKmh),
+                  ),
+                  _MapInfoChip(
+                    icon: Icons.gps_fixed,
+                    text: _formatAccuracy(_lastAccuracyMeters),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 10,
+              right: 10,
+              child: Column(
+                children: [
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'driver_follow_toggle',
+                    onPressed: () {
+                      setState(() => _followDriver = !_followDriver);
+                      final tracked = _animatedTrackedPosition;
+                      if (_followDriver && tracked != null) {
+                        _followTrackedPosition(
+                          tracked,
+                          rotation: _animatedRotation,
+                          force: true,
+                        );
+                      }
+                    },
+                    child: Icon(
+                      _followDriver ? Icons.gps_fixed : Icons.gps_not_fixed,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'driver_center_btn',
+                    onPressed: () {
+                      final tracked = _animatedTrackedPosition;
+                      if (_mapController != null && tracked != null) {
+                        _mapController!.animateCamera(
+                          CameraUpdate.newLatLng(tracked),
+                        );
+                      }
+                    },
+                    child: const Icon(Icons.my_location),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'driver_fit_btn',
+                    onPressed: () => _fitDriverAndTarget(request),
+                    child: const Icon(Icons.fit_screen_outlined),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'driver_map_type_btn',
+                    onPressed: () {
+                      setState(() => _isSatelliteView = !_isSatelliteView);
+                    },
+                    child: Icon(
+                      _isSatelliteView
+                          ? Icons.layers_clear_outlined
+                          : Icons.layers_outlined,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+
+    if (diff.inSeconds < 60) return 'الآن';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} دقيقة';
+    return '${diff.inHours} ساعة';
+  }
+
+  String _formatSpeed(double? speedKmh) {
+    if (speedKmh == null || !speedKmh.isFinite || speedKmh <= 0) {
+      return '0 كم/س';
+    }
+    return '${speedKmh.toStringAsFixed(0)} كم/س';
+  }
+
+  String _formatAccuracy(double? accuracyMeters) {
+    if (accuracyMeters == null || !accuracyMeters.isFinite || accuracyMeters <= 0) {
+      return 'غير معروف';
+    }
+    if (accuracyMeters < 10) return '${accuracyMeters.toStringAsFixed(0)} م';
+    return '${accuracyMeters.toStringAsFixed(0)} متر';
+  }
+
+  Widget _buildTripProgress(String deliveryStatus, String status) {
+    const stages = [
+      'تعيين السائق',
+      'الاستلام',
+      'التجهيز',
+      'في الطريق',
+      'التسليم',
+    ];
+    final currentIndex = _tripStageIndex(deliveryStatus, status);
+
+    return Column(
+      children: [
+        Row(
+          children: List.generate(stages.length, (index) {
+            final active = index <= currentIndex;
+            return Expanded(
+              child: Container(
+                margin: EdgeInsetsDirectional.only(
+                  end: index == stages.length - 1 ? 0 : 6,
+                ),
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? Colors.green : Colors.white12,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          stages[currentIndex.clamp(0, stages.length - 1)],
+          style: const TextStyle(
+            color: Colors.white70,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_requestId.isEmpty) {
@@ -263,6 +947,16 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      _SectionCard(
+                        title: 'حالة الرحلة',
+                        child: _buildTripProgress(deliveryStatus, status),
+                      ),
+                      const SizedBox(height: 12),
+                      _SectionCard(
+                        title: 'الخريطة المباشرة',
+                        child: _buildDriverMap(request),
                       ),
                       const SizedBox(height: 12),
                       _SectionCard(
@@ -441,6 +1135,41 @@ class _DriverRequestDetailsScreenState extends State<DriverRequestDetailsScreen>
   }
 }
 
+class _MapInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _MapInfoChip({
+    required this.icon,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -522,6 +1251,60 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MapPlaceholder extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _MapPlaceholder({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 280,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 42, color: Colors.white70),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
