@@ -8,10 +8,8 @@ class RoutesService {
 
   static final RoutesService instance = RoutesService._();
 
-  /// يفضّل تمرير المفتاح عبر --dart-define
-  /// مثال:
-  /// flutter run --dart-define=GOOGLE_MAPS_API_KEY=YOUR_KEY
-  static const String _apiKey = String.fromEnvironment('AIzaSyCADmgFQlwAywKfu5JmXKLeuhnCRlVhcDY');
+  // تم تثبيت المفتاح مباشرة مؤقتًا لتفادي خطأ dart-define
+  static const String _apiKey = 'AIzaSyCADmgFQlwAywKfu5JmXKLeuhnCRlVhcDY';
 
   static const String _endpoint =
       'https://routes.googleapis.com/directions/v2:computeRoutes';
@@ -21,9 +19,7 @@ class RoutesService {
     required LatLng destination,
   }) async {
     if (_apiKey.trim().isEmpty) {
-      throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define',
-      );
+      throw Exception('GOOGLE_MAPS_API_KEY غير مضاف');
     }
 
     final uri = Uri.parse(_endpoint);
@@ -97,7 +93,7 @@ class RoutesService {
   List<LatLng> decodePolyline(String encoded) {
     final List<LatLng> polylineCoordinates = <LatLng>[];
     int index = 0;
-    int len = encoded.length;
+    final int len = encoded.length;
     int lat = 0;
     int lng = 0;
 
@@ -128,9 +124,7 @@ class RoutesService {
       final dlng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
       lng += dlng;
 
-      polylineCoordinates.add(
-        LatLng(lat / 1E5, lng / 1E5),
-      );
+      polylineCoordinates.add(LatLng(lat / 1E5, lng / 1E5));
     }
 
     return polylineCoordinates;
