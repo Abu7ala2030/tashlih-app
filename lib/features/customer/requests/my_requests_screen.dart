@@ -28,8 +28,15 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<RequestProvider>().listenToMyRequests();
     });
+  }
+
+  @override
+  void dispose() {
+    context.read<RequestProvider>().stopListening();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -40,7 +47,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
   List<Map<String, dynamic>> _sortRequests(List<Map<String, dynamic>> input) {
     final requests = [...input];
 
-    DateTime _readDate(dynamic value) {
+    DateTime readDate(dynamic value) {
       if (value is Timestamp) return value.toDate();
       return DateTime.fromMillisecondsSinceEpoch(0);
     }
@@ -60,15 +67,15 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
         return bNewOffers.compareTo(aNewOffers);
       }
 
-      final aLastOfferAt = _readDate(a['lastOfferAt']);
-      final bLastOfferAt = _readDate(b['lastOfferAt']);
+      final aLastOfferAt = readDate(a['lastOfferAt']);
+      final bLastOfferAt = readDate(b['lastOfferAt']);
 
       if (aHasNewOffers && bHasNewOffers && aLastOfferAt != bLastOfferAt) {
         return bLastOfferAt.compareTo(aLastOfferAt);
       }
 
-      final aCreatedAt = _readDate(a['createdAt']);
-      final bCreatedAt = _readDate(b['createdAt']);
+      final aCreatedAt = readDate(a['createdAt']);
+      final bCreatedAt = readDate(b['createdAt']);
       return bCreatedAt.compareTo(aCreatedAt);
     });
 
@@ -313,7 +320,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                           color: const Color(0xFF2A2216),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: Colors.orange.withOpacity(.35),
+                            color: Colors.orange.withValues(alpha: .35),
                           ),
                         ),
                         child: Row(

@@ -24,8 +24,16 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<VehicleProvider>().listenToMyVehicles();
+      context.read<RequestProvider>().listenToWorkerRequests();
     });
+  }
+
+  @override
+  void dispose() {
+    context.read<RequestProvider>().stopListening();
+    super.dispose();
   }
 
   @override
@@ -328,7 +336,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _statusColor(status).withOpacity(.18),
+                                      color: _statusColor(status).withValues(alpha: .18),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -714,7 +722,7 @@ class _SummaryRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(color: Colors.white.withValues(alpha: .08)),
               ),
       ),
       child: Row(
@@ -760,7 +768,7 @@ class _VehicleInfoRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(color: Colors.white.withValues(alpha: .08)),
               ),
       ),
       child: Row(

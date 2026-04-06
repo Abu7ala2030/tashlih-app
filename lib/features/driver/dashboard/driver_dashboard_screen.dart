@@ -18,6 +18,21 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<RequestProvider>().listenToDriverRequests();
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<RequestProvider>().stopListening();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final pages = [
       const _DriverOverviewTab(),
@@ -341,7 +356,8 @@ class _DriverOverviewTab extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: _statusColor(activeRequest).withOpacity(.18),
+                            color: _statusColor(activeRequest)
+                                .withValues(alpha: .18),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
@@ -664,7 +680,7 @@ class _DriverAssignedOrdersTabState extends State<_DriverAssignedOrdersTab> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(.18),
+                                      color: statusColor.withValues(alpha: .18),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -908,7 +924,7 @@ class _SummaryRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(color: Colors.white.withValues(alpha: .08)),
               ),
       ),
       child: Row(
@@ -954,7 +970,7 @@ class _DriverInfoRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(color: Colors.white.withValues(alpha: .08)),
               ),
       ),
       child: Row(
