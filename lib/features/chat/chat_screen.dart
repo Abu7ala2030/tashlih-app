@@ -125,7 +125,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUserId = ChatService.instance.currentUserId ?? '';
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0F1115),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF0F1115),
+        titleSpacing: 0,
         title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: FirebaseFirestore.instance
               .collection('chats')
@@ -143,13 +146,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
             final auth = context.watch<AuthProvider>();
             final myUid = auth.uid;
-            final isAdmin = auth.role == 'admin'; // 🔥 مهم
+            final isAdmin = auth.role == 'admin';
 
             final customerId = chatData['customerId'];
             final workerId = chatData['workerId'];
 
-            final otherUserId =
-                myUid == customerId ? workerId : customerId;
+            final otherUserId = myUid == customerId ? workerId : customerId;
+
+            if (otherUserId == null || otherUserId.toString().trim().isEmpty) {
+              return Text(widget.title);
+            }
 
             return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: FirebaseFirestore.instance
@@ -158,58 +164,58 @@ class _ChatScreenState extends State<ChatScreen> {
                   .snapshots(),
               builder: (context, userSnap) {
                 if (!userSnap.hasData || userSnap.data!.data() == null) {
-                  return const Text('...');
+                  return Text(widget.title);
                 }
 
                 final user = userSnap.data!.data()!;
-                final name = user['name'] ?? 'مستخدم';
-                final photo = user['photoUrl'] ?? '';
+                final name = (user['name'] ?? widget.title).toString();
+                final photo = (user['photoUrl'] ?? '').toString();
                 final rating = user['rating']?.toString() ?? '';
                 final phone = (user['phone'] ?? '').toString();
                 final whatsapp = (user['whatsapp'] ?? phone).toString();
-                final locationUrl =
-                    (user['locationUrl'] ?? '').toString();
+                final locationUrl = (user['locationUrl'] ?? '').toString();
 
                 return Row(
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundImage: photo.isNotEmpty
-                          ? NetworkImage(photo)
-                          : null,
-                      child: photo.isEmpty
-                          ? const Icon(Icons.person)
-                          : null,
+                      backgroundImage:
+                          photo.isNotEmpty ? NetworkImage(photo) : null,
+                      child: photo.isEmpty ? const Icon(Icons.person) : null,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name,
-                              style: const TextStyle(fontSize: 16)),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
                           if (rating.isNotEmpty)
                             Text(
                               '⭐ $rating',
-                              style: const TextStyle(fontSize: 12),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
                             ),
                         ],
                       ),
                     ),
-
-                    // 🔒 تظهر فقط للإدارة
                     if (isAdmin && phone.isNotEmpty)
                       IconButton(
                         onPressed: () => _openPhone(phone),
                         icon: const Icon(Icons.call_outlined),
                       ),
-
                     if (isAdmin && whatsapp.isNotEmpty)
                       IconButton(
                         onPressed: () => _openWhatsApp(whatsapp),
                         icon: const Icon(Icons.chat_outlined),
                       ),
-
                     if (isAdmin && locationUrl.isNotEmpty)
                       IconButton(
                         onPressed: () => _openLocation(locationUrl),
@@ -228,16 +234,22 @@ class _ChatScreenState extends State<ChatScreen> {
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: ChatService.instance.streamMessages(widget.chatId),
               builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                      child: CircularProgressIndicator());
+                    child: CircularProgressIndicator(),
+                  );
                 }
 
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text(
-                        'فشل تحميل الرسائل: ${snapshot.error}'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'فشل تحميل الرسائل: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ),
                   );
                 }
 
@@ -245,7 +257,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 if (messages.isEmpty) {
                   return const Center(
-                      child: Text('ابدأ أول رسالة الآن'));
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'ابدأ أول رسالة الآن',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  );
                 }
 
                 return ListView.builder(
@@ -254,35 +278,29 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final data = messages[index].data();
-                    final senderId =
-                        (data['senderId'] ?? '').toString();
+                    final senderId = (data['senderId'] ?? '').toString();
                     final text = (data['text'] ?? '').toString();
                     final isMe = senderId == currentUserId;
 
                     return Align(
-                      alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
+                      alignment:
+                          isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin:
-                            const EdgeInsets.only(bottom: 10),
+                        margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,
                         ),
                         constraints: BoxConstraints(
                           maxWidth:
-                              MediaQuery.of(context).size.width *
-                                  0.72,
+                              MediaQuery.of(context).size.width * 0.72,
                         ),
                         decoration: BoxDecoration(
                           color: isMe
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                              : Colors.grey.shade800,
-                          borderRadius:
-                              BorderRadius.circular(16),
+                              ? Theme.of(context).colorScheme.primary
+                              : const Color(0xFF1A1D21),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white10),
                         ),
                         child: Column(
                           crossAxisAlignment: isMe
@@ -291,13 +309,11 @@ class _ChatScreenState extends State<ChatScreen> {
                           children: [
                             Text(
                               text,
-                              style: const TextStyle(
-                                  color: Colors.white),
+                              style: const TextStyle(color: Colors.white),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              _formatTime(
-                                  data['createdAt']),
+                              _formatTime(data['createdAt']),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 11,
@@ -315,8 +331,7 @@ class _ChatScreenState extends State<ChatScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Row(
                 children: [
                   Expanded(
@@ -324,11 +339,23 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: messageController,
                       minLines: 1,
                       maxLines: 4,
+                      style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'اكتب رسالتك...',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: const Color(0xFF1A1D21),
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: Colors.white24),
                         ),
                       ),
                     ),
@@ -340,9 +367,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child:
-                                CircularProgressIndicator(
-                                    strokeWidth: 2),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.send),
                   ),

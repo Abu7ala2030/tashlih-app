@@ -66,6 +66,16 @@ class _WorkerRequestDetailsScreenState
         .snapshots();
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> _myOfferStream() {
+    return FirebaseFirestore.instance
+        .collection(FirestorePaths.requests)
+        .doc(_requestId)
+        .collection('offers')
+        .where('workerId', isEqualTo: _workerId)
+        .limit(1)
+        .snapshots();
+  }
+
   @override
   void dispose() {
     priceController.dispose();
@@ -253,6 +263,90 @@ class _WorkerRequestDetailsScreenState
     );
   }
 
+  Color _offerStatusColor(String status) {
+    switch (status) {
+      case 'accepted':
+        return Colors.green;
+      case 'rejected':
+        return Colors.redAccent;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  String _offerStatusText(String status) {
+    switch (status) {
+      case 'accepted':
+        return 'تم قبول عرضك';
+      case 'rejected':
+        return 'تم رفض عرضك';
+      default:
+        return 'عرضك بانتظار القرار';
+    }
+  }
+
+  Widget _buildMyOfferBanner() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _myOfferStream(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+
+        final offer = docs.first.data();
+        final status = (offer['status'] ?? 'pending').toString().trim();
+        final price = (offer['price'] ?? '').toString();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _offerStatusColor(status).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _offerStatusColor(status).withValues(alpha: 0.28),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _offerStatusText(status),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: _offerStatusColor(status),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  price.isEmpty
+                      ? 'تم تسجيل عرضك على هذا الطلب.'
+                      : 'قيمة عرضك: $price ريال',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    height: 1.5,
+                  ),
+                ),
+                if (status == 'rejected') ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'يمكنك تجاهل هذا الطلب أو إرسال عرض جديد إذا كان ما زال متاحًا.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_requestId.isEmpty) {
@@ -411,6 +505,7 @@ class _WorkerRequestDetailsScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              _buildMyOfferBanner(),
                               _SectionCard(
                                 title: 'معلومات الطلب',
                                 child: Column(
@@ -520,7 +615,8 @@ class _WorkerRequestDetailsScreenState
                               const SizedBox(height: 18),
                               if (status == 'newRequest' ||
                                   status == 'checkingAvailability' ||
-                                  status == 'unavailable')
+                                  status == 'unavailable' ||
+                                  status == 'available')
                                 _buildOfferSection()
                               else if (status == 'assigned')
                                 _buildAssignedSection(request)
