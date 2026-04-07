@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/services/chat_service.dart';
 import '../../providers/auth_provider.dart';
@@ -23,7 +22,6 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController messageController = TextEditingController();
   bool isSending = false;
-
   String senderRole = 'customer';
 
   @override
@@ -31,53 +29,17 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final auth = context.read<AuthProvider>();
       senderRole = auth.safeRole;
 
-      await ChatService.instance.markMessagesAsRead(
-        chatId: widget.chatId,
-        role: senderRole,
-      );
+      try {
+        await ChatService.instance.markMessagesAsRead(
+          chatId: widget.chatId,
+          role: senderRole,
+        );
+      } catch (_) {}
     });
-  }
-
-  Future<void> _openPhone(String phone) async {
-    final cleaned = phone.replaceAll(' ', '').replaceAll('-', '');
-    if (cleaned.isEmpty) return;
-
-    final uri = Uri(scheme: 'tel', path: cleaned);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
-
-  String _normalizePhoneForWhatsApp(String phone) {
-    var value = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-
-    if (value.startsWith('+')) return value.substring(1);
-    if (value.startsWith('00')) return value.substring(2);
-    if (value.startsWith('0')) return '966${value.substring(1)}';
-    if (!value.startsWith('966')) return '966$value';
-    return value;
-  }
-
-  Future<void> _openWhatsApp(String phone) async {
-    final normalized = _normalizePhoneForWhatsApp(phone);
-    if (normalized.isEmpty) return;
-
-    final uri = Uri.parse('https://wa.me/$normalized');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  Future<void> _openLocation(String url) async {
-    if (url.trim().isEmpty) return;
-
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   @override
@@ -108,7 +70,9 @@ class _ChatScreenState extends State<ChatScreen> {
         SnackBar(content: Text('فشل إرسال الرسالة: $e')),
       );
     } finally {
-      if (mounted) setState(() => isSending = false);
+      if (mounted) {
+        setState(() => isSending = false);
+      }
     }
   }
 
@@ -128,210 +92,134 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: const Color(0xFF0F1115),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F1115),
-        titleSpacing: 0,
-        title: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('chats')
-              .doc(widget.chatId)
-              .snapshots(),
-          builder: (context, chatSnap) {
-            if (!chatSnap.hasData) {
-              return const Text('المحادثة');
-            }
-
-            final chatData = chatSnap.data!.data();
-            if (chatData == null) {
-              return const Text('المحادثة');
-            }
-
-            final auth = context.watch<AuthProvider>();
-            final myUid = auth.uid;
-            final isAdmin = auth.role == 'admin';
-
-            final customerId = chatData['customerId'];
-            final workerId = chatData['workerId'];
-
-            final otherUserId = myUid == customerId ? workerId : customerId;
-
-            if (otherUserId == null || otherUserId.toString().trim().isEmpty) {
-              return Text(widget.title);
-            }
-
-            return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(otherUserId)
-                  .snapshots(),
-              builder: (context, userSnap) {
-                if (!userSnap.hasData || userSnap.data!.data() == null) {
-                  return Text(widget.title);
-                }
-
-                final user = userSnap.data!.data()!;
-                final name = (user['name'] ?? widget.title).toString();
-                final photo = (user['photoUrl'] ?? '').toString();
-                final rating = user['rating']?.toString() ?? '';
-                final phone = (user['phone'] ?? '').toString();
-                final whatsapp = (user['whatsapp'] ?? phone).toString();
-                final locationUrl = (user['locationUrl'] ?? '').toString();
-
-                return Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundImage:
-                          photo.isNotEmpty ? NetworkImage(photo) : null,
-                      child: photo.isEmpty ? const Icon(Icons.person) : null,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                          if (rating.isNotEmpty)
-                            Text(
-                              '⭐ $rating',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white70,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (isAdmin && phone.isNotEmpty)
-                      IconButton(
-                        onPressed: () => _openPhone(phone),
-                        icon: const Icon(Icons.call_outlined),
-                      ),
-                    if (isAdmin && whatsapp.isNotEmpty)
-                      IconButton(
-                        onPressed: () => _openWhatsApp(whatsapp),
-                        icon: const Icon(Icons.chat_outlined),
-                      ),
-                    if (isAdmin && locationUrl.isNotEmpty)
-                      IconButton(
-                        onPressed: () => _openLocation(locationUrl),
-                        icon: const Icon(Icons.location_on_outlined),
-                      ),
-                  ],
-                );
-              },
-            );
-          },
+        elevation: 0,
+        title: Text(
+          widget.title.isEmpty ? 'المحادثة' : widget.title,
+          style: const TextStyle(color: Colors.white),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: ChatService.instance.streamMessages(widget.chatId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                color: const Color(0xFF0F1115),
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: ChatService.instance.streamMessages(widget.chatId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'فشل تحميل الرسائل: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                  );
-                }
-
-                final messages = snapshot.data?.docs ?? [];
-
-                if (messages.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'ابدأ أول رسالة الآن',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  reverse: true,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final data = messages[index].data();
-                    final senderId = (data['senderId'] ?? '').toString();
-                    final text = (data['text'] ?? '').toString();
-                    final isMe = senderId == currentUserId;
-
-                    return Align(
-                      alignment:
-                          isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        constraints: BoxConstraints(
-                          maxWidth:
-                              MediaQuery.of(context).size.width * 0.72,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isMe
-                              ? Theme.of(context).colorScheme.primary
-                              : const Color(0xFF1A1D21),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: isMe
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              text,
-                              style: const TextStyle(color: Colors.white),
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Text(
+                            'فشل تحميل الرسائل:\n${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 15,
+                              height: 1.6,
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _formatTime(data['createdAt']),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      );
+                    }
+
+                    final messages = snapshot.data?.docs ?? [];
+
+                    if (messages.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'لا توجد رسائل بعد.\nابدأ أول رسالة الآن.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              height: 1.7,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      reverse: true,
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final data = messages[index].data();
+                        final senderId = (data['senderId'] ?? '').toString();
+                        final text = (data['text'] ?? '').toString();
+                        final isMe = senderId == currentUserId;
+
+                        return Align(
+                          alignment: isMe
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            constraints: BoxConstraints(
+                              maxWidth:
+                                  MediaQuery.of(context).size.width * 0.75,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isMe
+                                  ? Theme.of(context).colorScheme.primary
+                                  : const Color(0xFF1A1D21),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: isMe
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  text.isEmpty ? '...' : text,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _formatTime(data['createdAt']),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+              ),
             ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
+            Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F1115),
+                border: Border(
+                  top: BorderSide(color: Colors.white10),
+                ),
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -345,6 +233,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         hintStyle: const TextStyle(color: Colors.white54),
                         filled: true,
                         fillColor: const Color(0xFF1A1D21),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: BorderSide.none,
@@ -355,7 +247,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: Colors.white24),
+                          borderSide:
+                              const BorderSide(color: Colors.white24),
                         ),
                       ),
                     ),
@@ -367,15 +260,16 @@ class _ChatScreenState extends State<ChatScreen> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.send),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
