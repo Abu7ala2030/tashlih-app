@@ -27,8 +27,8 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
       if (!mounted) return;
       context.read<VehicleProvider>().listenToMyVehicles();
       context.read<RequestProvider>().listenToWorkerRequests(
-            includeOpenRequests: false,
-          );
+        includeOpenRequests: true,
+      );
     });
   }
 
@@ -48,10 +48,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -93,9 +90,7 @@ class _WorkerRequestsTab extends StatelessWidget {
     final workerRequests = provider.requests;
 
     if (provider.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (workerRequests.isEmpty) {
@@ -110,9 +105,7 @@ class _WorkerRequestsTab extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('طلباتي'),
-      ),
+      appBar: AppBar(title: const Text('طلباتي')),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: workerRequests.length,
@@ -134,7 +127,8 @@ class _WorkerRequestsTab extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => WorkerRequestDetailsScreen(request: request),
+                    builder: (_) =>
+                        WorkerRequestDetailsScreen(request: request),
                   ),
                 );
               },
@@ -154,18 +148,12 @@ class _WorkerVehiclesTab extends StatelessWidget {
     final vehicleProvider = context.watch<VehicleProvider>();
 
     if (vehicleProvider.isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (vehicleProvider.errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('مركباتي'),
-        ),
+        appBar: AppBar(title: const Text('مركباتي')),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -179,9 +167,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
           onPressed: () async {
             final created = await Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const AddVehicleScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AddVehicleScreen()),
             );
 
             if (created == true && context.mounted) {
@@ -197,9 +183,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
     final vehicles = vehicleProvider.vehicles;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('مركباتي'),
-      ),
+      appBar: AppBar(title: const Text('مركباتي')),
       body: vehicles.isEmpty
           ? Center(
               child: Padding(
@@ -227,10 +211,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
                       Text(
                         'أضف مركبتك وارفع الصور حتى تظهر للإدارة للمراجعة.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white70,
-                          height: 1.5,
-                        ),
+                        style: TextStyle(color: Colors.white70, height: 1.5),
                       ),
                     ],
                   ),
@@ -254,11 +235,12 @@ class _WorkerVehiclesTab extends StatelessWidget {
                   final year = (vehicle['year'] ?? '').toString();
                   final city = (vehicle['city'] ?? '').toString();
                   final status = (vehicle['status'] ?? '').toString();
-                  final coverImage = (vehicle['coverImage'] ??
-                          vehicle['cover'] ??
-                          vehicle['vehicleCoverImage'] ??
-                          '')
-                      .toString();
+                  final coverImage =
+                      (vehicle['coverImage'] ??
+                              vehicle['cover'] ??
+                              vehicle['vehicleCoverImage'] ??
+                              '')
+                          .toString();
 
                   return Container(
                     decoration: BoxDecoration(
@@ -329,7 +311,9 @@ class _WorkerVehiclesTab extends StatelessWidget {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _statusColor(status).withValues(alpha: .18),
+                                      color: _statusColor(
+                                        status,
+                                      ).withValues(alpha: .18),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -356,12 +340,13 @@ class _WorkerVehiclesTab extends StatelessWidget {
                               ),
                               _VehicleInfoRow(
                                 label: 'التشليح',
-                                value:
-                                    (vehicle['scrapyardName'] ?? '-').toString(),
+                                value: (vehicle['scrapyardName'] ?? '-')
+                                    .toString(),
                                 isLast: true,
                               ),
                               if ((vehicle['visibleParts'] as List?) != null &&
-                                  (vehicle['visibleParts'] as List).isNotEmpty) ...[
+                                  (vehicle['visibleParts'] as List)
+                                      .isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 Wrap(
                                   spacing: 8,
@@ -375,8 +360,9 @@ class _WorkerVehiclesTab extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.white10,
-                                            borderRadius:
-                                                BorderRadius.circular(999),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
                                           ),
                                           child: Text(
                                             part.toString(),
@@ -403,9 +389,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
         onPressed: () async {
           final created = await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const AddVehicleScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const AddVehicleScreen()),
           );
 
           if (created == true && context.mounted) {
@@ -731,10 +715,7 @@ class _SummaryRow extends StatelessWidget {
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
         ],
       ),
@@ -780,9 +761,7 @@ class _VehicleInfoRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ],
