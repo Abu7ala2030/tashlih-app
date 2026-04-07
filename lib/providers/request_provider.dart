@@ -15,7 +15,8 @@ class RequestProvider extends ChangeNotifier {
   bool isLoading = false;
   String? errorMessage;
 
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _requestsSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _requestsSubscription;
   String _activeListener = 'none';
 
   RequestProvider();
@@ -206,15 +207,15 @@ class RequestProvider extends ChangeNotifier {
         .doc(userId)
         .collection('notifications')
         .add({
-      'title': title,
-      'body': body,
-      'type': type,
-      'requestId': requestId,
-      'dedupKey': dedupKey,
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-      ...?extra,
-    });
+          'title': title,
+          'body': body,
+          'type': type,
+          'requestId': requestId,
+          'dedupKey': dedupKey,
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          ...?extra,
+        });
   }
 
   Future<void> _incrementRequestNewOffersCounter({
@@ -236,8 +237,7 @@ class RequestProvider extends ChangeNotifier {
     final data = snap.data() ?? <String, dynamic>{};
 
     final currentBestRaw = data['bestOfferPrice'];
-    final currentBest =
-        currentBestRaw is num ? currentBestRaw.toDouble() : 0.0;
+    final currentBest = currentBestRaw is num ? currentBestRaw.toDouble() : 0.0;
 
     if (offerPrice > currentBest) {
       await requestRef.set({
@@ -247,9 +247,7 @@ class RequestProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> markOffersAsSeen({
-    required String requestId,
-  }) async {
+  Future<void> markOffersAsSeen({required String requestId}) async {
     await _db.collection(FirestorePaths.requests).doc(requestId).set({
       'newOffersCount': 0,
       'offersSeenAt': FieldValue.serverTimestamp(),
@@ -278,15 +276,15 @@ class RequestProvider extends ChangeNotifier {
         .doc(requestId)
         .collection('timeline')
         .add({
-      'type': type,
-      'title': title,
-      'description': description,
-      'actorId': resolvedActorId,
-      'actorRole': resolvedActorRole,
-      'actorName': actorName,
-      'createdAt': FieldValue.serverTimestamp(),
-      ...?extra,
-    });
+          'type': type,
+          'title': title,
+          'description': description,
+          'actorId': resolvedActorId,
+          'actorRole': resolvedActorRole,
+          'actorName': actorName,
+          'createdAt': FieldValue.serverTimestamp(),
+          ...?extra,
+        });
   }
 
   void listenToAllRequests() {
@@ -294,10 +292,7 @@ class RequestProvider extends ChangeNotifier {
         .collection(FirestorePaths.requests)
         .orderBy('createdAt', descending: true);
 
-    _bindQuery(
-      query,
-      listenerName: 'all_requests',
-    );
+    _bindQuery(query, listenerName: 'all_requests');
   }
 
   void listenToMyRequests() {
@@ -314,27 +309,60 @@ class RequestProvider extends ChangeNotifier {
         .where('customerId', isEqualTo: uid)
         .orderBy('createdAt', descending: true);
 
-    _bindQuery(
-      query,
-      listenerName: 'customer_requests',
-    );
+    _bindQuery(query, listenerName: 'customer_requests');
   }
 
   void listenToOpenRequests() {
-    final query = _db
-        .collection(FirestorePaths.requests)
-        .where('status', whereIn: ['newRequest', 'checkingAvailability', 'available'])
-        .orderBy('createdAt', descending: true);
+    final query = _db.collection(FirestorePaths.requests);
 
-    _bindQuery(
-      query,
-      listenerName: 'open_requests',
+    _requestsSubscription?.cancel();
+    _activeListener = 'open_requests';
+    _setLoading(true);
+    _setError(null);
+
+    _requestsSubscription = query.snapshots().listen(
+      (snapshot) {
+        final allowedStatuses = {
+          'newRequest',
+          'checkingAvailability',
+          'available',
+        };
+
+        final items = snapshot.docs
+            .map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id;
+              return data;
+            })
+            .where((item) {
+              final status = (item['status'] ?? '').toString();
+              return allowedStatuses.contains(status);
+            })
+            .toList();
+
+        DateTime readDate(dynamic value) {
+          if (value is Timestamp) return value.toDate();
+          return DateTime.fromMillisecondsSinceEpoch(0);
+        }
+
+        items.sort((a, b) {
+          final aDate = readDate(a['createdAt']);
+          final bDate = readDate(b['createdAt']);
+          return bDate.compareTo(aDate);
+        });
+
+        requests = items;
+        _setLoading(false);
+      },
+      onError: (error) {
+        requests = [];
+        _setError(error.toString());
+        _setLoading(false);
+      },
     );
   }
 
-  void listenToWorkerRequests({
-    bool includeOpenRequests = false,
-  }) {
+  void listenToWorkerRequests({bool includeOpenRequests = false}) {
     final uid = currentUserId;
     if (uid == null) {
       requests = [];
@@ -353,10 +381,7 @@ class RequestProvider extends ChangeNotifier {
         .where('workerId', isEqualTo: uid)
         .orderBy('updatedAt', descending: true);
 
-    _bindQuery(
-      query,
-      listenerName: 'worker_requests_assigned_only',
-    );
+    _bindQuery(query, listenerName: 'worker_requests_assigned_only');
   }
 
   void listenToDriverRequests() {
@@ -373,10 +398,7 @@ class RequestProvider extends ChangeNotifier {
         .where('assignedDriverId', isEqualTo: uid)
         .orderBy('updatedAt', descending: true);
 
-    _bindQuery(
-      query,
-      listenerName: 'driver_requests',
-    );
+    _bindQuery(query, listenerName: 'driver_requests');
   }
 
   Future<void> addRequest(Map<String, dynamic> data) async {
@@ -515,9 +537,7 @@ class RequestProvider extends ChangeNotifier {
       type: 'driver_assigned',
       requestId: requestId,
       dedupWithin: const Duration(hours: 12),
-      extra: {
-        'deliveryStatus': 'pending_pickup',
-      },
+      extra: {'deliveryStatus': 'pending_pickup'},
     );
 
     final customerId = (requestData['customerId'] ?? '').toString();
@@ -553,9 +573,7 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> markDriverPickedUp({
-    required String requestId,
-  }) async {
+  Future<void> markDriverPickedUp({required String requestId}) async {
     final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
     final requestSnap = await requestRef.get();
     final requestData = requestSnap.data() ?? <String, dynamic>{};
@@ -588,9 +606,7 @@ class RequestProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> markDriverOnTheWay({
-    required String requestId,
-  }) async {
+  Future<void> markDriverOnTheWay({required String requestId}) async {
     final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
     final requestSnap = await requestRef.get();
     final requestData = requestSnap.data() ?? <String, dynamic>{};
@@ -624,9 +640,7 @@ class RequestProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> markDriverDelivered({
-    required String requestId,
-  }) async {
+  Future<void> markDriverDelivered({required String requestId}) async {
     final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
     final requestSnap = await requestRef.get();
     final requestData = requestSnap.data() ?? <String, dynamic>{};
@@ -660,11 +674,11 @@ class RequestProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> markRequestShipped({
-    required String requestId,
-  }) async {
-    final requestSnap =
-        await _db.collection(FirestorePaths.requests).doc(requestId).get();
+  Future<void> markRequestShipped({required String requestId}) async {
+    final requestSnap = await _db
+        .collection(FirestorePaths.requests)
+        .doc(requestId)
+        .get();
     final requestData = requestSnap.data() ?? <String, dynamic>{};
     final customerId = (requestData['customerId'] ?? '').toString();
 
@@ -694,11 +708,11 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> markRequestDelivered({
-    required String requestId,
-  }) async {
-    final requestSnap =
-        await _db.collection(FirestorePaths.requests).doc(requestId).get();
+  Future<void> markRequestDelivered({required String requestId}) async {
+    final requestSnap = await _db
+        .collection(FirestorePaths.requests)
+        .doc(requestId)
+        .get();
     final requestData = requestSnap.data() ?? <String, dynamic>{};
     final customerId = (requestData['customerId'] ?? '').toString();
 
@@ -737,8 +751,10 @@ class RequestProvider extends ChangeNotifier {
       throw Exception('لا يوجد مستخدم مسجل');
     }
 
-    final requestSnap =
-        await _db.collection(FirestorePaths.requests).doc(requestId).get();
+    final requestSnap = await _db
+        .collection(FirestorePaths.requests)
+        .doc(requestId)
+        .get();
     final requestData = requestSnap.data() ?? <String, dynamic>{};
     final customerId = (requestData['customerId'] ?? '').toString();
 
@@ -757,10 +773,7 @@ class RequestProvider extends ChangeNotifier {
     });
 
     await _incrementRequestNewOffersCounter(requestId: requestId);
-    await _updateBestOfferPrice(
-      requestId: requestId,
-      offerPrice: price,
-    );
+    await _updateBestOfferPrice(requestId: requestId, offerPrice: price);
 
     await _db.collection(FirestorePaths.requests).doc(requestId).set({
       'status': 'available',
@@ -774,10 +787,7 @@ class RequestProvider extends ChangeNotifier {
       description: 'تم إرسال عرض سعر جديد على الطلب.',
       actorId: uid,
       actorRole: 'worker',
-      extra: {
-        'offerId': offerRef.id,
-        'price': price,
-      },
+      extra: {'offerId': offerRef.id, 'price': price},
     );
 
     await _sendUserNotification(
@@ -788,10 +798,7 @@ class RequestProvider extends ChangeNotifier {
       requestId: requestId,
       secondaryId: offerRef.id,
       dedupWithin: const Duration(hours: 24),
-      extra: {
-        'offerId': offerRef.id,
-        'price': price,
-      },
+      extra: {'offerId': offerRef.id, 'price': price},
     );
   }
 
@@ -831,8 +838,8 @@ class RequestProvider extends ChangeNotifier {
           ? (offerData['price'] as num).toDouble()
           : 0.0;
 
-      final listedByWorkerId =
-          (requestData['listedByWorkerId'] ?? '').toString();
+      final listedByWorkerId = (requestData['listedByWorkerId'] ?? '')
+          .toString();
 
       final commissionEligible =
           listedByWorkerId.isNotEmpty && listedByWorkerId == workerId;
@@ -908,10 +915,7 @@ class RequestProvider extends ChangeNotifier {
 
     final driverId = await _findPrimaryDriverId();
     if (driverId != null && driverId.isNotEmpty) {
-      await assignRequestToDriver(
-        requestId: requestId,
-        driverId: driverId,
-      );
+      await assignRequestToDriver(requestId: requestId, driverId: driverId);
     } else {
       await _addTimelineEvent(
         requestId: requestId,
