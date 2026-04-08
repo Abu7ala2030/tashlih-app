@@ -61,13 +61,18 @@ class ChatsListScreen extends StatelessWidget {
     if (value is! Timestamp) return '';
     final date = value.toDate();
     final now = DateTime.now();
+
     final sameDay =
-        date.year == now.year && date.month == now.month && date.day == now.day;
+        date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+
     if (sameDay) {
       final h = date.hour.toString().padLeft(2, '0');
       final m = date.minute.toString().padLeft(2, '0');
       return '$h:$m';
     }
+
     return '${date.day}/${date.month}';
   }
 
@@ -78,20 +83,33 @@ class ChatsListScreen extends StatelessWidget {
     final chats = FirebaseFirestore.instance.collection('chats');
 
     if (role == 'worker') {
-      return chats
-          .where('workerId', isEqualTo: uid)
-          .orderBy('lastMessageAt', descending: true)
-          .snapshots();
+      return chats.where('workerId', isEqualTo: uid).snapshots();
     }
 
     if (role == 'customer') {
-      return chats
-          .where('customerId', isEqualTo: uid)
-          .orderBy('lastMessageAt', descending: true)
-          .snapshots();
+      return chats.where('customerId', isEqualTo: uid).snapshots();
     }
 
-    return chats.orderBy('lastMessageAt', descending: true).snapshots();
+    return chats.snapshots();
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _sortedChats(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final items = [...docs];
+
+    DateTime readDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    items.sort((a, b) {
+      final aDate = readDate(a.data()['lastMessageAt']);
+      final bDate = readDate(b.data()['lastMessageAt']);
+      return bDate.compareTo(aDate);
+    });
+
+    return items;
   }
 
   @override
@@ -140,7 +158,8 @@ class ChatsListScreen extends StatelessWidget {
                   );
                 }
 
-                final chatDocs = chatSnapshot.data?.docs ?? [];
+                final rawDocs = chatSnapshot.data?.docs ?? [];
+                final chatDocs = _sortedChats(rawDocs);
 
                 if (chatDocs.isEmpty) {
                   return const Center(
@@ -164,15 +183,23 @@ class ChatsListScreen extends StatelessWidget {
                     final chat = chatDoc.data();
 
                     final chatId = chatDoc.id;
-                    final requestId = (chat['requestId'] ?? '').toString().trim();
-                    final customerId =
-                        (chat['customerId'] ?? '').toString().trim();
-                    final workerId = (chat['workerId'] ?? '').toString().trim();
-                    final lastMessage =
-                        (chat['lastMessage'] ?? '').toString().trim();
+                    final requestId = (chat['requestId'] ?? '')
+                        .toString()
+                        .trim();
+                    final customerId = (chat['customerId'] ?? '')
+                        .toString()
+                        .trim();
+                    final workerId = (chat['workerId'] ?? '')
+                        .toString()
+                        .trim();
+                    final lastMessage = (chat['lastMessage'] ?? '')
+                        .toString()
+                        .trim();
                     final lastMessageAt = chat['lastMessageAt'];
 
-                    final otherUserId = uid == customerId ? workerId : customerId;
+                    final otherUserId = uid == customerId
+                        ? workerId
+                        : customerId;
 
                     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                       stream: FirebaseFirestore.instance
@@ -181,34 +208,43 @@ class ChatsListScreen extends StatelessWidget {
                           .snapshots(),
                       builder: (context, userSnapshot) {
                         final user = userSnapshot.data?.data() ?? {};
-                        final otherName =
-                            (user['name'] ?? 'مستخدم').toString().trim();
+                        final otherName = (user['name'] ?? 'مستخدم')
+                            .toString()
+                            .trim();
 
-                        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        return StreamBuilder<
+                            DocumentSnapshot<Map<String, dynamic>>>(
                           stream: FirebaseFirestore.instance
                               .collection('requests')
                               .doc(requestId)
                               .snapshots(),
                           builder: (context, requestSnapshot) {
                             final request = requestSnapshot.data?.data() ?? {};
-                            final partName =
-                                (request['partName'] ?? 'طلب بدون اسم')
-                                    .toString()
-                                    .trim();
-                            final vehicleMake =
-                                (request['vehicleMake'] ?? '').toString().trim();
-                            final vehicleModel =
-                                (request['vehicleModel'] ?? '').toString().trim();
-                            final vehicleYear =
-                                (request['vehicleYear'] ?? '').toString().trim();
-                            final city =
-                                (request['city'] ?? '').toString().trim();
-                            final status =
-                                (request['status'] ?? '').toString().trim();
+                            final partName = (request['partName'] ??
+                                    'طلب بدون اسم')
+                                .toString()
+                                .trim();
+                            final vehicleMake = (request['vehicleMake'] ?? '')
+                                .toString()
+                                .trim();
+                            final vehicleModel = (request['vehicleModel'] ?? '')
+                                .toString()
+                                .trim();
+                            final vehicleYear = (request['vehicleYear'] ?? '')
+                                .toString()
+                                .trim();
+                            final city = (request['city'] ?? '')
+                                .toString()
+                                .trim();
+                            final status = (request['status'] ?? '')
+                                .toString()
+                                .trim();
 
                             final vehicle =
-                                '$vehicleMake $vehicleModel $vehicleYear'.trim();
+                                '$vehicleMake $vehicleModel $vehicleYear'
+                                    .trim();
                             final statusColor = _statusColor(status);
+
                             final unreadCount = uid == customerId
                                 ? (chat['customerUnreadCount'] ?? 0)
                                 : (chat['workerUnreadCount'] ?? 0);
@@ -241,8 +277,7 @@ class ChatsListScreen extends StatelessWidget {
                                         children: [
                                           CircleAvatar(
                                             radius: 22,
-                                            backgroundColor:
-                                                Colors.white10,
+                                            backgroundColor: Colors.white10,
                                             child: Text(
                                               otherName.isEmpty
                                                   ? '?'
@@ -311,7 +346,8 @@ class ChatsListScreen extends StatelessWidget {
                                                     color: Colors.redAccent,
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                            999),
+                                                          999,
+                                                        ),
                                                   ),
                                                   child: Text(
                                                     unreadCount.toString(),
@@ -340,8 +376,8 @@ class ChatsListScreen extends StatelessWidget {
                                           ),
                                           if (city.isNotEmpty)
                                             _InfoChip(
-                                              icon:
-                                                  Icons.location_city_outlined,
+                                              icon: Icons
+                                                  .location_city_outlined,
                                               text: city,
                                             ),
                                           if (vehicle.isNotEmpty)
@@ -362,7 +398,8 @@ class ChatsListScreen extends StatelessWidget {
                                             ),
                                             decoration: BoxDecoration(
                                               color: statusColor.withOpacity(
-                                                  0.16),
+                                                0.16,
+                                              ),
                                               borderRadius:
                                                   BorderRadius.circular(999),
                                             ),
