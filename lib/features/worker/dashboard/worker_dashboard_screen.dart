@@ -5,6 +5,7 @@ import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../providers/request_provider.dart';
 import '../../../providers/vehicle_provider.dart';
+import '../../chat/chats_list_screen.dart';
 import '../profile/worker_profile_screen.dart';
 import '../requests/worker_request_details_screen.dart';
 import '../vehicles/add_vehicle_screen.dart';
@@ -41,9 +42,10 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const _WorkerOverviewTab(),
+      _WorkerOverviewTab(onOpenChats: () => setState(() => _currentIndex = 3)),
       const _WorkerRequestsTab(),
       const _WorkerVehiclesTab(),
+      const ChatsListScreen(),
       const WorkerProfileScreen(),
     ];
 
@@ -69,6 +71,11 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
             icon: Icon(Icons.directions_car_outlined),
             selectedIcon: Icon(Icons.directions_car),
             label: 'مركباتي',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'المحادثات',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -451,7 +458,11 @@ class _WorkerVehiclesTab extends StatelessWidget {
 }
 
 class _WorkerOverviewTab extends StatelessWidget {
-  const _WorkerOverviewTab();
+  final VoidCallback onOpenChats;
+
+  const _WorkerOverviewTab({
+    required this.onOpenChats,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -469,9 +480,6 @@ class _WorkerOverviewTab extends StatelessWidget {
         .toList();
     final publishedVehicles = myVehicles
         .where((v) => (v['status'] ?? '') == 'published')
-        .toList();
-    final rejectedVehicles = myVehicles
-        .where((v) => (v['status'] ?? '') == 'rejected')
         .toList();
 
     final myRequests = requestProvider.requests;
@@ -554,7 +562,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'أضف مركباتك من تبويب "مركباتي" ثم تابع طلباتك المسندة لك فقط لتقليل الضغط على التطبيق.',
+                        'أضف مركباتك من تبويب "مركباتي" ثم تابع طلباتك ومحادثاتك من نفس التطبيق.',
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w900,
@@ -562,6 +570,19 @@ class _WorkerOverviewTab extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onOpenChats,
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('فتح المحادثات'),
                   ),
                 ),
               ),

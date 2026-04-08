@@ -5,6 +5,7 @@ import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/hero_vehicle_banner.dart';
 import '../../../core/widgets/vehicle_section_row.dart';
 import '../../../providers/vehicle_provider.dart';
+import '../../chat/chats_list_screen.dart';
 import '../../shared/notifications/notification_bell_button.dart';
 import '../profile/customer_profile_screen.dart';
 import '../requests/my_requests_screen.dart';
@@ -24,9 +25,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final pages = [
       _CustomerBrowseTab(
         onOpenRequests: () => setState(() => _currentIndex = 1),
-        onOpenProfile: () => setState(() => _currentIndex = 2),
+        onOpenChats: () => setState(() => _currentIndex = 2),
+        onOpenProfile: () => setState(() => _currentIndex = 3),
       ),
       const MyRequestsScreen(),
+      const ChatsListScreen(),
       const CustomerProfileScreen(),
     ];
 
@@ -52,6 +55,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             label: 'طلباتي',
           ),
           NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'المحادثات',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'الحساب',
@@ -64,10 +72,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
 class _CustomerBrowseTab extends StatelessWidget {
   final VoidCallback onOpenRequests;
+  final VoidCallback onOpenChats;
   final VoidCallback onOpenProfile;
 
   const _CustomerBrowseTab({
     required this.onOpenRequests,
+    required this.onOpenChats,
     required this.onOpenProfile,
   });
 
@@ -156,13 +166,27 @@ class _CustomerBrowseTab extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _QuickActionCard(
-                        icon: Icons.person_outline,
-                        title: 'حسابي',
-                        subtitle: 'بياناتي وإعداداتي',
-                        onTap: onOpenProfile,
+                        icon: Icons.chat_bubble_outline,
+                        title: 'المحادثات',
+                        subtitle: 'كل محادثة مرتبطة بطلب',
+                        onTap: onOpenChats,
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: _QuickActionCard(
+                    icon: Icons.person_outline,
+                    title: 'حسابي',
+                    subtitle: 'بياناتي وإعداداتي',
+                    onTap: onOpenProfile,
+                  ),
                 ),
               ),
             ),
