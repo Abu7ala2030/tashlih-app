@@ -21,6 +21,8 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController messageController = TextEditingController();
+  final ScrollController scrollController = ScrollController();
+
   bool isSending = false;
   String senderRole = 'customer';
 
@@ -45,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     messageController.dispose();
+    scrollController.dispose();
     super.dispose();
   }
 
@@ -64,6 +67,14 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       messageController.clear();
+
+      if (scrollController.hasClients) {
+        scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,6 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
           .snapshots(),
       builder: (context, snapshot) {
         final request = snapshot.data?.data();
+
         if (request == null) {
           return Container(
             margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -178,6 +190,8 @@ class _ChatScreenState extends State<ChatScreen> {
         final vehicleYear = (request['vehicleYear'] ?? '').toString().trim();
         final city = (request['city'] ?? '-').toString().trim();
         final status = (request['status'] ?? '').toString().trim();
+        final acceptedPrice =
+            (request['acceptedOfferPrice'] ?? '').toString().trim();
 
         final vehicle = '$vehicleMake $vehicleModel $vehicleYear'.trim();
         final statusColor = _statusColor(status);
@@ -189,6 +203,13 @@ class _ChatScreenState extends State<ChatScreen> {
             color: const Color(0xFF1A1D21),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Colors.white10),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.16),
+                      color: statusColor.withOpacity(0.16),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -246,8 +267,68 @@ class _ChatScreenState extends State<ChatScreen> {
                 icon: Icons.tag_outlined,
                 text: 'طلب #${_requestShortId(requestId)}',
               ),
+              if (acceptedPrice.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _HeaderMetaRow(
+                  icon: Icons.sell_outlined,
+                  text: 'السعر المعتمد: $acceptedPrice ريال',
+                ),
+              ],
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChatAppBarTitle(Map<String, dynamic>? chatData, String myUid) {
+    final customerId = (chatData?['customerId'] ?? '').toString().trim();
+    final workerId = (chatData?['workerId'] ?? '').toString().trim();
+
+    final otherUserId = myUid == customerId ? workerId : customerId;
+
+    if (otherUserId.isEmpty) {
+      return Text(
+        widget.title.isEmpty ? 'المحادثة' : widget.title,
+        style: const TextStyle(color: Colors.white),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(otherUserId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final user = snapshot.data?.data();
+        final name = (user?['name'] ?? widget.title).toString().trim();
+        final role = (user?['role'] ?? '').toString().trim().toLowerCase();
+
+        String roleText = '';
+        if (role == 'customer') roleText = 'عميل';
+        if (role == 'worker') roleText = 'عامل';
+        if (role == 'driver') roleText = 'سائق';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name.isEmpty ? 'المحادثة' : name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (roleText.isNotEmpty)
+              Text(
+                roleText,
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12,
+                ),
+              ),
+          ],
         );
       },
     );
@@ -271,10 +352,8 @@ class _ChatScreenState extends State<ChatScreen> {
           appBar: AppBar(
             backgroundColor: const Color(0xFF0F1115),
             elevation: 0,
-            title: Text(
-              widget.title.isEmpty ? 'المحادثة' : widget.title,
-              style: const TextStyle(color: Colors.white),
-            ),
+            titleSpacing: 0,
+            title: _buildChatAppBarTitle(chatData, currentUserId),
           ),
           body: SafeArea(
             child: Column(
@@ -286,7 +365,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                       stream: ChatService.instance.streamMessages(widget.chatId),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
@@ -330,6 +410,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         }
 
                         return ListView.builder(
+                          controller: scrollController,
                           reverse: true,
                           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                           itemCount: messages.length,
