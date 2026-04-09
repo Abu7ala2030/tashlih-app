@@ -49,7 +49,8 @@ class AdminRecentRequestTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('العميل: ${request.customerName}'),
-              if (request.city.trim().isNotEmpty) Text('المدينة: ${request.city}'),
+              if (request.city.trim().isNotEmpty)
+                Text('المدينة: ${request.city}'),
               Text('القيمة: ${request.amount.toStringAsFixed(2)} ر.س'),
               const SizedBox(height: 6),
               Wrap(

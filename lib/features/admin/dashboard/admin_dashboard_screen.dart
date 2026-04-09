@@ -8,6 +8,7 @@ import '../requests/admin_request_offers_screen.dart';
 import '../review/review_vehicle_screen.dart';
 import '../workers/manage_workers_screen.dart';
 import 'models/admin_dashboard_stats.dart';
+import 'models/admin_recent_request.dart';
 import 'services/admin_dashboard_service.dart';
 import 'widgets/admin_metric_card.dart';
 import 'widgets/admin_recent_request_tile.dart';
@@ -125,7 +126,7 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
             }
 
             final bundle = snapshot.data ??
-                const AdminDashboardBundle(
+                AdminDashboardBundle(
                   stats: AdminDashboardStats.empty(),
                   recentRequests: [],
                   topWorkers: [],
@@ -399,8 +400,8 @@ class _AdminRequestsTab extends StatelessWidget {
     );
   }
 
-  _RequestTileAdapter _requestFromMap(Map<String, dynamic> data) {
-    return _RequestTileAdapter(
+  AdminRecentRequest _requestFromMap(Map<String, dynamic> data) {
+    return AdminRecentRequest(
       id: (data['id'] ?? '').toString(),
       partName: (data['partName'] ?? 'طلب بدون اسم').toString(),
       customerName: (data['customerName'] ?? 'عميل').toString(),
@@ -432,44 +433,6 @@ class _AdminRequestsTab extends StatelessWidget {
 
     return 0;
   }
-}
-
-class _RequestTileAdapter extends AdminRecentRequestTileData {
-  _RequestTileAdapter({
-    required super.id,
-    required super.partName,
-    required super.customerName,
-    required super.city,
-    required super.status,
-    required super.workerId,
-    required super.driverId,
-    required super.amount,
-    required super.createdAt,
-  });
-}
-
-abstract class AdminRecentRequestTileData {
-  final String id;
-  final String partName;
-  final String customerName;
-  final String city;
-  final String status;
-  final String workerId;
-  final String driverId;
-  final double amount;
-  final DateTime? createdAt;
-
-  AdminRecentRequestTileData({
-    required this.id,
-    required this.partName,
-    required this.customerName,
-    required this.city,
-    required this.status,
-    required this.workerId,
-    required this.driverId,
-    required this.amount,
-    required this.createdAt,
-  });
 }
 
 class _SectionHeader extends StatelessWidget {

@@ -385,18 +385,10 @@ class AdminDashboardService {
   }
 
   DateTime? _extractBestRequestDate(Map<String, dynamic> request) {
-    return _timestampToDateTime(
-          request['deliveredAt'],
-        ) ??
-        _timestampToDateTime(
-          request['completedAt'],
-        ) ??
-        _timestampToDateTime(
-          request['assignedAt'],
-        ) ??
-        _timestampToDateTime(
-          request['createdAt'],
-        );
+    return _timestampToDateTime(request['deliveredAt']) ??
+        _timestampToDateTime(request['completedAt']) ??
+        _timestampToDateTime(request['assignedAt']) ??
+        _timestampToDateTime(request['createdAt']);
   }
 
   DateTime? _timestampToDateTime(dynamic value) {
