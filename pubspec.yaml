@@ -1,6 +1,6 @@
 name: tashlih_app
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -11,8 +11,13 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
+
   firebase_core: ^4.0.0
   cloud_firestore: ^6.0.0
   firebase_storage: ^13.2.0
@@ -22,7 +27,6 @@ dependencies:
   path_provider: ^2.1.5
   firebase_messaging: ^16.0.0
   flutter_local_notifications: ^19.0.0
-  
 
   # Live tracking
   google_maps_flutter: ^2.12.3
@@ -35,7 +39,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  intl: ^0.19.0
 
 flutter:
   uses-material-design: true
