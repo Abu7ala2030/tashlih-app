@@ -184,13 +184,16 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                           ),
                         ),
                       ),
-                      FilledButton.tonalIcon(
-                        onPressed: () {
-                          localeProvider.toggleLocale();
-                        },
-                        icon: const Icon(Icons.language),
-                        label: Text(
-                          localeProvider.isArabic ? 'EN' : 'AR',
+                      const SizedBox(width: 8),
+                      IntrinsicWidth(
+                        child: FilledButton.tonalIcon(
+                          onPressed: () {
+                            localeProvider.toggleLocale();
+                          },
+                          icon: const Icon(Icons.language),
+                          label: Text(
+                            localeProvider.isArabic ? 'EN' : 'AR',
+                          ),
                         ),
                       ),
                     ],
