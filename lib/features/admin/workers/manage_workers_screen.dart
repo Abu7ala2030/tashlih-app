@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import 'admin_worker_details_screen.dart';
+import '../drivers/admin_driver_live_screen.dart';
 
 class ManageWorkersScreen extends StatefulWidget {
   const ManageWorkersScreen({super.key});
@@ -41,18 +42,12 @@ class _ManageWorkersScreenState extends State<ManageWorkersScreen>
                 children: [
                   Text(
                     'إدارة العمال والسائقين',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'متابعة الحسابات والحالة التشغيلية بشكل مباشر',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      height: 1.5,
-                    ),
+                    style: TextStyle(color: Colors.white70, height: 1.5),
                   ),
                 ],
               ),
@@ -123,9 +118,7 @@ class _PeopleTab extends StatelessWidget {
       future: _loadPeople(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
@@ -146,10 +139,7 @@ class _PeopleTab extends StatelessWidget {
           return Center(
             child: Text(
               emptyText,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           );
         }
@@ -173,16 +163,29 @@ class _PeopleTab extends StatelessWidget {
               ),
               child: ListTile(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AdminWorkerDetailsScreen(
-                        personId: (person['id'] ?? '').toString(),
-                        role: role,
-                        initialData: person,
+                  final id = (person['id'] ?? '').toString();
+
+                  if (role == 'driver') {
+                    // 🚚 صفحة الحالة المباشرة للسائق
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdminDriverLiveScreen(driverId: id),
                       ),
-                    ),
-                  );
+                    );
+                  } else {
+                    // 👤 صفحة تفاصيل العامل
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdminWorkerDetailsScreen(
+                          personId: id,
+                          role: role,
+                          initialData: person,
+                        ),
+                      ),
+                    );
+                  }
                 },
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -199,9 +202,7 @@ class _PeopleTab extends StatelessWidget {
                 ),
                 title: Text(
                   name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -256,12 +257,7 @@ class _PeopleTab extends StatelessWidget {
 
     final primary = await db.collection(primaryCollection).get();
     if (primary.docs.isNotEmpty) {
-      return primary.docs
-          .map((doc) => {
-                'id': doc.id,
-                ...doc.data(),
-              })
-          .toList();
+      return primary.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
     }
 
     final fallback = await db
@@ -269,12 +265,7 @@ class _PeopleTab extends StatelessWidget {
         .where('role', isEqualTo: fallbackRole)
         .get();
 
-    return fallback.docs
-        .map((doc) => {
-              'id': doc.id,
-              ...doc.data(),
-            })
-        .toList();
+    return fallback.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
   }
 
   String _name(Map<String, dynamic> data) {
@@ -294,11 +285,7 @@ class _PeopleTab extends StatelessWidget {
   }
 
   String _phone(Map<String, dynamic> data) {
-    final candidates = [
-      data['phone'],
-      data['mobile'],
-      data['phoneNumber'],
-    ];
+    final candidates = [data['phone'], data['mobile'], data['phoneNumber']];
 
     for (final value in candidates) {
       final text = (value ?? '').toString().trim();
