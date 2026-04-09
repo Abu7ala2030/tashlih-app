@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/services/chat_service.dart';
-import 'chat_screen.dart';
 
 class ConversationsScreen extends StatelessWidget {
   final String senderRole;
@@ -50,7 +49,7 @@ class ConversationsScreen extends StatelessWidget {
               final data = doc.data();
 
               final customerId = (data['customerId'] ?? '').toString();
-              final workerId = (data['workerId'] ?? '').toString();
+              //final workerId = (data['workerId'] ?? '').toString();
               final requestId = (data['requestId'] ?? '').toString();
               final lastMessage = (data['lastMessage'] ?? '').toString();
 

@@ -218,7 +218,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     phone: phone,
                                   );
 
-                                  if (!mounted) return;
+                                  if (!context.mounted) return;
                                   Navigator.pop(context);
                                   setState(() {});
 
@@ -228,7 +228,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                     ),
                                   );
                                 } catch (e) {
-                                  if (!mounted) return;
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content:
@@ -832,14 +832,12 @@ class _InputField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String hint;
-  final int maxLines;
   final TextInputType? keyboardType;
 
   const _InputField({
     required this.controller,
     required this.label,
     required this.hint,
-    this.maxLines = 1,
     this.keyboardType,
   });
 
@@ -857,7 +855,6 @@ class _InputField extends StatelessWidget {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
-          maxLines: maxLines,
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,

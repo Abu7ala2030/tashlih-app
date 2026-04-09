@@ -883,8 +883,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ts is Timestamp ? _formatFriendlyDate(ts.toDate()) : 'بدون وقت';
 
     final borderColor = isRead
-        ? (isPriority ? Colors.red.withOpacity(.25) : Colors.white10)
-        : (isPriority ? Colors.red.withOpacity(.65) : visual.color.withOpacity(.55));
+        ? (isPriority ? Colors.red.withValues(alpha: 64) : Colors.white10)
+        : (isPriority ? Colors.red.withValues(alpha: 166) : visual.color.withValues(alpha: 141));
 
     final backgroundColor = isPriority
         ? (isRead ? const Color(0xFF21181A) : const Color(0xFF2B2023))
@@ -903,7 +903,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         boxShadow: isPriority
             ? [
                 BoxShadow(
-                  color: Colors.red.withOpacity(.08),
+                  color: Colors.red.withValues(alpha: 20),
                   blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
@@ -917,7 +917,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: visual.color.withOpacity(.18),
+              color: visual.color.withValues(alpha: .18),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
@@ -974,7 +974,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: visual.color.withOpacity(.18),
+                          color: visual.color.withValues(alpha: .18),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(

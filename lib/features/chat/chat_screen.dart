@@ -9,7 +9,11 @@ class ChatScreen extends StatefulWidget {
   final String chatId;
   final String title;
 
-  const ChatScreen({super.key, required this.chatId, required this.title});
+  const ChatScreen({
+    super.key,
+    required this.chatId,
+    required this.title,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -74,9 +78,9 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('فشل إرسال الرسالة: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل إرسال الرسالة: $e')),
+      );
     } finally {
       if (mounted) {
         setState(() => isSending = false);
@@ -187,9 +191,8 @@ class _ChatScreenState extends State<ChatScreen> {
         final vehicleYear = (request['vehicleYear'] ?? '').toString().trim();
         final city = (request['city'] ?? '-').toString().trim();
         final status = (request['status'] ?? '').toString().trim();
-        final acceptedPrice = (request['acceptedOfferPrice'] ?? '')
-            .toString()
-            .trim();
+        final acceptedPrice =
+            (request['acceptedOfferPrice'] ?? '').toString().trim();
 
         final vehicle = '$vehicleMake $vehicleModel $vehicleYear'.trim();
         final statusColor = _statusColor(status);
@@ -321,7 +324,10 @@ class _ChatScreenState extends State<ChatScreen> {
             if (roleText.isNotEmpty)
               Text(
                 roleText,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12,
+                ),
               ),
           ],
         );
@@ -358,9 +364,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Container(
                     color: const Color(0xFF0F1115),
                     child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: ChatService.instance.streamMessages(
-                        widget.chatId,
-                      ),
+                      stream: ChatService.instance.streamMessages(widget.chatId),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
@@ -413,61 +417,70 @@ class _ChatScreenState extends State<ChatScreen> {
                           itemCount: messages.length,
                           itemBuilder: (context, index) {
                             final data = messages[index].data();
-                            final senderId = (data['senderId'] ?? '')
-                                .toString();
-                            final type = (data['type'] ?? 'text').toString();
+                            final senderId = (data['senderId'] ?? '').toString();
                             final text = (data['text'] ?? '').toString();
                             final isMe = senderId == currentUserId;
 
-                            if (type == 'system') {
-                              return Center(
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 320,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white10,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.white10),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      const Text(
-                                        'رسالة نظام',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        text,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          height: 1.6,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        _formatTime(data['createdAt']),
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                            return Align(
+                              alignment: isMe
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
                                 ),
-                              );
-                            }
+                                constraints: BoxConstraints(
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.75,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isMe
+                                      ? const Color(0xFF2563EB)
+                                      : const Color(0xFF1F2937),
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(16),
+                                    topRight: const Radius.circular(16),
+                                    bottomLeft:
+                                        Radius.circular(isMe ? 16 : 4),
+                                    bottomRight:
+                                        Radius.circular(isMe ? 4 : 16),
+                                  ),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: isMe
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      text.isEmpty ? '...' : text,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        height: 1.5,
+                                        shadows: [
+                                          Shadow(
+                                            blurRadius: 2,
+                                            color: Colors.black45,
+                                            offset: Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _formatTime(data['createdAt']),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
                           },
                         );
                       },
@@ -478,7 +491,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   decoration: const BoxDecoration(
                     color: Color(0xFF0F1115),
-                    border: Border(top: BorderSide(color: Colors.white10)),
+                    border: Border(
+                      top: BorderSide(color: Colors.white10),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -490,7 +505,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             hintText: 'اكتب رسالتك...',
-                            hintStyle: const TextStyle(color: Colors.white54),
+                            hintStyle:
+                                const TextStyle(color: Colors.white54),
                             filled: true,
                             fillColor: const Color(0xFF1A1D21),
                             contentPadding: const EdgeInsets.symmetric(
@@ -507,9 +523,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Colors.white24,
-                              ),
+                              borderSide:
+                                  const BorderSide(color: Colors.white24),
                             ),
                           ),
                         ),
@@ -553,7 +568,10 @@ class _HeaderMetaRow extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _HeaderMetaRow({required this.icon, required this.text});
+  const _HeaderMetaRow({
+    required this.icon,
+    required this.text,
+  });
 
   @override
   Widget build(BuildContext context) {
