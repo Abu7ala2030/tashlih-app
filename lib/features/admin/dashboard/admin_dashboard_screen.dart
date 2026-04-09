@@ -193,7 +193,7 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 1.25,
+                    childAspectRatio: 0.92,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [

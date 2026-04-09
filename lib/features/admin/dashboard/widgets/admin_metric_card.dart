@@ -16,8 +16,10 @@ class AdminMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1D21),
         borderRadius: BorderRadius.circular(20),
@@ -27,37 +29,50 @@ class AdminMetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 22,
+            radius: 20,
             backgroundColor: Colors.white10,
-            child: Icon(icon),
+            child: Icon(icon, size: 20),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white70,
               fontWeight: FontWeight.w700,
+              height: 1.3,
             ),
           ),
-          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+          if (hasSubtitle) ...[
             const SizedBox(height: 8),
-            Text(
-              subtitle!,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
-                height: 1.4,
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomRight,
+                child: Text(
+                  subtitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
               ),
             ),
-          ],
+          ] else
+            const Spacer(),
         ],
       ),
     );
