@@ -23,11 +23,11 @@ class PushNotificationService {
 
   static const AndroidNotificationChannel _defaultChannel =
       AndroidNotificationChannel(
-    'high_importance_channel',
-    'High Importance Notifications',
-    description: 'Used for important notifications.',
-    importance: Importance.max,
-  );
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'Used for important notifications.',
+        importance: Importance.max,
+      );
 
   String? _lastSavedToken;
   bool _listenersRegistered = false;
@@ -63,8 +63,9 @@ class PushNotificationService {
   }
 
   Future<void> _initializeLocalNotifications() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
     const darwinSettings = DarwinInitializationSettings();
 
@@ -85,9 +86,7 @@ class PushNotificationService {
           if (decoded is Map<String, dynamic>) {
             await _handleNotificationData(decoded);
           } else if (decoded is Map) {
-            await _handleNotificationData(
-              Map<String, dynamic>.from(decoded),
-            );
+            await _handleNotificationData(Map<String, dynamic>.from(decoded));
           }
         } catch (e) {
           debugPrint('Failed to parse notification payload: $e');
@@ -95,37 +94,31 @@ class PushNotificationService {
       },
     );
 
-    final androidPlugin =
-        _localNotifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     await androidPlugin?.createNotificationChannel(_defaultChannel);
     await androidPlugin?.requestNotificationsPermission();
 
     final iosPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
-    await iosPlugin?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    await iosPlugin?.requestPermissions(alert: true, badge: true, sound: true);
 
     final macPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
-            MacOSFlutterLocalNotificationsPlugin>();
-    await macPlugin?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+          MacOSFlutterLocalNotificationsPlugin
+        >();
+    await macPlugin?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
     final notification = message.notification;
     final data = message.data;
-
-    final title = (notification?.title ?? data['title'] ?? 'إشعار جديد')
+    final title = (notification?.title ?? data['title'] ?? 'New notification')
         .toString()
         .trim();
     final body = (notification?.body ?? data['body'] ?? '').toString().trim();
@@ -151,8 +144,9 @@ class PushNotificationService {
 
     final payload = jsonEncode(Map<String, dynamic>.from(data));
 
-    final notificationId =
-        DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(
+      100000,
+    );
 
     await _localNotifications.show(
       notificationId,
@@ -181,10 +175,10 @@ class PushNotificationService {
     if (Platform.isIOS || Platform.isMacOS) {
       await FirebaseMessaging.instance
           .setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+            alert: true,
+            badge: true,
+            sound: true,
+          );
     }
   }
 
@@ -237,12 +231,12 @@ class PushNotificationService {
         .collection('deviceTokens')
         .doc(token)
         .set({
-      'token': token,
-      'platform': Platform.isAndroid
-          ? 'android'
-          : (Platform.isIOS ? 'ios' : 'other'),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+          'token': token,
+          'platform': Platform.isAndroid
+              ? 'android'
+              : (Platform.isIOS ? 'ios' : 'other'),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
   }
 }
