@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/locale_provider.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../finance/admin_commissions_screen.dart';
@@ -26,6 +29,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final pages = [
       const _AdminOverviewTab(),
       const _AdminRequestsTab(),
@@ -44,31 +49,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'الرئيسية',
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard),
+            label: l10n.translate('nav_home'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'الطلبات',
+            icon: const Icon(Icons.assignment_outlined),
+            selectedIcon: const Icon(Icons.assignment),
+            label: l10n.translate('nav_requests'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'العمال',
+            icon: const Icon(Icons.groups_outlined),
+            selectedIcon: const Icon(Icons.groups),
+            label: l10n.translate('nav_workers'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.payments_outlined),
-            selectedIcon: Icon(Icons.payments),
-            label: 'المالية',
+            icon: const Icon(Icons.payments_outlined),
+            selectedIcon: const Icon(Icons.payments),
+            label: l10n.translate('nav_finance'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.fact_check_outlined),
-            selectedIcon: Icon(Icons.fact_check),
-            label: 'المراجعة',
+            icon: const Icon(Icons.fact_check_outlined),
+            selectedIcon: const Icon(Icons.fact_check),
+            label: l10n.translate('nav_review'),
           ),
         ],
       ),
@@ -108,21 +113,29 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
     });
   }
 
-  String _rangeLabel(AdminDashboardRange range) {
+  String _rangeLabel(
+    BuildContext context,
+    AdminDashboardRange range,
+  ) {
+    final l10n = AppLocalizations.of(context);
+
     switch (range) {
       case AdminDashboardRange.today:
-        return 'اليوم';
+        return l10n.translate('range_today');
       case AdminDashboardRange.week:
-        return 'الأسبوع';
+        return l10n.translate('range_week');
       case AdminDashboardRange.month:
-        return 'الشهر';
+        return l10n.translate('range_month');
       case AdminDashboardRange.all:
-        return 'الكل';
+        return l10n.translate('range_all');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final localeProvider = context.watch<LocaleProvider>();
+
     return AppGradientBackground(
       child: SafeArea(
         child: FutureBuilder<AdminDashboardBundle>(
@@ -139,7 +152,7 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    'فشل تحميل لوحة المدير:\n${snapshot.error}',
+                    '${l10n.translate('load_dashboard_failed')}\n${snapshot.error}',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -160,16 +173,31 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
                 children: [
-                  const Text(
-                    'لوحة تحكم المدير',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.translate('admin_dashboard'),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: () {
+                          localeProvider.toggleLocale();
+                        },
+                        icon: const Icon(Icons.language),
+                        label: Text(
+                          localeProvider.isArabic ? 'EN' : 'AR',
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'نظرة تشغيلية مباشرة على الطلبات والإيرادات والعمال • الفترة: ${_rangeLabel(_selectedRange)}',
+                    '${l10n.translate('dashboard_overview')} • ${l10n.translate('period')}: ${_rangeLabel(context, _selectedRange)}',
                     style: const TextStyle(
                       color: Colors.white70,
                       height: 1.5,
@@ -181,22 +209,22 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                     runSpacing: 10,
                     children: [
                       _RangeChip(
-                        label: 'اليوم',
+                        label: l10n.translate('range_today'),
                         selected: _selectedRange == AdminDashboardRange.today,
                         onTap: () => _changeRange(AdminDashboardRange.today),
                       ),
                       _RangeChip(
-                        label: 'الأسبوع',
+                        label: l10n.translate('range_week'),
                         selected: _selectedRange == AdminDashboardRange.week,
                         onTap: () => _changeRange(AdminDashboardRange.week),
                       ),
                       _RangeChip(
-                        label: 'الشهر',
+                        label: l10n.translate('range_month'),
                         selected: _selectedRange == AdminDashboardRange.month,
                         onTap: () => _changeRange(AdminDashboardRange.month),
                       ),
                       _RangeChip(
-                        label: 'الكل',
+                        label: l10n.translate('range_all'),
                         selected: _selectedRange == AdminDashboardRange.all,
                         onTap: () => _changeRange(AdminDashboardRange.all),
                       ),
@@ -217,16 +245,16 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'الملخص التنفيذي',
-                          style: TextStyle(
+                        Text(
+                          l10n.translate('executive_summary'),
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'إجمالي الطلبات ${stats.totalRequests} • الإيرادات ${stats.totalRevenue.toStringAsFixed(2)} ر.س • العمولات ${stats.totalCommission.toStringAsFixed(2)} ر.س',
+                          '${l10n.translate('total_requests')} ${stats.totalRequests} • ${l10n.translate('revenues')} ${stats.totalRevenue.toStringAsFixed(2)} ${l10n.translate('sar')} • ${l10n.translate('commissions')} ${stats.totalCommission.toStringAsFixed(2)} ${l10n.translate('sar')}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -246,78 +274,84 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
                       AdminMetricCard(
-                        label: 'إجمالي الطلبات',
+                        label: l10n.translate('total_requests'),
                         value: stats.totalRequests.toString(),
                         icon: Icons.assignment_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'طلبات جديدة',
+                        label: l10n.translate('new_requests'),
                         value: stats.newRequests.toString(),
                         icon: Icons.fiber_new_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'طلبات نشطة',
+                        label: l10n.translate('active_requests'),
                         value: stats.activeRequests.toString(),
                         icon: Icons.timelapse_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'طلبات مكتملة',
+                        label: l10n.translate('completed_requests'),
                         value: stats.completedRequests.toString(),
                         icon: Icons.check_circle_outline,
                       ),
                       AdminMetricCard(
-                        label: 'طلبات ملغاة',
+                        label: l10n.translate('cancelled_requests'),
                         value: stats.cancelledRequests.toString(),
                         icon: Icons.cancel_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'طلبات متأخرة',
+                        label: l10n.translate('late_requests'),
                         value: stats.lateRequests.toString(),
                         icon: Icons.warning_amber_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'إيراد اليوم',
-                        value: '${stats.todayRevenue.toStringAsFixed(0)} ر.س',
+                        label: l10n.translate('today_revenue'),
+                        value:
+                            '${stats.todayRevenue.toStringAsFixed(0)} ${l10n.translate('sar')}',
                         icon: Icons.today_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'إيراد الأسبوع',
-                        value: '${stats.weekRevenue.toStringAsFixed(0)} ر.س',
+                        label: l10n.translate('week_revenue'),
+                        value:
+                            '${stats.weekRevenue.toStringAsFixed(0)} ${l10n.translate('sar')}',
                         icon: Icons.date_range_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'إيراد الشهر',
-                        value: '${stats.monthRevenue.toStringAsFixed(0)} ر.س',
+                        label: l10n.translate('month_revenue'),
+                        value:
+                            '${stats.monthRevenue.toStringAsFixed(0)} ${l10n.translate('sar')}',
                         icon: Icons.calendar_month_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'إجمالي العمولة',
-                        value: '${stats.totalCommission.toStringAsFixed(0)} ر.س',
+                        label: l10n.translate('total_commission'),
+                        value:
+                            '${stats.totalCommission.toStringAsFixed(0)} ${l10n.translate('sar')}',
                         icon: Icons.payments_outlined,
                       ),
                       AdminMetricCard(
-                        label: 'عدد العمال',
+                        label: l10n.translate('workers_count'),
                         value: stats.totalWorkers.toString(),
                         icon: Icons.groups_2_outlined,
-                        subtitle: 'المتصلون: ${stats.onlineWorkers}',
+                        subtitle:
+                            '${l10n.translate('online_count')}: ${stats.onlineWorkers}',
                       ),
                       AdminMetricCard(
-                        label: 'عدد السائقين',
+                        label: l10n.translate('drivers_count'),
                         value: stats.totalDrivers.toString(),
                         icon: Icons.local_shipping_outlined,
-                        subtitle: 'المتصلون: ${stats.onlineDrivers}',
+                        subtitle:
+                            '${l10n.translate('online_count')}: ${stats.onlineDrivers}',
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  const _SectionHeader(
-                    title: 'آخر الطلبات',
-                    subtitle: 'أحدث 10 طلبات في الفترة المحددة',
+                  _SectionHeader(
+                    title: l10n.translate('latest_requests'),
+                    subtitle: l10n.translate('latest_10_requests'),
                   ),
                   const SizedBox(height: 12),
                   if (bundle.recentRequests.isEmpty)
-                    const _EmptyCard(
-                      text: 'لا توجد طلبات حديثة حالياً',
+                    _EmptyCard(
+                      text: l10n.translate('no_recent_requests'),
                     )
                   else
                     ...bundle.recentRequests.map(
@@ -327,14 +361,14 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                       ),
                     ),
                   const SizedBox(height: 24),
-                  const _SectionHeader(
-                    title: 'أفضل العمال',
-                    subtitle: 'حسب الطلبات المكتملة ثم الإيراد',
+                  _SectionHeader(
+                    title: l10n.translate('top_workers'),
+                    subtitle: l10n.translate('top_workers_subtitle'),
                   ),
                   const SizedBox(height: 12),
                   if (bundle.topWorkers.isEmpty)
-                    const _EmptyCard(
-                      text: 'لا توجد بيانات كافية عن العمال حالياً',
+                    _EmptyCard(
+                      text: l10n.translate('no_workers_data'),
                     )
                   else
                     ...bundle.topWorkers.map(
@@ -358,6 +392,8 @@ class _AdminRequestsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return AppGradientBackground(
       child: SafeArea(
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -377,7 +413,7 @@ class _AdminRequestsTab extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    'فشل تحميل الطلبات:\n${snapshot.error}',
+                    '${l10n.translate('load_requests_failed')}\n${snapshot.error}',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -387,10 +423,10 @@ class _AdminRequestsTab extends StatelessWidget {
             final docs = snapshot.data?.docs ?? [];
 
             if (docs.isEmpty) {
-              return const Center(
+              return Center(
                 child: Text(
-                  'لا توجد طلبات حاليًا',
-                  style: TextStyle(
+                  l10n.translate('no_requests_now'),
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -403,22 +439,22 @@ class _AdminRequestsTab extends StatelessWidget {
               itemCount: docs.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return const Padding(
-                    padding: EdgeInsets.only(bottom: 16),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'مراقبة الطلبات',
-                          style: TextStyle(
+                          l10n.translate('requests_monitoring'),
+                          style: const TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
-                          'عرض مباشر لجميع طلبات العملاء وحالاتها',
-                          style: TextStyle(
+                          l10n.translate('requests_monitoring_subtitle'),
+                          style: const TextStyle(
                             color: Colors.white70,
                             height: 1.5,
                           ),

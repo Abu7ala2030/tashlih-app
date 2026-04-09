@@ -1,8 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/localization/app_localizations.dart';
+import 'core/localization/locale_provider.dart';
 import 'core/services/notification_navigation_service.dart';
 import 'core/theme/app_theme.dart';
 import 'data/services/push_notification_service.dart';
@@ -44,18 +47,34 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => VehicleProvider()),
         ChangeNotifierProvider(create: (_) => RequestProvider()),
       ],
-      child: MaterialApp(
-        navigatorKey: NotificationNavigationService.instance.navigatorKey,
-        debugShowCheckedModeBanner: false,
-        title: 'Tashlih App',
-        theme: AppTheme.darkTheme,
-        home: const SessionGate(),
-        onGenerateRoute: RouteGenerator.generateRoute,
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, _) {
+          return MaterialApp(
+            navigatorKey: NotificationNavigationService.instance.navigatorKey,
+            debugShowCheckedModeBanner: false,
+            title: 'Tashlih App',
+            theme: AppTheme.darkTheme,
+            home: const SessionGate(),
+            onGenerateRoute: RouteGenerator.generateRoute,
+            locale: localeProvider.locale,
+            supportedLocales: const [
+              Locale('ar'),
+              Locale('en'),
+            ],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+          );
+        },
       ),
     );
   }
