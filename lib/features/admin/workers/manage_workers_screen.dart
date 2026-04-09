@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
+import 'admin_worker_details_screen.dart';
 
 class ManageWorkersScreen extends StatefulWidget {
   const ManageWorkersScreen({super.key});
@@ -82,12 +83,14 @@ class _ManageWorkersScreenState extends State<ManageWorkersScreen>
                     fallbackRole: 'worker',
                     emptyText: 'لا يوجد عمال حالياً',
                     icon: Icons.person,
+                    role: 'worker',
                   ),
                   _PeopleTab(
                     primaryCollection: FirestorePaths.drivers,
                     fallbackRole: 'driver',
                     emptyText: 'لا يوجد سائقون حالياً',
                     icon: Icons.local_shipping,
+                    role: 'driver',
                   ),
                 ],
               ),
@@ -104,12 +107,14 @@ class _PeopleTab extends StatelessWidget {
   final String fallbackRole;
   final String emptyText;
   final IconData icon;
+  final String role;
 
   const _PeopleTab({
     required this.primaryCollection,
     required this.fallbackRole,
     required this.emptyText,
     required this.icon,
+    required this.role,
   });
 
   @override
@@ -167,6 +172,18 @@ class _PeopleTab extends StatelessWidget {
                 border: Border.all(color: Colors.white10),
               ),
               child: ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AdminWorkerDetailsScreen(
+                        personId: (person['id'] ?? '').toString(),
+                        role: role,
+                        initialData: person,
+                      ),
+                    ),
+                  );
+                },
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,
@@ -200,24 +217,31 @@ class _PeopleTab extends StatelessWidget {
                     ],
                   ),
                 ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isOnline
-                        ? Colors.green.withOpacity(.12)
-                        : Colors.white10,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    isOnline ? 'متصل' : 'غير متصل',
-                    style: TextStyle(
-                      color: isOnline ? Colors.green : Colors.white70,
-                      fontWeight: FontWeight.w800,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isOnline
+                            ? Colors.green.withOpacity(.12)
+                            : Colors.white10,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        isOnline ? 'متصل' : 'غير متصل',
+                        style: TextStyle(
+                          color: isOnline ? Colors.green : Colors.white70,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_ios, size: 16),
+                  ],
                 ),
               ),
             );
@@ -289,8 +313,9 @@ class _PeopleTab extends StatelessWidget {
     if (data['online'] == true) return true;
     if (data['availableNow'] == true) return true;
 
-    final status =
-        (data['availabilityStatus'] ?? data['status'] ?? '').toString().toLowerCase();
+    final status = (data['availabilityStatus'] ?? data['status'] ?? '')
+        .toString()
+        .toLowerCase();
 
     return status == 'online' || status == 'active';
   }
