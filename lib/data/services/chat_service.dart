@@ -61,6 +61,84 @@ class ChatService {
     }, SetOptions(merge: true));
   }
 
+  String _requestShortId(String requestId) {
+    final clean = requestId.trim();
+    if (clean.isEmpty) return '-';
+    if (clean.length <= 6) return clean.toUpperCase();
+    return clean.substring(0, 6).toUpperCase();
+  }
+
+  Future<Map<String, dynamic>> _loadRequestSummary(String requestId) async {
+    if (requestId.trim().isEmpty) return <String, dynamic>{};
+
+    final doc = await _db.collection(FirestorePaths.requests).doc(requestId).get();
+    if (!doc.exists) return <String, dynamic>{};
+
+    final data = doc.data() ?? <String, dynamic>{};
+    data['id'] = doc.id;
+    return data;
+  }
+
+  String _buildSystemMessage({
+    required String requestId,
+    required Map<String, dynamic> requestData,
+  }) {
+    final shortId = _requestShortId(requestId);
+    final partName = (requestData['partName'] ?? '').toString().trim();
+    final make = (requestData['vehicleMake'] ?? '').toString().trim();
+    final model = (requestData['vehicleModel'] ?? '').toString().trim();
+    final year = (requestData['vehicleYear'] ?? '').toString().trim();
+    final city = (requestData['city'] ?? '').toString().trim();
+
+    final vehicle = '$make $model $year'.trim();
+
+    final lines = <String>[
+      'تم فتح هذه المحادثة بخصوص الطلب رقم #$shortId',
+    ];
+
+    if (partName.isNotEmpty) {
+      lines.add('القطعة المطلوبة: $partName');
+    }
+
+    if (vehicle.isNotEmpty) {
+      lines.add('المركبة: $vehicle');
+    }
+
+    if (city.isNotEmpty) {
+      lines.add('المدينة: $city');
+    }
+
+    return lines.join('\n');
+  }
+
+  Future<void> _ensureSystemMessage({
+    required DocumentReference<Map<String, dynamic>> chatRef,
+    required String requestId,
+  }) async {
+    final existingSystem = await chatRef
+        .collection('messages')
+        .where('type', isEqualTo: 'system')
+        .limit(1)
+        .get();
+
+    if (existingSystem.docs.isNotEmpty) return;
+
+    final requestData = await _loadRequestSummary(requestId);
+    final systemText = _buildSystemMessage(
+      requestId: requestId,
+      requestData: requestData,
+    );
+
+    await chatRef.collection('messages').add({
+      'senderId': 'system',
+      'senderRole': 'system',
+      'text': systemText,
+      'type': 'system',
+      'isRead': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<String> createOrGetChat({
     required String requestId,
     required String customerId,
@@ -107,6 +185,11 @@ class ChatService {
         }, SetOptions(merge: true));
       }
 
+      await _ensureSystemMessage(
+        chatRef: existingDoc.reference,
+        requestId: requestId,
+      );
+
       await _syncChatCounters(
         chatRef: existingDoc.reference,
         chatData: existingDoc.data(),
@@ -135,6 +218,11 @@ class ChatService {
         'worker': 0,
       },
     });
+
+    await _ensureSystemMessage(
+      chatRef: doc,
+      requestId: requestId,
+    );
 
     return doc.id;
   }
@@ -336,6 +424,11 @@ class ChatService {
         },
       }, SetOptions(merge: true));
     }
+
+    await _ensureSystemMessage(
+      chatRef: doc,
+      requestId: (data['requestId'] ?? '').toString(),
+    );
 
     await _syncChatCounters(
       chatRef: doc,
