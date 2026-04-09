@@ -39,4 +39,18 @@
   "no_requests_now": "No requests at the moment",
   "requests_monitoring": "Requests Monitoring",
   "requests_monitoring_subtitle": "Live view of all customer requests and statuses"
+  "my_requests": "My Requests",
+  "chats": "Chats",
+  "account": "Account",
+  "app_brand_name": "Tashlih Plus",
+  "review_requests_and_offers": "Review requests and offers",
+  "each_chat_linked_to_request": "Each chat is linked to a request",
+  "my_data_and_settings": "My data and settings",
+  "brand_toyota": "Toyota",
+  "brand_hyundai": "Hyundai",
+  "brand_nissan": "Nissan",
+  "no_published_vehicles_yet": "No published vehicles yet",
+  "recently_added": "Recently added",
+  "front_damage": "Front damage",
+  "rear_damage": "Rear damage"
 }

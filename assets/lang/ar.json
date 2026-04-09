@@ -39,4 +39,18 @@
   "no_requests_now": "لا توجد طلبات حاليًا",
   "requests_monitoring": "مراقبة الطلبات",
   "requests_monitoring_subtitle": "عرض مباشر لجميع طلبات العملاء وحالاتها"
+  "my_requests": "طلباتي",
+  "chats": "المحادثات",
+  "account": "الحساب",
+  "app_brand_name": "تشليح بلس",
+  "review_requests_and_offers": "راجع الطلبات والعروض",
+  "each_chat_linked_to_request": "كل محادثة مرتبطة بطلب",
+  "my_data_and_settings": "بياناتي وإعداداتي",
+  "brand_toyota": "تويوتا",
+  "brand_hyundai": "هيونداي",
+  "brand_nissan": "نيسان",
+  "no_published_vehicles_yet": "لا توجد مركبات منشورة حتى الآن",
+  "recently_added": "أضيف حديثًا",
+  "front_damage": "صدمة أمامية",
+  "rear_damage": "صدمة خلفية"
 }

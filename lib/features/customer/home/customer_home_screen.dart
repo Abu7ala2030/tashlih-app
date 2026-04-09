@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/hero_vehicle_banner.dart';
 import '../../../core/widgets/vehicle_section_row.dart';
@@ -22,6 +23,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final pages = [
       _CustomerBrowseTab(
         onOpenRequests: () => setState(() => _currentIndex = 1),
@@ -43,26 +46,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'الرئيسية',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: l10n.translate('nav_home'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'طلباتي',
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: l10n.translate('my_requests'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'المحادثات',
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: l10n.translate('chats'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'الحساب',
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: l10n.translate('account'),
           ),
         ],
       ),
@@ -89,7 +92,7 @@ class _CustomerBrowseTab extends StatelessWidget {
         .where(
           (v) =>
               ((v['make'] ?? '').toString().toLowerCase() ==
-              brand.toLowerCase()),
+                  brand.toLowerCase()),
         )
         .toList();
   }
@@ -105,6 +108,8 @@ class _CustomerBrowseTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final allPublishedVehicles = context
         .watch<VehicleProvider>()
         .vehicles
@@ -128,18 +133,18 @@ class _CustomerBrowseTab extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
-                  children: const [
+                  children: [
                     Expanded(
                       child: Text(
-                        'تشليح بلس',
-                        style: TextStyle(
+                        l10n.translate('app_brand_name'),
+                        style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           letterSpacing: .2,
                         ),
                       ),
                     ),
-                    NotificationBellButton(),
+                    const NotificationBellButton(),
                   ],
                 ),
               ),
@@ -158,8 +163,8 @@ class _CustomerBrowseTab extends StatelessWidget {
                     Expanded(
                       child: _QuickActionCard(
                         icon: Icons.receipt_long_outlined,
-                        title: 'طلباتي',
-                        subtitle: 'راجع الطلبات والعروض',
+                        title: l10n.translate('my_requests'),
+                        subtitle: l10n.translate('review_requests_and_offers'),
                         onTap: onOpenRequests,
                       ),
                     ),
@@ -167,8 +172,8 @@ class _CustomerBrowseTab extends StatelessWidget {
                     Expanded(
                       child: _QuickActionCard(
                         icon: Icons.chat_bubble_outline,
-                        title: 'المحادثات',
-                        subtitle: 'كل محادثة مرتبطة بطلب',
+                        title: l10n.translate('chats'),
+                        subtitle: l10n.translate('each_chat_linked_to_request'),
                         onTap: onOpenChats,
                       ),
                     ),
@@ -183,8 +188,8 @@ class _CustomerBrowseTab extends StatelessWidget {
                   width: double.infinity,
                   child: _QuickActionCard(
                     icon: Icons.person_outline,
-                    title: 'حسابي',
-                    subtitle: 'بياناتي وإعداداتي',
+                    title: l10n.translate('account'),
+                    subtitle: l10n.translate('my_data_and_settings'),
                     onTap: onOpenProfile,
                   ),
                 ),
@@ -194,24 +199,24 @@ class _CustomerBrowseTab extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
                 child: Row(
-                  children: const [
+                  children: [
                     Expanded(
                       child: _CategoryPill(
-                        label: 'تويوتا',
+                        label: l10n.translate('brand_toyota'),
                         icon: Icons.directions_car_filled_outlined,
                       ),
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _CategoryPill(
-                        label: 'هيونداي',
+                        label: l10n.translate('brand_hyundai'),
                         icon: Icons.local_shipping_outlined,
                       ),
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _CategoryPill(
-                        label: 'نيسان',
+                        label: l10n.translate('brand_nissan'),
                         icon: Icons.car_crash_outlined,
                       ),
                     ),
@@ -220,12 +225,12 @@ class _CustomerBrowseTab extends StatelessWidget {
               ),
             ),
             if (allPublishedVehicles.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
                   child: Text(
-                    'لا توجد مركبات منشورة حتى الآن',
-                    style: TextStyle(
+                    l10n.translate('no_published_vehicles_yet'),
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -240,32 +245,32 @@ class _CustomerBrowseTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       VehicleSectionRow(
-                        title: 'أضيف حديثًا',
+                        title: l10n.translate('recently_added'),
                         vehicles: allPublishedVehicles,
                       ),
                       const SizedBox(height: 24),
                       VehicleSectionRow(
-                        title: 'تويوتا',
+                        title: l10n.translate('brand_toyota'),
                         vehicles: toyotaVehicles,
                       ),
                       const SizedBox(height: 24),
                       VehicleSectionRow(
-                        title: 'هيونداي',
+                        title: l10n.translate('brand_hyundai'),
                         vehicles: hyundaiVehicles,
                       ),
                       const SizedBox(height: 24),
                       VehicleSectionRow(
-                        title: 'نيسان',
+                        title: l10n.translate('brand_nissan'),
                         vehicles: nissanVehicles,
                       ),
                       const SizedBox(height: 24),
                       VehicleSectionRow(
-                        title: 'صدمة أمامية',
+                        title: l10n.translate('front_damage'),
                         vehicles: frontDamageVehicles,
                       ),
                       const SizedBox(height: 24),
                       VehicleSectionRow(
-                        title: 'صدمة خلفية',
+                        title: l10n.translate('rear_damage'),
                         vehicles: rearDamageVehicles,
                       ),
                       const SizedBox(height: 100),
