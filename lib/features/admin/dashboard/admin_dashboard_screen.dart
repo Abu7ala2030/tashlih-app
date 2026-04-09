@@ -86,18 +86,39 @@ class _AdminOverviewTab extends StatefulWidget {
 class _AdminOverviewTabState extends State<_AdminOverviewTab> {
   final AdminDashboardService _service = AdminDashboardService();
   late Future<AdminDashboardBundle> _future;
+  AdminDashboardRange _selectedRange = AdminDashboardRange.all;
 
   @override
   void initState() {
     super.initState();
-    _future = _service.loadDashboardData();
+    _future = _service.loadDashboardData(range: _selectedRange);
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _future = _service.loadDashboardData();
+      _future = _service.loadDashboardData(range: _selectedRange);
     });
     await _future;
+  }
+
+  void _changeRange(AdminDashboardRange range) {
+    setState(() {
+      _selectedRange = range;
+      _future = _service.loadDashboardData(range: _selectedRange);
+    });
+  }
+
+  String _rangeLabel(AdminDashboardRange range) {
+    switch (range) {
+      case AdminDashboardRange.today:
+        return 'اليوم';
+      case AdminDashboardRange.week:
+        return 'الأسبوع';
+      case AdminDashboardRange.month:
+        return 'الشهر';
+      case AdminDashboardRange.all:
+        return 'الكل';
+    }
   }
 
   @override
@@ -147,12 +168,39 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'نظرة تشغيلية مباشرة على الطلبات والإيرادات والعمال',
-                    style: TextStyle(
+                  Text(
+                    'نظرة تشغيلية مباشرة على الطلبات والإيرادات والعمال • الفترة: ${_rangeLabel(_selectedRange)}',
+                    style: const TextStyle(
                       color: Colors.white70,
                       height: 1.5,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _RangeChip(
+                        label: 'اليوم',
+                        selected: _selectedRange == AdminDashboardRange.today,
+                        onTap: () => _changeRange(AdminDashboardRange.today),
+                      ),
+                      _RangeChip(
+                        label: 'الأسبوع',
+                        selected: _selectedRange == AdminDashboardRange.week,
+                        onTap: () => _changeRange(AdminDashboardRange.week),
+                      ),
+                      _RangeChip(
+                        label: 'الشهر',
+                        selected: _selectedRange == AdminDashboardRange.month,
+                        onTap: () => _changeRange(AdminDashboardRange.month),
+                      ),
+                      _RangeChip(
+                        label: 'الكل',
+                        selected: _selectedRange == AdminDashboardRange.all,
+                        onTap: () => _changeRange(AdminDashboardRange.all),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   Container(
@@ -218,6 +266,16 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                         icon: Icons.check_circle_outline,
                       ),
                       AdminMetricCard(
+                        label: 'طلبات ملغاة',
+                        value: stats.cancelledRequests.toString(),
+                        icon: Icons.cancel_outlined,
+                      ),
+                      AdminMetricCard(
+                        label: 'طلبات متأخرة',
+                        value: stats.lateRequests.toString(),
+                        icon: Icons.warning_amber_outlined,
+                      ),
+                      AdminMetricCard(
                         label: 'إيراد اليوم',
                         value: '${stats.todayRevenue.toStringAsFixed(0)} ر.س',
                         icon: Icons.today_outlined,
@@ -254,7 +312,7 @@ class _AdminOverviewTabState extends State<_AdminOverviewTab> {
                   const SizedBox(height: 24),
                   const _SectionHeader(
                     title: 'آخر الطلبات',
-                    subtitle: 'أحدث 10 طلبات في المنصة',
+                    subtitle: 'أحدث 10 طلبات في الفترة المحددة',
                   ),
                   const SizedBox(height: 12),
                   if (bundle.recentRequests.isEmpty)
@@ -432,6 +490,43 @@ class _AdminRequestsTab extends StatelessWidget {
     }
 
     return 0;
+  }
+}
+
+class _RangeChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RangeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : const Color(0xFF1A1D21),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? Colors.white : Colors.white10,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : Colors.white,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
   }
 }
 

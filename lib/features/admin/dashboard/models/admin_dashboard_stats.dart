@@ -4,6 +4,7 @@ class AdminDashboardStats {
   final int activeRequests;
   final int completedRequests;
   final int cancelledRequests;
+  final int lateRequests;
 
   final double totalRevenue;
   final double todayRevenue;
@@ -22,6 +23,7 @@ class AdminDashboardStats {
     required this.activeRequests,
     required this.completedRequests,
     required this.cancelledRequests,
+    required this.lateRequests,
     required this.totalRevenue,
     required this.todayRevenue,
     required this.weekRevenue,
@@ -40,6 +42,7 @@ class AdminDashboardStats {
       activeRequests: 0,
       completedRequests: 0,
       cancelledRequests: 0,
+      lateRequests: 0,
       totalRevenue: 0,
       todayRevenue: 0,
       weekRevenue: 0,

@@ -5,6 +5,13 @@ import '../models/admin_dashboard_stats.dart';
 import '../models/admin_recent_request.dart';
 import '../models/admin_worker_summary.dart';
 
+enum AdminDashboardRange {
+  today,
+  week,
+  month,
+  all,
+}
+
 class AdminDashboardBundle {
   final AdminDashboardStats stats;
   final List<AdminRecentRequest> recentRequests;
@@ -20,7 +27,9 @@ class AdminDashboardBundle {
 class AdminDashboardService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  Future<AdminDashboardBundle> loadDashboardData() async {
+  Future<AdminDashboardBundle> loadDashboardData({
+    AdminDashboardRange range = AdminDashboardRange.all,
+  }) async {
     final requestsSnapshot =
         await _db.collection(FirestorePaths.requests).get();
 
@@ -44,22 +53,32 @@ class AdminDashboardService {
             })
         .toList();
 
-    final stats = _buildStats(
+    final filteredRequests = _filterRequestsByRange(
       requests: allRequests,
+      range: range,
+    );
+
+    final filteredCommissions = _filterCommissionsByRange(
       commissions: commissionsSnapshot.docs
           .map((doc) => {
                 'id': doc.id,
                 ...doc.data(),
               })
           .toList(),
+      range: range,
+    );
+
+    final stats = _buildStats(
+      requests: filteredRequests,
+      commissions: filteredCommissions,
       workers: workers,
       drivers: drivers,
     );
 
-    final recentRequests = _buildRecentRequests(allRequests);
+    final recentRequests = _buildRecentRequests(filteredRequests);
     final topWorkers = _buildTopWorkers(
       workers: workers,
-      requests: allRequests,
+      requests: filteredRequests,
     );
 
     return AdminDashboardBundle(
@@ -97,6 +116,54 @@ class AdminDashboardService {
         .toList();
   }
 
+  List<Map<String, dynamic>> _filterRequestsByRange({
+    required List<Map<String, dynamic>> requests,
+    required AdminDashboardRange range,
+  }) {
+    if (range == AdminDashboardRange.all) return requests;
+
+    final start = _rangeStart(range);
+
+    return requests.where((request) {
+      final date = _extractBestRequestDate(request);
+      if (date == null) return false;
+      return !date.isBefore(start);
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _filterCommissionsByRange({
+    required List<Map<String, dynamic>> commissions,
+    required AdminDashboardRange range,
+  }) {
+    if (range == AdminDashboardRange.all) return commissions;
+
+    final start = _rangeStart(range);
+
+    return commissions.where((commission) {
+      final date = _timestampToDateTime(
+        commission['updatedAt'] ?? commission['createdAt'],
+      );
+      if (date == null) return false;
+      return !date.isBefore(start);
+    }).toList();
+  }
+
+  DateTime _rangeStart(AdminDashboardRange range) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    switch (range) {
+      case AdminDashboardRange.today:
+        return today;
+      case AdminDashboardRange.week:
+        return today.subtract(Duration(days: now.weekday - 1));
+      case AdminDashboardRange.month:
+        return DateTime(now.year, now.month, 1);
+      case AdminDashboardRange.all:
+        return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+  }
+
   AdminDashboardStats _buildStats({
     required List<Map<String, dynamic>> requests,
     required List<Map<String, dynamic>> commissions,
@@ -112,6 +179,7 @@ class AdminDashboardService {
     int activeRequests = 0;
     int completedRequests = 0;
     int cancelledRequests = 0;
+    int lateRequests = 0;
 
     double totalRevenue = 0;
     double todayRevenue = 0;
@@ -131,6 +199,10 @@ class AdminDashboardService {
         cancelledRequests++;
       } else if (_isActiveStatus(status)) {
         activeRequests++;
+      }
+
+      if (_isLateRequest(request)) {
+        lateRequests++;
       }
 
       if (_isRevenueEligibleStatus(status)) {
@@ -164,6 +236,7 @@ class AdminDashboardService {
       activeRequests: activeRequests,
       completedRequests: completedRequests,
       cancelledRequests: cancelledRequests,
+      lateRequests: lateRequests,
       totalRevenue: totalRevenue,
       todayRevenue: todayRevenue,
       weekRevenue: weekRevenue,
@@ -274,6 +347,21 @@ class AdminDashboardService {
       'delivered',
       'completed',
     }.contains(status);
+  }
+
+  bool _isLateRequest(Map<String, dynamic> request) {
+    final status = (request['status'] ?? '').toString();
+    if (_isCompletedStatus(status) || status == 'cancelled') {
+      return false;
+    }
+
+    final createdAt = _timestampToDateTime(request['createdAt']);
+    if (createdAt == null) return false;
+
+    final now = DateTime.now();
+    final diff = now.difference(createdAt);
+
+    return diff.inHours >= 24;
   }
 
   double _extractRequestAmount(Map<String, dynamic> data) {
