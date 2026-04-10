@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../data/services/address_search_service.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../../providers/auth_provider.dart';
@@ -46,7 +47,8 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
     final selectedVehicle = context.read<HomeProvider>().selectedVehicle;
     if (selectedVehicle != null) {
       cityController.text = (selectedVehicle['city'] ?? '').toString();
-      phoneController.text = (selectedVehicle['contactPhone'] ?? '').toString();
+      phoneController.text =
+          (selectedVehicle['contactPhone'] ?? '').toString();
     }
   }
 
@@ -61,13 +63,12 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
     super.dispose();
   }
 
+  AppLocalizations get l10n => AppLocalizations.of(context);
+
   Future<bool> _ensureLocationPermission() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('خدمة الموقع غير مفعلة على الجهاز')),
-      );
+      _showSnack(l10n.translate('location_service_disabled'));
       return false;
     }
 
@@ -78,24 +79,23 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
     }
 
     if (permission == LocationPermission.denied) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم رفض صلاحية الموقع')),
-      );
+      _showSnack(l10n.translate('location_permission_denied'));
       return false;
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('صلاحية الموقع مرفوضة نهائيًا، فعّلها من إعدادات الجهاز'),
-        ),
-      );
+      _showSnack(l10n.translate('location_permission_denied_forever'));
       return false;
     }
 
     return true;
+  }
+
+  void _showSnack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
+    );
   }
 
   void _onAddressChanged(String value) {
@@ -119,18 +119,11 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
         );
 
         if (!mounted) return;
-        setState(() {
-          _suggestions = results;
-        });
+        setState(() => _suggestions = results);
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل البحث عن العنوان: $e')),
-        );
+        _showSnack('${l10n.translate('address_search_failed')}: $e');
       } finally {
-        if (mounted) {
-          setState(() => isSearchingAddress = false);
-        }
+        if (mounted) setState(() => isSearchingAddress = false);
       }
     });
   }
@@ -149,13 +142,9 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
         _deliveryPlaceId = details.placeId;
         addressSearchController.text = details.formattedAddress;
         _suggestions = [];
-        _sessionToken = DateTime.now().millisecondsSinceEpoch.toString();
       });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل اختيار العنوان: $e')),
-      );
+      _showSnack('${l10n.translate('select_address_failed')}: $e');
     }
   }
 
@@ -164,16 +153,9 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
 
     try {
       final allowed = await _ensureLocationPermission();
-      if (!allowed) {
-        if (mounted) setState(() => isGettingCurrentLocation = false);
-        return;
-      }
+      if (!allowed) return;
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
+      final position = await Geolocator.getCurrentPosition();
 
       final address = await AddressSearchService.instance.reverseGeocode(
         latitude: position.latitude,
@@ -186,97 +168,44 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
         _deliveryAddress = address;
         _deliveryLat = position.latitude;
         _deliveryLng = position.longitude;
-        _deliveryPlaceId = null;
         addressSearchController.text = address;
         _suggestions = [];
       });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل جلب الموقع الحالي: $e')),
-      );
+      _showSnack('${l10n.translate('get_location_failed')}: $e');
     } finally {
-      if (mounted) {
-        setState(() => isGettingCurrentLocation = false);
-      }
+      if (mounted) setState(() => isGettingCurrentLocation = false);
     }
-  }
-
-  void _applySavedAddress(Map<String, dynamic> item) {
-    final address = (item['deliveryAddress'] ?? '').toString().trim();
-    final lat = item['deliveryLat'];
-    final lng = item['deliveryLng'];
-
-    double? parsedLat;
-    double? parsedLng;
-
-    if (lat is num) {
-      parsedLat = lat.toDouble();
-    } else {
-      parsedLat = double.tryParse(lat?.toString() ?? '');
-    }
-
-    if (lng is num) {
-      parsedLng = lng.toDouble();
-    } else {
-      parsedLng = double.tryParse(lng?.toString() ?? '');
-    }
-
-    if (address.isEmpty || parsedLat == null || parsedLng == null) return;
-
-    setState(() {
-      _deliveryAddress = address;
-      _deliveryLat = parsedLat;
-      _deliveryLng = parsedLng;
-      _deliveryPlaceId = (item['deliveryPlaceId'] ?? '').toString().trim().isEmpty
-          ? null
-          : (item['deliveryPlaceId'] ?? '').toString().trim();
-      addressSearchController.text = address;
-      _suggestions = [];
-    });
   }
 
   Future<void> _submit() async {
     final selectedVehicle = context.read<HomeProvider>().selectedVehicle;
 
     if (selectedVehicle == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا توجد مركبة محددة')),
-      );
+      _showSnack(l10n.translate('no_vehicle_selected'));
       return;
     }
 
     if (partNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال اسم القطعة')),
-      );
+      _showSnack(l10n.translate('enter_part_name'));
       return;
     }
 
     if (cityController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال المدينة')),
-      );
+      _showSnack(l10n.translate('enter_city'));
       return;
     }
 
     if (phoneController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى إدخال رقم التواصل')),
-      );
+      _showSnack(l10n.translate('enter_phone'));
       return;
     }
 
     if (needsShipping &&
         (_deliveryAddress == null ||
-            _deliveryAddress!.trim().isEmpty ||
             _deliveryLat == null ||
             _deliveryLng == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى تحديد عنوان التوصيل الفعلي أولًا'),
-        ),
-      );
+      _showSnack(l10n.translate('select_delivery_address'));
       return;
     }
 
@@ -290,324 +219,106 @@ class _PartRequestScreenState extends State<PartRequestScreen> {
             phone: phoneController.text.trim(),
             notes: notesController.text.trim(),
             needsShipping: needsShipping,
-            deliveryAddress: needsShipping ? _deliveryAddress : null,
-            deliveryLat: needsShipping ? _deliveryLat : null,
-            deliveryLng: needsShipping ? _deliveryLng : null,
-            deliveryPlaceId: needsShipping ? _deliveryPlaceId : null,
+            deliveryAddress: _deliveryAddress,
+            deliveryLat: _deliveryLat,
+            deliveryLng: _deliveryLng,
           );
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إرسال الطلب بنجاح')),
-      );
+      _showSnack(l10n.translate('request_sent_success'));
       Navigator.pop(context, true);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل إرسال الطلب: $e')),
-      );
+      _showSnack('${l10n.translate('request_failed')}: $e');
     } finally {
-      if (mounted) {
-        setState(() => isSubmitting = false);
-      }
+      if (mounted) setState(() => isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedVehicle = context.watch<HomeProvider>().selectedVehicle;
-    final uid = context.watch<AuthProvider>().uid;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('طلب قطعة'),
+        title: Text(l10n.translate('part_request')),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (selectedVehicle != null)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'المركبة المختارة: ${selectedVehicle['make'] ?? ''} ${selectedVehicle['model'] ?? ''} ${selectedVehicle['year'] ?? ''}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'التشليح: ${(selectedVehicle['scrapyardName'] ?? 'غير محدد').toString()}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'المدينة: ${(selectedVehicle['city'] ?? 'غير محدد').toString()}',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
+            Text(
+              '${selectedVehicle['make']} ${selectedVehicle['model']}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-          const SizedBox(height: 18),
+
+          const SizedBox(height: 16),
+
           _InputField(
             controller: partNameController,
-            label: 'اسم القطعة',
-            hint: 'مثال: باب أمامي يمين',
+            label: l10n.translate('part_name'),
+            hint: l10n.translate('part_name_hint'),
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(height: 12),
+
           _InputField(
             controller: notesController,
-            label: 'وصف إضافي',
-            hint: 'أي تفاصيل تساعد في تحديد القطعة',
-            maxLines: 4,
+            label: l10n.translate('notes'),
+            hint: l10n.translate('notes_hint'),
+            maxLines: 3,
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(height: 12),
+
           _InputField(
             controller: cityController,
-            label: 'المدينة',
-            hint: 'مثال: الدمام',
+            label: l10n.translate('city'),
+            hint: '',
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(height: 12),
+
           _InputField(
             controller: phoneController,
-            label: 'رقم التواصل',
+            label: l10n.translate('phone'),
             hint: '05xxxxxxxx',
-            keyboardType: TextInputType.phone,
           ),
-          const SizedBox(height: 16),
+
           SwitchListTile(
             value: needsShipping,
-            onChanged: (value) {
-              setState(() {
-                needsShipping = value;
-                if (!needsShipping) {
-                  _suggestions = [];
-                }
-              });
-            },
-            title: const Text('أحتاج شحن للقطعة'),
-            subtitle:
-                const Text('فعّلها إذا كنت تريد توصيل القطعة إلى عنوانك'),
-            contentPadding: EdgeInsets.zero,
+            onChanged: (v) => setState(() => needsShipping = v),
+            title: Text(l10n.translate('needs_shipping')),
+            subtitle: Text(l10n.translate('shipping_description')),
           ),
+
           if (needsShipping) ...[
-            const SizedBox(height: 14),
-            const Text(
-              'عنوان التوصيل',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text(l10n.translate('delivery_address')),
             const SizedBox(height: 8),
-
-            if (uid != null && uid.isNotEmpty)
-              StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
-                    .collection(FirestorePaths.requests)
-                    .where('customerId', isEqualTo: uid)
-                    .where('needsShipping', isEqualTo: true)
-                    .orderBy('createdAt', descending: true)
-                    .limit(10)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  final docs = snapshot.data?.docs ?? [];
-                  final unique = <String, Map<String, dynamic>>{};
-
-                  for (final doc in docs) {
-                    final data = doc.data();
-                    final address =
-                        (data['deliveryAddress'] ?? '').toString().trim();
-                    if (address.isEmpty) continue;
-                    unique.putIfAbsent(address, () => data);
-                  }
-
-                  final savedAddresses = unique.values.toList();
-
-                  if (savedAddresses.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'العناوين المحفوظة',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 46,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: savedAddresses.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final item = savedAddresses[index];
-                            final address =
-                                (item['deliveryAddress'] ?? '').toString();
-
-                            final isSelected =
-                                _deliveryAddress != null &&
-                                    _deliveryAddress == address;
-
-                            return ChoiceChip(
-                              label: Text(
-                                address,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              selected: isSelected,
-                              onSelected: (_) => _applySavedAddress(item),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                  );
-                },
-              ),
 
             TextField(
               controller: addressSearchController,
               onChanged: _onAddressChanged,
               decoration: InputDecoration(
-                hintText: 'ابحث عن عنوانك أو اختر موقعك الحالي',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: isSearchingAddress
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : (addressSearchController.text.trim().isNotEmpty
-                        ? IconButton(
-                            onPressed: () {
-                              setState(() {
-                                addressSearchController.clear();
-                                _deliveryAddress = null;
-                                _deliveryLat = null;
-                                _deliveryLng = null;
-                                _deliveryPlaceId = null;
-                                _suggestions = [];
-                              });
-                            },
-                            icon: const Icon(Icons.close),
-                          )
-                        : null),
-                filled: true,
-                fillColor: Colors.white10,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
+                hintText: l10n.translate('search_address'),
               ),
             ),
+
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isGettingCurrentLocation ? null : _useCurrentLocation,
-                icon: isGettingCurrentLocation
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location_outlined),
-                label: Text(
-                  isGettingCurrentLocation
-                      ? 'جاري جلب موقعك الحالي...'
-                      : 'استخدام موقعي الحالي',
-                ),
+
+            OutlinedButton(
+              onPressed: _useCurrentLocation,
+              child: Text(
+                isGettingCurrentLocation
+                    ? l10n.translate('getting_location')
+                    : l10n.translate('use_current_location'),
               ),
             ),
-            if (_deliveryAddress != null && _deliveryAddress!.trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'العنوان المحدد',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _deliveryAddress!,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (_suggestions.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1D21),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _suggestions.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(color: Colors.white.withOpacity(.06), height: 1),
-                  itemBuilder: (context, index) {
-                    final suggestion = _suggestions[index];
-                    return ListTile(
-                      leading: const Icon(Icons.location_on_outlined),
-                      title: Text(
-                        suggestion.primaryText.isEmpty
-                            ? suggestion.fullText
-                            : suggestion.primaryText,
-                      ),
-                      subtitle: suggestion.secondaryText.isEmpty
-                          ? null
-                          : Text(suggestion.secondaryText),
-                      onTap: () => _selectSuggestion(suggestion),
-                    );
-                  },
-                ),
-              ),
-            ],
           ],
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 54,
-            child: FilledButton(
-              onPressed: isSubmitting ? null : _submit,
-              child: isSubmitting
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('إرسال الطلب'),
-            ),
+
+          const SizedBox(height: 20),
+
+          FilledButton(
+            onPressed: _submit,
+            child: Text(l10n.translate('send_request')),
           ),
         ],
       ),
@@ -620,14 +331,12 @@ class _InputField extends StatelessWidget {
   final String label;
   final String hint;
   final int maxLines;
-  final TextInputType? keyboardType;
 
   const _InputField({
     required this.controller,
     required this.label,
     required this.hint,
     this.maxLines = 1,
-    this.keyboardType,
   });
 
   @override
@@ -635,26 +344,13 @@ class _InputField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
+        Text(label),
+        const SizedBox(height: 6),
         TextField(
           controller: controller,
           maxLines: maxLines,
-          keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
-            filled: true,
-            fillColor: Colors.white10,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
           ),
         ),
       ],
