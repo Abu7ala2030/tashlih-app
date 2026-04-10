@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/chat_service.dart';
 import '../../../data/services/firestore_paths.dart';
@@ -71,6 +72,7 @@ class _CustomerRequestTrackingScreenState
   bool _animationIsDriverTracking = true;
 
   String get _requestId => (widget.request['id'] ?? '').toString().trim();
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -89,6 +91,13 @@ class _CustomerRequestTrackingScreenState
       ..removeListener(_onMarkerAnimationTick)
       ..dispose();
     super.dispose();
+  }
+
+  void _showSnack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
+    );
   }
 
   void _onMarkerAnimationTick() {
@@ -208,13 +217,13 @@ class _CustomerRequestTrackingScreenState
   String _statusText(String status) {
     switch (status) {
       case 'assigned':
-        return 'تم اختيار العرض';
+        return l10n.translate('status_offer_selected');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        return 'قيد المعالجة';
+        return l10n.translate('status_in_progress');
     }
   }
 
@@ -224,20 +233,20 @@ class _CustomerRequestTrackingScreenState
 
     switch (deliveryStatus) {
       case 'awaiting_driver_assignment':
-        return 'بانتظار تعيين السائق';
+        return l10n.translate('awaiting_driver_assignment');
       case 'pending_pickup':
-        return 'السائق في طريقه للاستلام';
+        return l10n.translate('driver_heading_to_pickup');
       case 'picked_up':
-        return 'تم الاستلام';
+        return l10n.translate('picked_up');
       case 'on_the_way':
-        return 'السائق في الطريق إليك';
+        return l10n.translate('driver_on_the_way_to_you');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        if (status == 'assigned') return 'تم اختيار العرض';
-        if (status == 'shipped') return 'السائق في الطريق إليك';
-        if (status == 'delivered') return 'تم التسليم';
-        return 'جاري تجهيز الطلب';
+        if (status == 'assigned') return l10n.translate('status_offer_selected');
+        if (status == 'shipped') return l10n.translate('driver_on_the_way_to_you');
+        if (status == 'delivered') return l10n.translate('status_delivered');
+        return l10n.translate('preparing_request');
     }
   }
 
@@ -278,31 +287,35 @@ class _CustomerRequestTrackingScreenState
 
   String _priceText(Map<String, dynamic> request) {
     final raw = request['acceptedOfferPrice'] ?? '-';
-    return '$raw ريال';
+    return '$raw ${l10n.translate('sar')}';
   }
 
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
 
-    if (diff.inSeconds < 60) return 'الآن';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} دقيقة';
-    return '${diff.inHours} ساعة';
+    if (diff.inSeconds < 60) return l10n.translate('now');
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes} ${l10n.translate('minute_unit')}';
+    }
+    return '${diff.inHours} ${l10n.translate('hour_unit')}';
   }
 
   String _formatSpeed(double? speedKmh) {
     if (speedKmh == null || !speedKmh.isFinite || speedKmh <= 0) {
-      return '0 كم/س';
+      return '0 ${l10n.translate('km_per_hour')}';
     }
-    return '${speedKmh.toStringAsFixed(0)} كم/س';
+    return '${speedKmh.toStringAsFixed(0)} ${l10n.translate('km_per_hour')}';
   }
 
   String _formatAccuracy(double? accuracyMeters) {
     if (accuracyMeters == null || !accuracyMeters.isFinite || accuracyMeters <= 0) {
-      return 'غير معروف';
+      return l10n.translate('unknown');
     }
-    if (accuracyMeters < 10) return '${accuracyMeters.toStringAsFixed(0)} م';
-    return '${accuracyMeters.toStringAsFixed(0)} متر';
+    if (accuracyMeters < 10) {
+      return '${accuracyMeters.toStringAsFixed(0)} ${l10n.translate('meter_short')}';
+    }
+    return '${accuracyMeters.toStringAsFixed(0)} ${l10n.translate('meter')}';
   }
 
   int _tripStageIndex(Map<String, dynamic> request) {
@@ -428,7 +441,7 @@ class _CustomerRequestTrackingScreenState
         _route = route;
       });
     } catch (_) {
-      // تجاهل فشل المسار حتى لا تنهار الشاشة
+      // ignore
     } finally {
       _isLoadingRoute = false;
     }
@@ -478,16 +491,12 @@ class _CustomerRequestTrackingScreenState
         MaterialPageRoute(
           builder: (_) => ChatScreen(
             chatId: chatId,
-            title: 'محادثة العامل',
+            title: l10n.translate('worker_chat'),
           ),
         ),
       );
     } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل فتح المحادثة: $e')),
-      );
+      _showSnack('${l10n.translate('open_chat_failed')}: $e');
     } finally {
       if (mounted) {
         setState(() => isOpeningChat = false);
@@ -501,10 +510,7 @@ class _CustomerRequestTrackingScreenState
         .trim();
 
     if (phone.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رقم العامل غير متوفر')),
-      );
+      _showSnack(l10n.translate('worker_phone_not_available'));
       return;
     }
 
@@ -514,10 +520,7 @@ class _CustomerRequestTrackingScreenState
       return;
     }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر إجراء الاتصال')),
-    );
+    _showSnack(l10n.translate('unable_to_make_call'));
   }
 
   Future<void> _openMapUrl(String url) async {
@@ -531,10 +534,7 @@ class _CustomerRequestTrackingScreenState
       return;
     }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح الموقع')),
-    );
+    _showSnack(l10n.translate('unable_to_open_location'));
   }
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _requestStream() {
@@ -579,7 +579,8 @@ class _CustomerRequestTrackingScreenState
 
     if (!force &&
         _lastTrackedLocation != null &&
-        _distanceMeters(_lastTrackedLocation!, position) < _cameraMoveThresholdMeters) {
+        _distanceMeters(_lastTrackedLocation!, position) <
+            _cameraMoveThresholdMeters) {
       return;
     }
 
@@ -620,7 +621,9 @@ class _CustomerRequestTrackingScreenState
                 BitmapDescriptor.hueOrange,
               )),
       infoWindow: InfoWindow(
-        title: isDriverTracking ? 'السائق' : 'العامل',
+        title: isDriverTracking
+            ? l10n.translate('driver')
+            : l10n.translate('worker'),
       ),
     );
   }
@@ -683,9 +686,9 @@ class _CustomerRequestTrackingScreenState
     final isDriverTracking = driverId.isNotEmpty;
 
     if (trackingId.isEmpty) {
-      return const _MapPlaceholder(
-        title: 'لا يمكن عرض التتبع الآن',
-        subtitle: 'لم يتم ربط عامل أو سائق بهذا الطلب حتى الآن.',
+      return _MapPlaceholder(
+        title: l10n.translate('cannot_show_tracking_now'),
+        subtitle: l10n.translate('no_worker_or_driver_linked_yet'),
         icon: Icons.location_off_outlined,
       );
     }
@@ -708,10 +711,10 @@ class _CustomerRequestTrackingScreenState
 
         if (data == null && _animatedTrackedMarker == null) {
           return _MapPlaceholder(
-            title: 'بانتظار بدء التتبع',
+            title: l10n.translate('waiting_for_tracking_start'),
             subtitle: isDriverTracking
-                ? 'سيظهر موقع السائق هنا عند بدء التوصيل'
-                : 'سيظهر موقع العامل هنا عند بدء الشحن',
+                ? l10n.translate('driver_location_will_appear')
+                : l10n.translate('worker_location_will_appear'),
             icon: Icons.hourglass_empty,
           );
         }
@@ -724,10 +727,10 @@ class _CustomerRequestTrackingScreenState
 
         if ((lat == null || lng == null) && _animatedTrackedMarker == null) {
           return _MapPlaceholder(
-            title: 'الموقع غير متوفر',
+            title: l10n.translate('location_not_available'),
             subtitle: isDriverTracking
-                ? 'لم يبدأ السائق التتبع بعد'
-                : 'لم يبدأ العامل التتبع بعد',
+                ? l10n.translate('driver_has_not_started_tracking')
+                : l10n.translate('worker_has_not_started_tracking'),
             icon: Icons.location_disabled,
           );
         }
@@ -767,7 +770,9 @@ class _CustomerRequestTrackingScreenState
               icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueAzure,
               ),
-              infoWindow: const InfoWindow(title: 'موقع التوصيل'),
+              infoWindow: InfoWindow(
+                title: l10n.translate('delivery_location'),
+              ),
             ),
         };
 
@@ -829,8 +834,8 @@ class _CustomerRequestTrackingScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('الوقت: ${_route!.etaLabel}'),
-                          Text('المسافة: ${_route!.distanceLabel}'),
+                          Text('${l10n.translate('time')}: ${_route!.etaLabel}'),
+                          Text('${l10n.translate('distance')}: ${_route!.distanceLabel}'),
                         ],
                       ),
                     ),
@@ -845,7 +850,9 @@ class _CustomerRequestTrackingScreenState
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      _followDriver ? 'متابعة تلقائية' : 'متابعة متوقفة',
+                      _followDriver
+                          ? l10n.translate('auto_follow_on')
+                          : l10n.translate('auto_follow_off'),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -887,7 +894,7 @@ class _CustomerRequestTrackingScreenState
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'آخر تحديث: ${_formatTime(_lastUpdatedAt!)}',
+                    '${l10n.translate('last_update')}: ${_formatTime(_lastUpdatedAt!)}',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -960,12 +967,12 @@ class _CustomerRequestTrackingScreenState
   }
 
   Widget _buildTripProgress(Map<String, dynamic> request) {
-    final stages = const [
-      'تعيين السائق',
-      'الاستلام',
-      'بدء التوصيل',
-      'في الطريق',
-      'التسليم',
+    final stages = [
+      l10n.translate('assign_driver'),
+      l10n.translate('pickup'),
+      l10n.translate('start_delivery'),
+      l10n.translate('on_the_way'),
+      l10n.translate('delivery'),
     ];
     final currentIndex = _tripStageIndex(request);
 
@@ -976,7 +983,9 @@ class _CustomerRequestTrackingScreenState
             final isActive = index <= currentIndex;
             return Expanded(
               child: Container(
-                margin: EdgeInsetsDirectional.only(end: index == stages.length - 1 ? 0 : 6),
+                margin: EdgeInsetsDirectional.only(
+                  end: index == stages.length - 1 ? 0 : 6,
+                ),
                 height: 6,
                 decoration: BoxDecoration(
                   color: isActive ? Colors.green : Colors.white12,
@@ -1001,11 +1010,11 @@ class _CustomerRequestTrackingScreenState
   @override
   Widget build(BuildContext context) {
     if (_requestId.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         body: AppGradientBackground(
           child: SafeArea(
             child: Center(
-              child: Text('تعذر تحميل الطلب'),
+              child: Text(l10n.translate('unable_load_request')),
             ),
           ),
         ),
@@ -1024,7 +1033,10 @@ class _CustomerRequestTrackingScreenState
 
         final status = (request['status'] ?? '').toString().trim();
         final scrapyardName =
-            (request['scrapyardName'] ?? 'غير محدد').toString();
+            ((request['scrapyardName'] ?? '').toString().trim().isEmpty)
+                ? l10n.translate('not_specified')
+                : (request['scrapyardName'] ?? '').toString();
+
         final scrapyardLocation =
             (request['scrapyardLocation'] ??
                     request['scrapyardGoogleMapsUrl'] ??
@@ -1056,9 +1068,9 @@ class _CustomerRequestTrackingScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'تتبع الطلب',
-                                  style: TextStyle(
+                                Text(
+                                  l10n.translate('track_request'),
+                                  style: const TextStyle(
                                     fontSize: 28,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -1094,9 +1106,9 @@ class _CustomerRequestTrackingScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'الحالة الحالية',
-                                    style: TextStyle(
+                                  Text(
+                                    l10n.translate('current_status'),
+                                    style: const TextStyle(
                                       color: Colors.white70,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1119,8 +1131,7 @@ class _CustomerRequestTrackingScreenState
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                    _statusColor(status).withValues(alpha: 0.16),
+                                color: _statusColor(status).withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -1187,9 +1198,9 @@ class _CustomerRequestTrackingScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'الخريطة المباشرة',
-                              style: TextStyle(
+                            Text(
+                              l10n.translate('live_map'),
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -1214,24 +1225,24 @@ class _CustomerRequestTrackingScreenState
                         child: Column(
                           children: [
                             _InfoRow(
-                              label: 'القطعة المطلوبة',
+                              label: l10n.translate('requested_part'),
                               value: (request['partName'] ?? '-').toString(),
                             ),
                             _InfoRow(
-                              label: 'المركبة',
+                              label: l10n.translate('vehicle'),
                               value:
                                   '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}',
                             ),
                             _InfoRow(
-                              label: 'السعر المختار',
+                              label: l10n.translate('selected_price'),
                               value: _priceText(request),
                             ),
                             _InfoRow(
-                              label: 'المدينة',
+                              label: l10n.translate('city'),
                               value: (request['city'] ?? '-').toString(),
                             ),
                             _InfoRow(
-                              label: 'التشليح',
+                              label: l10n.translate('scrapyard'),
                               value: scrapyardName,
                               isLast: true,
                             ),
@@ -1242,7 +1253,7 @@ class _CustomerRequestTrackingScreenState
                                 child: OutlinedButton.icon(
                                   onPressed: () => _openMapUrl(scrapyardLocation),
                                   icon: const Icon(Icons.location_on_outlined),
-                                  label: const Text('فتح موقع التشليح'),
+                                  label: Text(l10n.translate('open_scrapyard_location')),
                                 ),
                               ),
                             ],
@@ -1266,9 +1277,9 @@ class _CustomerRequestTrackingScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'عنوان التوصيل',
-                                style: TextStyle(
+                              Text(
+                                l10n.translate('delivery_address'),
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -1285,7 +1296,7 @@ class _CustomerRequestTrackingScreenState
                               if (deliveryLat != null && deliveryLng != null) ...[
                                 const SizedBox(height: 10),
                                 Text(
-                                  'الإحداثيات: ${deliveryLat.toStringAsFixed(6)}, ${deliveryLng.toStringAsFixed(6)}',
+                                  '${l10n.translate('coordinates')}: ${deliveryLat.toStringAsFixed(6)}, ${deliveryLng.toStringAsFixed(6)}',
                                   style: const TextStyle(
                                     color: Colors.white54,
                                     fontSize: 12,
@@ -1310,9 +1321,9 @@ class _CustomerRequestTrackingScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'إجراءات الطلب',
-                              style: TextStyle(
+                            Text(
+                              l10n.translate('request_actions'),
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -1320,12 +1331,12 @@ class _CustomerRequestTrackingScreenState
                             const SizedBox(height: 12),
                             Text(
                               status == 'assigned'
-                                  ? 'تم اعتماد العرض وبدأت مرحلة التنفيذ. يمكنك الآن التواصل مع العامل مباشرة.'
+                                  ? l10n.translate('request_actions_assigned')
                                   : status == 'shipped'
-                                      ? 'الطلب في مرحلة الشحن. يمكنك متابعة موقع السائق أو العامل والتنسيق عبر المحادثة.'
+                                      ? l10n.translate('request_actions_shipped')
                                       : status == 'delivered'
-                                          ? 'تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.'
-                                          : 'سيظهر زر المحادثة بعد اعتماد أحد العروض.',
+                                          ? l10n.translate('request_actions_delivered')
+                                          : l10n.translate('request_actions_default'),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 height: 1.6,
@@ -1350,8 +1361,8 @@ class _CustomerRequestTrackingScreenState
                                     : const Icon(Icons.chat_bubble_outline),
                                 label: Text(
                                   _canOpenChat(request)
-                                      ? 'محادثة العامل'
-                                      : 'المحادثة متاحة بعد قبول العرض',
+                                      ? l10n.translate('worker_chat')
+                                      : l10n.translate('chat_available_after_accept'),
                                 ),
                               ),
                             ),
@@ -1363,7 +1374,7 @@ class _CustomerRequestTrackingScreenState
                                     ? () => _callWorker(request)
                                     : null,
                                 icon: const Icon(Icons.phone_outlined),
-                                label: const Text('اتصال بالعامل'),
+                                label: Text(l10n.translate('call_worker')),
                               ),
                             ),
                           ],
