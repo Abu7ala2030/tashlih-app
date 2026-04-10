@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../../providers/request_provider.dart';
@@ -30,6 +31,8 @@ class _CustomerRequestOffersScreenState
 
   String get requestId => (widget.request['id'] ?? '').toString();
   String? get _currentUserId => _auth.currentUser?.uid;
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -75,7 +78,7 @@ class _CustomerRequestOffersScreenState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم قبول العرض بنجاح')),
+        SnackBar(content: Text(l10n.translate('offer_accepted_successfully'))),
       );
 
       if (freshRequest != null) {
@@ -94,7 +97,9 @@ class _CustomerRequestOffersScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل قبول العرض: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('accept_offer_failed')}: $e'),
+        ),
       );
     } finally {
       if (mounted) setState(() => isSubmitting = false);
@@ -113,12 +118,14 @@ class _CustomerRequestOffersScreenState
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم رفض العرض')),
+        SnackBar(content: Text(l10n.translate('offer_rejected'))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل رفض العرض: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('reject_offer_failed')}: $e'),
+        ),
       );
     } finally {
       if (mounted) setState(() => isSubmitting = false);
@@ -137,9 +144,10 @@ class _CustomerRequestOffersScreenState
             .trim();
 
     final displayWorkerName =
-        workerName.isNotEmpty ? workerName : 'عامل غير معروف';
-    final displayScrapyardName =
-        scrapyardName.isNotEmpty ? scrapyardName : 'تشليح غير محدد';
+        workerName.isNotEmpty ? workerName : l10n.translate('unknown_worker');
+    final displayScrapyardName = scrapyardName.isNotEmpty
+        ? scrapyardName
+        : l10n.translate('unknown_scrapyard');
 
     final price = _readDouble(bestItem.offerData['price']);
 
@@ -147,16 +155,18 @@ class _CustomerRequestOffersScreenState
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('تأكيد قبول أفضل عرض'),
+          title: Text(l10n.translate('confirm_accept_best_offer')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('العامل: $displayWorkerName'),
+              Text('${l10n.translate('worker_name')}: $displayWorkerName'),
               const SizedBox(height: 8),
-              Text('التشليح: $displayScrapyardName'),
+              Text('${l10n.translate('scrapyard')}: $displayScrapyardName'),
               const SizedBox(height: 8),
-              Text('السعر: ${price.toStringAsFixed(0)} ريال'),
+              Text(
+                '${l10n.translate('price')}: ${price.toStringAsFixed(0)} ${l10n.translate('sar')}',
+              ),
               const SizedBox(height: 12),
               Text(
                 _primaryRecommendationReason(bestItem, pendingOffers),
@@ -167,11 +177,11 @@ class _CustomerRequestOffersScreenState
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('إلغاء'),
+              child: Text(l10n.translate('cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('تأكيد القبول'),
+              child: Text(l10n.translate('confirm_accept')),
             ),
           ],
         );
@@ -192,7 +202,7 @@ class _CustomerRequestOffersScreenState
     if (status != 'pending') {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد عرض متاح حاليًا للقبول المباشر')),
+        SnackBar(content: Text(l10n.translate('no_offer_available_directly'))),
       );
       return;
     }
@@ -232,7 +242,7 @@ class _CustomerRequestOffersScreenState
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح الاتصال')),
+      SnackBar(content: Text(l10n.translate('unable_open_call'))),
     );
   }
 
@@ -248,7 +258,7 @@ class _CustomerRequestOffersScreenState
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح واتساب')),
+      SnackBar(content: Text(l10n.translate('unable_open_whatsapp'))),
     );
   }
 
@@ -261,7 +271,7 @@ class _CustomerRequestOffersScreenState
     if (phone.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رقم جوال أفضل عرض غير متوفر')),
+        SnackBar(content: Text(l10n.translate('best_offer_phone_not_available'))),
       );
       return;
     }
@@ -280,7 +290,9 @@ class _CustomerRequestOffersScreenState
     if (phone.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رقم واتساب أفضل عرض غير متوفر')),
+        SnackBar(
+          content: Text(l10n.translate('best_offer_whatsapp_not_available')),
+        ),
       );
       return;
     }
@@ -297,7 +309,7 @@ class _CustomerRequestOffersScreenState
     if (phone.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رقم أفضل عرض غير متوفر للنسخ')),
+        SnackBar(content: Text(l10n.translate('best_offer_phone_copy_unavailable'))),
       );
       return;
     }
@@ -305,7 +317,7 @@ class _CustomerRequestOffersScreenState
     await Clipboard.setData(ClipboardData(text: phone));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم نسخ رقم أفضل عرض')),
+      SnackBar(content: Text(l10n.translate('best_offer_phone_copied'))),
     );
   }
 
@@ -322,10 +334,11 @@ class _CustomerRequestOffersScreenState
     final phone = (workerData['phone'] ?? '').toString().trim();
 
     final displayWorkerName =
-        workerName.isNotEmpty ? workerName : 'عامل غير معروف';
-    final displayScrapyardName =
-        scrapyardName.isNotEmpty ? scrapyardName : 'تشليح غير محدد';
-    final displayPhone = phone.isNotEmpty ? phone : 'غير متوفر';
+        workerName.isNotEmpty ? workerName : l10n.translate('unknown_worker');
+    final displayScrapyardName = scrapyardName.isNotEmpty
+        ? scrapyardName
+        : l10n.translate('unknown_scrapyard');
+    final displayPhone = phone.isNotEmpty ? phone : l10n.translate('not_available');
 
     final partName = (widget.request['partName'] ?? '').toString();
     final vehicleLine =
@@ -336,15 +349,15 @@ class _CustomerRequestOffersScreenState
     final reason = _primaryRecommendationReason(bestItem, pendingOffers);
 
     return '''
-أفضل عرض حاليًا
+${l10n.translate('best_offer_currently')}
 
-القطعة: $partName
-المركبة: $vehicleLine
-العامل: $displayWorkerName
-التشليح: $displayScrapyardName
-الجوال: $displayPhone
-السعر: $price ريال
-سبب التوصية: $reason
+${l10n.translate('part_name')}: $partName
+${l10n.translate('vehicle')}: $vehicleLine
+${l10n.translate('worker_name')}: $displayWorkerName
+${l10n.translate('scrapyard')}: $displayScrapyardName
+${l10n.translate('phone')}: $displayPhone
+${l10n.translate('price')}: $price ${l10n.translate('sar')}
+${l10n.translate('recommendation_reason')}: $reason
 ''';
   }
 
@@ -357,7 +370,7 @@ class _CustomerRequestOffersScreenState
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم نسخ تفاصيل أفضل عرض')),
+      SnackBar(content: Text(l10n.translate('best_offer_details_copied'))),
     );
   }
 
@@ -475,7 +488,7 @@ class _CustomerRequestOffersScreenState
     if (uid == null || uid.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يجب تسجيل الدخول أولًا')),
+        SnackBar(content: Text(l10n.translate('login_required_first'))),
       );
       return;
     }
@@ -484,7 +497,7 @@ class _CustomerRequestOffersScreenState
     if (workerId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('معرّف العامل غير متوفر')),
+        SnackBar(content: Text(l10n.translate('worker_id_not_available'))),
       );
       return;
     }
@@ -502,7 +515,7 @@ class _CustomerRequestOffersScreenState
       await favoriteRef.delete();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمت إزالة العامل من المفضلة')),
+        SnackBar(content: Text(l10n.translate('worker_removed_from_favorites'))),
       );
       return;
     }
@@ -521,7 +534,7 @@ class _CustomerRequestOffersScreenState
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تمت إضافة العامل إلى المفضلة')),
+      SnackBar(content: Text(l10n.translate('worker_added_to_favorites'))),
     );
   }
 
@@ -545,16 +558,17 @@ class _CustomerRequestOffersScreenState
     final scrapyardLogoUrl = _scrapyardLogoUrl(workerData);
 
     final displayWorkerName =
-        workerName.isNotEmpty ? workerName : 'عامل غير معروف';
-    final displayScrapyardName =
-        scrapyardName.isNotEmpty ? scrapyardName : 'تشليح غير محدد';
-    final displayPhone = phone.isNotEmpty ? phone : 'غير متوفر';
+        workerName.isNotEmpty ? workerName : l10n.translate('unknown_worker');
+    final displayScrapyardName = scrapyardName.isNotEmpty
+        ? scrapyardName
+        : l10n.translate('unknown_scrapyard');
+    final displayPhone = phone.isNotEmpty ? phone : l10n.translate('not_available');
 
     await showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('تفاصيل العامل'),
+          title: Text(l10n.translate('worker_details')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -603,7 +617,7 @@ class _CustomerRequestOffersScreenState
                   _buildRatingStars(rating, size: 20),
                   const SizedBox(height: 8),
                   Text(
-                    '${rating.toStringAsFixed(1)} من 5',
+                    '${rating.toStringAsFixed(1)} ${l10n.translate('out_of_5')}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.w700,
@@ -611,27 +625,42 @@ class _CustomerRequestOffersScreenState
                   ),
                   const SizedBox(height: 12),
                 ],
-                _DialogInfoRow(label: 'اسم العامل', value: displayWorkerName),
-                _DialogInfoRow(label: 'التشليح', value: displayScrapyardName),
-                _DialogInfoRow(label: 'الجوال', value: displayPhone),
                 _DialogInfoRow(
-                  label: 'التقييم',
-                  value: rating > 0 ? rating.toStringAsFixed(1) : 'جديد',
+                  label: l10n.translate('worker_name'),
+                  value: displayWorkerName,
                 ),
                 _DialogInfoRow(
-                  label: 'طلبات منجزة',
+                  label: l10n.translate('scrapyard'),
+                  value: displayScrapyardName,
+                ),
+                _DialogInfoRow(
+                  label: l10n.translate('phone'),
+                  value: displayPhone,
+                ),
+                _DialogInfoRow(
+                  label: l10n.translate('rating'),
+                  value: rating > 0
+                      ? rating.toStringAsFixed(1)
+                      : l10n.translate('new_label'),
+                ),
+                _DialogInfoRow(
+                  label: l10n.translate('completed_orders'),
                   value: completedOrders.toString(),
                 ),
                 _DialogInfoRow(
-                  label: 'الحالة',
-                  value: isVerified ? 'موثّق' : 'غير موثّق',
+                  label: l10n.translate('status'),
+                  value: isVerified
+                      ? l10n.translate('verified')
+                      : l10n.translate('not_verified'),
                 ),
                 _DialogInfoRow(
-                  label: 'المفضلة',
-                  value: isFavorite ? 'محفوظ في المفضلة' : 'غير محفوظ',
+                  label: l10n.translate('favorites'),
+                  value: isFavorite
+                      ? l10n.translate('saved_in_favorites')
+                      : l10n.translate('not_saved'),
                 ),
                 _DialogInfoRow(
-                  label: 'تاريخ الانضمام',
+                  label: l10n.translate('join_date'),
                   value: _formatJoinedDate(joinedAt),
                   isLast: true,
                 ),
@@ -648,7 +677,11 @@ class _CustomerRequestOffersScreenState
                 isFavorite ? Icons.favorite : Icons.favorite_border,
                 color: Colors.redAccent,
               ),
-              label: Text(isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة'),
+              label: Text(
+                isFavorite
+                    ? l10n.translate('remove_from_favorites')
+                    : l10n.translate('add_to_favorites'),
+              ),
             ),
             if (phone.isNotEmpty)
               TextButton.icon(
@@ -657,7 +690,7 @@ class _CustomerRequestOffersScreenState
                   await _makePhoneCall(phone);
                 },
                 icon: const Icon(Icons.call_outlined),
-                label: const Text('اتصال'),
+                label: Text(l10n.translate('call')),
               ),
             if (phone.isNotEmpty)
               TextButton.icon(
@@ -666,11 +699,11 @@ class _CustomerRequestOffersScreenState
                   await _openWhatsApp(phone);
                 },
                 icon: const Icon(Icons.chat_outlined),
-                label: const Text('واتساب'),
+                label: Text(l10n.translate('whatsapp')),
               ),
             FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('إغلاق'),
+              child: Text(l10n.translate('close')),
             ),
           ],
         );
@@ -695,9 +728,10 @@ class _CustomerRequestOffersScreenState
     final price = _readDouble(bestItem.offerData['price']).toStringAsFixed(0);
 
     final displayWorkerName =
-        workerName.isNotEmpty ? workerName : 'عامل غير معروف';
-    final displayScrapyardName =
-        scrapyardName.isNotEmpty ? scrapyardName : 'تشليح غير محدد';
+        workerName.isNotEmpty ? workerName : l10n.translate('unknown_worker');
+    final displayScrapyardName = scrapyardName.isNotEmpty
+        ? scrapyardName
+        : l10n.translate('unknown_scrapyard');
 
     await showModalBottomSheet<void>(
       context: context,
@@ -723,11 +757,11 @@ class _CustomerRequestOffersScreenState
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'إجراءات أفضل عرض',
-                    style: TextStyle(
+                    l10n.translate('best_offer_actions'),
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
                     ),
@@ -737,7 +771,7 @@ class _CustomerRequestOffersScreenState
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '$displayWorkerName • $displayScrapyardName • $price ريال',
+                    '$displayWorkerName • $displayScrapyardName • $price ${l10n.translate('sar')}',
                     style: const TextStyle(
                       color: Colors.white70,
                       height: 1.5,
@@ -748,9 +782,9 @@ class _CustomerRequestOffersScreenState
                 _ActionTile(
                   icon: isFavorite ? Icons.favorite : Icons.favorite_border,
                   title: isFavorite
-                      ? 'إزالة العامل من المفضلة'
-                      : 'إضافة العامل إلى المفضلة',
-                  subtitle: 'حفظ هذا العامل للوصول السريع لاحقًا',
+                      ? l10n.translate('remove_worker_from_favorites')
+                      : l10n.translate('add_worker_to_favorites'),
+                  subtitle: l10n.translate('save_worker_for_quick_access'),
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     await _toggleFavoriteWorker(bestItem);
@@ -758,8 +792,8 @@ class _CustomerRequestOffersScreenState
                 ),
                 _ActionTile(
                   icon: Icons.info_outline,
-                  title: 'عرض كل تفاصيل العامل',
-                  subtitle: 'الاسم، التشليح، الجوال، التقييم، والإنجاز',
+                  title: l10n.translate('show_all_worker_details'),
+                  subtitle: l10n.translate('worker_details_summary'),
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     await _showWorkerDetailsDialog(
@@ -770,8 +804,8 @@ class _CustomerRequestOffersScreenState
                 ),
                 _ActionTile(
                   icon: Icons.check_circle_outline,
-                  title: 'قبول أفضل عرض مباشرة',
-                  subtitle: 'قبول العرض الأعلى أولوية الآن',
+                  title: l10n.translate('accept_best_offer_directly'),
+                  subtitle: l10n.translate('accept_top_priority_offer_now'),
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     await _acceptBestOfferDirectly(pendingOffers);
@@ -780,7 +814,7 @@ class _CustomerRequestOffersScreenState
                 if (phone.isNotEmpty)
                   _ActionTile(
                     icon: Icons.call_outlined,
-                    title: 'اتصال بالأفضل',
+                    title: l10n.translate('call_best_offer'),
                     subtitle: phone,
                     onTap: () async {
                       Navigator.pop(sheetContext);
@@ -790,8 +824,8 @@ class _CustomerRequestOffersScreenState
                 if (phone.isNotEmpty)
                   _ActionTile(
                     icon: Icons.chat_outlined,
-                    title: 'واتساب الأفضل',
-                    subtitle: 'فتح محادثة واتساب مباشرة',
+                    title: l10n.translate('whatsapp_best_offer'),
+                    subtitle: l10n.translate('open_whatsapp_directly'),
                     onTap: () async {
                       Navigator.pop(sheetContext);
                       await _contactBestByWhatsApp(pendingOffers);
@@ -800,8 +834,8 @@ class _CustomerRequestOffersScreenState
                 if (phone.isNotEmpty)
                   _ActionTile(
                     icon: Icons.copy_outlined,
-                    title: 'نسخ رقم الأفضل',
-                    subtitle: 'نسخ رقم الجوال للحافظة',
+                    title: l10n.translate('copy_best_offer_phone'),
+                    subtitle: l10n.translate('copy_phone_to_clipboard'),
                     onTap: () async {
                       Navigator.pop(sheetContext);
                       await _copyBestPhone(pendingOffers);
@@ -809,8 +843,8 @@ class _CustomerRequestOffersScreenState
                   ),
                 _ActionTile(
                   icon: Icons.article_outlined,
-                  title: 'نسخ تفاصيل الأفضل',
-                  subtitle: 'نسخ اسم العامل والسعر وسبب التوصية',
+                  title: l10n.translate('copy_best_offer_details'),
+                  subtitle: l10n.translate('copy_name_price_reason'),
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     await _copyBestOfferDetails(pendingOffers);
@@ -825,7 +859,7 @@ class _CustomerRequestOffersScreenState
   }
 
   String _formatJoinedDate(dynamic value) {
-    if (value is! Timestamp) return 'غير محدد';
+    if (value is! Timestamp) return l10n.translate('not_specified');
     final date = value.toDate();
     return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
   }
@@ -855,7 +889,7 @@ class _CustomerRequestOffersScreenState
   ) {
     final status = (item.offerData['status'] ?? 'pending').toString();
     if (status != 'pending') {
-      return 'هذا العرض غير متاح حاليًا للاختيار';
+      return l10n.translate('offer_not_available_now');
     }
 
     final itemPrice = _readDouble(item.offerData['price']);
@@ -864,14 +898,14 @@ class _CustomerRequestOffersScreenState
         .fold<double>(0, (a, b) => a > b ? a : b);
 
     if (itemPrice == maxPrice && maxPrice > 0) {
-      return 'موصى به لأنه أعلى سعر';
+      return l10n.translate('recommended_highest_price');
     }
 
     final itemVerified = item.workerData['isVerified'] == true;
     final anyVerified =
         comparableItems.any((e) => e.workerData['isVerified'] == true);
     if (itemVerified && anyVerified) {
-      return 'موصى به لأن العامل موثّق';
+      return l10n.translate('recommended_verified_worker');
     }
 
     final itemRating = _readDouble(item.workerData['rating']);
@@ -880,7 +914,7 @@ class _CustomerRequestOffersScreenState
         .fold<double>(0, (a, b) => a > b ? a : b);
 
     if (itemRating > 0 && itemRating == maxRating) {
-      return 'موصى به لأن تقييم العامل أعلى';
+      return l10n.translate('recommended_highest_rating');
     }
 
     final itemCompleted = _readInt(item.workerData['completedOrders']);
@@ -889,10 +923,10 @@ class _CustomerRequestOffersScreenState
         .fold<int>(0, (a, b) => a > b ? a : b);
 
     if (itemCompleted > 0 && itemCompleted == maxCompleted) {
-      return 'موصى به لأن للعامل سجل إنجاز أعلى';
+      return l10n.translate('recommended_highest_experience');
     }
 
-    return 'موصى به كأفضل عرض متاح حاليًا';
+    return l10n.translate('recommended_best_available');
   }
 
   List<String> _recommendationTags(
@@ -902,7 +936,7 @@ class _CustomerRequestOffersScreenState
     final tags = <String>[];
 
     final status = (item.offerData['status'] ?? 'pending').toString();
-    if (status != 'pending') return ['غير متاح'];
+    if (status != 'pending') return [l10n.translate('not_available')];
 
     final price = _readDouble(item.offerData['price']);
     final rating = _readDouble(item.workerData['rating']);
@@ -921,12 +955,14 @@ class _CustomerRequestOffersScreenState
         .map((e) => _readInt(e.workerData['completedOrders']))
         .fold<int>(0, (a, b) => a > b ? a : b);
 
-    if (price > 0 && price == maxPrice) tags.add('أعلى سعر');
-    if (isVerified) tags.add('موثّق');
-    if (rating > 0 && rating == maxRating) tags.add('أعلى تقييم');
-    if (completed > 0 && completed == maxCompleted) tags.add('خبرة أعلى');
+    if (price > 0 && price == maxPrice) tags.add(l10n.translate('highest_price'));
+    if (isVerified) tags.add(l10n.translate('verified'));
+    if (rating > 0 && rating == maxRating) tags.add(l10n.translate('highest_rating'));
+    if (completed > 0 && completed == maxCompleted) {
+      tags.add(l10n.translate('highest_experience'));
+    }
 
-    if (tags.isEmpty) tags.add('أفضل ترتيب');
+    if (tags.isEmpty) tags.add(l10n.translate('best_ranked'));
     return tags.take(3).toList();
   }
 
@@ -1035,9 +1071,9 @@ class _CustomerRequestOffersScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'العروض المستلمة',
-                                    style: TextStyle(
+                                  Text(
+                                    l10n.translate('received_offers'),
+                                    style: const TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -1070,8 +1106,12 @@ class _CustomerRequestOffersScreenState
                                 (request['deliveryAddress'] ?? '').toString().trim();
                             final deliveryLat = _readDouble(request['deliveryLat']);
                             final deliveryLng = _readDouble(request['deliveryLng']);
-                            final scrapyardName =
-                                (request['scrapyardName'] ?? 'غير محدد').toString();
+                            final scrapyardName = (request['scrapyardName'] ?? '')
+                                    .toString()
+                                    .trim()
+                                    .isNotEmpty
+                                ? (request['scrapyardName'] ?? '').toString()
+                                : l10n.translate('not_specified');
                             final city = (request['city'] ?? '-').toString();
 
                             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -1094,7 +1134,7 @@ class _CustomerRequestOffersScreenState
                                     child: Padding(
                                       padding: const EdgeInsets.all(24),
                                       child: Text(
-                                        'فشل تحميل العروض: ${snapshot.error}',
+                                        '${l10n.translate('load_offers_failed')}: ${snapshot.error}',
                                         textAlign: TextAlign.center,
                                       ),
                                     ),
@@ -1118,7 +1158,7 @@ class _CustomerRequestOffersScreenState
                                         child: Padding(
                                           padding: const EdgeInsets.all(24),
                                           child: Text(
-                                            'فشل تجهيز بيانات العروض: ${sortedSnapshot.error}',
+                                            '${l10n.translate('prepare_offers_failed')}: ${sortedSnapshot.error}',
                                             textAlign: TextAlign.center,
                                           ),
                                         ),
@@ -1157,42 +1197,46 @@ class _CustomerRequestOffersScreenState
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                const Text(
-                                                  'تفاصيل الطلب',
-                                                  style: TextStyle(
+                                                Text(
+                                                  l10n.translate('request_details'),
+                                                  style: const TextStyle(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w900,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 10),
                                                 _InfoRow(
-                                                  label: 'القطعة',
-                                                  value: partName.isEmpty ? '-' : partName,
+                                                  label: l10n.translate('part_name'),
+                                                  value:
+                                                      partName.isEmpty ? '-' : partName,
                                                 ),
                                                 _InfoRow(
-                                                  label: 'المركبة',
+                                                  label: l10n.translate('vehicle'),
                                                   value: vehicleLine.trim().isEmpty
                                                       ? '-'
                                                       : vehicleLine.trim(),
                                                 ),
                                                 _InfoRow(
-                                                  label: 'المدينة',
+                                                  label: l10n.translate('city'),
                                                   value: city,
                                                 ),
                                                 _InfoRow(
-                                                  label: 'التشليح',
+                                                  label: l10n.translate('scrapyard'),
                                                   value: scrapyardName,
                                                 ),
                                                 _InfoRow(
-                                                  label: 'عنوان التوصيل',
+                                                  label: l10n.translate('delivery_address'),
                                                   value: deliveryAddress.isEmpty
-                                                      ? 'لم يتم تحديد عنوان بعد'
+                                                      ? l10n.translate(
+                                                          'delivery_address_not_set',
+                                                        )
                                                       : deliveryAddress,
-                                                  isLast: deliveryLat == 0 && deliveryLng == 0,
+                                                  isLast:
+                                                      deliveryLat == 0 && deliveryLng == 0,
                                                 ),
                                                 if (deliveryLat > 0 && deliveryLng > 0)
                                                   _InfoRow(
-                                                    label: 'الإحداثيات',
+                                                    label: l10n.translate('coordinates'),
                                                     value:
                                                         '${deliveryLat.toStringAsFixed(6)}, ${deliveryLng.toStringAsFixed(6)}',
                                                     isLast: true,
@@ -1224,9 +1268,9 @@ class _CustomerRequestOffersScreenState
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  const Text(
-                                                    'إجراء سريع',
-                                                    style: TextStyle(
+                                                  Text(
+                                                    l10n.translate('quick_action'),
+                                                    style: const TextStyle(
                                                       fontSize: 16,
                                                       fontWeight: FontWeight.w900,
                                                     ),
@@ -1259,8 +1303,10 @@ class _CustomerRequestOffersScreenState
                                                       icon: const Icon(
                                                         Icons.bolt_outlined,
                                                       ),
-                                                      label: const Text(
-                                                        'فتح إجراءات أفضل عرض',
+                                                      label: Text(
+                                                        l10n.translate(
+                                                          'open_best_offer_actions',
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -1270,13 +1316,15 @@ class _CustomerRequestOffersScreenState
                                           ),
                                         Expanded(
                                           child: offers.isEmpty
-                                              ? const Center(
+                                              ? Center(
                                                   child: Padding(
-                                                    padding: EdgeInsets.all(24),
+                                                    padding: const EdgeInsets.all(24),
                                                     child: Text(
-                                                      'لا توجد عروض على هذا الطلب حتى الآن',
+                                                      l10n.translate(
+                                                        'no_offers_yet_for_request',
+                                                      ),
                                                       textAlign: TextAlign.center,
-                                                      style: TextStyle(
+                                                      style: const TextStyle(
                                                         fontSize: 18,
                                                         fontWeight: FontWeight.w700,
                                                       ),
@@ -1327,7 +1375,8 @@ class _CustomerRequestOffersScreenState
                                                       workerData['completedOrders'],
                                                     );
                                                     final isVerified =
-                                                        workerData['isVerified'] == true;
+                                                        workerData['isVerified'] ==
+                                                            true;
                                                     final joinedAt =
                                                         workerData['createdAt'];
                                                     final workerPhotoUrl =
@@ -1338,15 +1387,21 @@ class _CustomerRequestOffersScreenState
                                                     final displayWorkerName =
                                                         workerName.isNotEmpty
                                                             ? workerName
-                                                            : 'عامل غير معروف';
+                                                            : l10n.translate(
+                                                                'unknown_worker',
+                                                              );
                                                     final displayScrapyardName =
                                                         scrapyardName.isNotEmpty
                                                             ? scrapyardName
-                                                            : 'تشليح غير محدد';
+                                                            : l10n.translate(
+                                                                'unknown_scrapyard',
+                                                              );
                                                     final displayWorkerPhone =
                                                         workerPhone.isNotEmpty
                                                             ? workerPhone
-                                                            : 'غير متوفر';
+                                                            : l10n.translate(
+                                                                'not_available',
+                                                              );
 
                                                     final isBestPending =
                                                         bestPendingOffer != null &&
@@ -1390,10 +1445,13 @@ class _CustomerRequestOffersScreenState
                                                               Expanded(
                                                                 child: Row(
                                                                   children: [
-                                                                    const Expanded(
+                                                                    Expanded(
                                                                       child: Text(
-                                                                        'عرض سعر',
-                                                                        style: TextStyle(
+                                                                        l10n.translate(
+                                                                          'price_offer',
+                                                                        ),
+                                                                        style:
+                                                                            const TextStyle(
                                                                           fontSize: 18,
                                                                           fontWeight:
                                                                               FontWeight.w900,
@@ -1417,10 +1475,12 @@ class _CustomerRequestOffersScreenState
                                                                             999,
                                                                           ),
                                                                         ),
-                                                                        child:
-                                                                            const Text(
-                                                                          'الأفضل حاليًا',
-                                                                          style: TextStyle(
+                                                                        child: Text(
+                                                                          l10n.translate(
+                                                                            'best_currently',
+                                                                          ),
+                                                                          style:
+                                                                              const TextStyle(
                                                                             color: Colors
                                                                                 .amber,
                                                                             fontWeight:
@@ -1445,8 +1505,12 @@ class _CustomerRequestOffersScreenState
                                                                   color: Colors.redAccent,
                                                                 ),
                                                                 tooltip: isFavorite
-                                                                    ? 'إزالة من المفضلة'
-                                                                    : 'إضافة إلى المفضلة',
+                                                                    ? l10n.translate(
+                                                                        'remove_from_favorites',
+                                                                      )
+                                                                    : l10n.translate(
+                                                                        'add_to_favorites',
+                                                                      ),
                                                               ),
                                                               Container(
                                                                 padding: const EdgeInsets
@@ -1465,7 +1529,9 @@ class _CustomerRequestOffersScreenState
                                                                   ),
                                                                 ),
                                                                 child: Text(
-                                                                  _statusText(status),
+                                                                  _statusText(
+                                                                    status,
+                                                                  ),
                                                                   style: TextStyle(
                                                                     color: _statusColor(
                                                                       status,
@@ -1480,25 +1546,32 @@ class _CustomerRequestOffersScreenState
                                                           ),
                                                           const SizedBox(height: 12),
                                                           _InfoRow(
-                                                            label: 'السعر',
+                                                            label: l10n.translate('price'),
                                                             value:
-                                                                '${price.toStringAsFixed(0)} ريال',
+                                                                '${price.toStringAsFixed(0)} ${l10n.translate('sar')}',
                                                           ),
                                                           _InfoRow(
-                                                            label: 'اسم العامل',
+                                                            label: l10n.translate(
+                                                              'worker_name',
+                                                            ),
                                                             value: displayWorkerName,
                                                           ),
                                                           _InfoRow(
-                                                            label: 'التشليح',
+                                                            label: l10n.translate(
+                                                              'scrapyard',
+                                                            ),
                                                             value:
                                                                 displayScrapyardName,
                                                           ),
                                                           _InfoRow(
-                                                            label: 'الجوال',
+                                                            label:
+                                                                l10n.translate('phone'),
                                                             value: displayWorkerPhone,
                                                           ),
                                                           _InfoRow(
-                                                            label: 'وقت العرض',
+                                                            label: l10n.translate(
+                                                              'offer_time',
+                                                            ),
                                                             value: data['createdAt']
                                                                     is Timestamp
                                                                 ? (data['createdAt']
@@ -1589,7 +1662,8 @@ class _CustomerRequestOffersScreenState
                                                                                 11,
                                                                             fontWeight:
                                                                                 FontWeight.w800,
-                                                                            color: Colors.white,
+                                                                            color:
+                                                                                Colors.white,
                                                                           ),
                                                                         ),
                                                                       );
@@ -1635,15 +1709,16 @@ class _CustomerRequestOffersScreenState
                                                                     const SizedBox(
                                                                       width: 8,
                                                                     ),
-                                                                    const Expanded(
+                                                                    Expanded(
                                                                       child: Text(
-                                                                        'بطاقة ثقة العامل',
+                                                                        l10n.translate(
+                                                                          'worker_trust_card',
+                                                                        ),
                                                                         style:
-                                                                            TextStyle(
+                                                                            const TextStyle(
                                                                           fontWeight:
                                                                               FontWeight.w900,
-                                                                          fontSize:
-                                                                              15,
+                                                                          fontSize: 15,
                                                                         ),
                                                                       ),
                                                                     ),
@@ -1670,8 +1745,12 @@ class _CustomerRequestOffersScreenState
                                                                       ),
                                                                       child: Text(
                                                                         isVerified
-                                                                            ? 'موثّق'
-                                                                            : 'غير موثّق',
+                                                                            ? l10n.translate(
+                                                                                'verified',
+                                                                              )
+                                                                            : l10n.translate(
+                                                                                'not_verified',
+                                                                              ),
                                                                         style:
                                                                             TextStyle(
                                                                           color: isVerified
@@ -1697,13 +1776,17 @@ class _CustomerRequestOffersScreenState
                                                                         icon: Icons
                                                                             .star_outline,
                                                                         label:
-                                                                            'التقييم',
+                                                                            l10n.translate(
+                                                                          'rating',
+                                                                        ),
                                                                         value: rating >
                                                                                 0
                                                                             ? rating.toStringAsFixed(
                                                                                 1,
                                                                               )
-                                                                            : 'جديد',
+                                                                            : l10n.translate(
+                                                                                'new_label',
+                                                                              ),
                                                                       ),
                                                                     ),
                                                                     const SizedBox(
@@ -1715,7 +1798,9 @@ class _CustomerRequestOffersScreenState
                                                                         icon: Icons
                                                                             .inventory_2_outlined,
                                                                         label:
-                                                                            'طلبات منجزة',
+                                                                            l10n.translate(
+                                                                          'completed_orders',
+                                                                        ),
                                                                         value:
                                                                             completedOrders.toString(),
                                                                       ),
@@ -1738,8 +1823,9 @@ class _CustomerRequestOffersScreenState
                                                                   height: 10,
                                                                 ),
                                                                 _InfoRow(
-                                                                  label:
-                                                                      'تاريخ الانضمام',
+                                                                  label: l10n.translate(
+                                                                    'join_date',
+                                                                  ),
                                                                   value:
                                                                       _formatJoinedDate(
                                                                     joinedAt,
@@ -1763,8 +1849,10 @@ class _CustomerRequestOffersScreenState
                                                               icon: const Icon(
                                                                 Icons.info_outline,
                                                               ),
-                                                              label: const Text(
-                                                                'عرض كل تفاصيل العامل',
+                                                              label: Text(
+                                                                l10n.translate(
+                                                                  'show_all_worker_details',
+                                                                ),
                                                               ),
                                                             ),
                                                           ),
@@ -1786,8 +1874,10 @@ class _CustomerRequestOffersScreenState
                                                                       Icons
                                                                           .call_outlined,
                                                                     ),
-                                                                    label: const Text(
-                                                                      'اتصال',
+                                                                    label: Text(
+                                                                      l10n.translate(
+                                                                        'call',
+                                                                      ),
                                                                     ),
                                                                   ),
                                                                 ),
@@ -1806,8 +1896,10 @@ class _CustomerRequestOffersScreenState
                                                                       Icons
                                                                           .chat_outlined,
                                                                     ),
-                                                                    label: const Text(
-                                                                      'واتساب',
+                                                                    label: Text(
+                                                                      l10n.translate(
+                                                                        'whatsapp',
+                                                                      ),
                                                                     ),
                                                                   ),
                                                                 ),
@@ -1828,9 +1920,10 @@ class _CustomerRequestOffersScreenState
                                                                                   offerId: item.offerId,
                                                                                   workerId: workerId,
                                                                                 ),
-                                                                    child:
-                                                                        const Text(
-                                                                      'قبول العرض',
+                                                                    child: Text(
+                                                                      l10n.translate(
+                                                                        'accept_offer',
+                                                                      ),
                                                                     ),
                                                                   ),
                                                                 ),
@@ -1846,9 +1939,10 @@ class _CustomerRequestOffersScreenState
                                                                             : () => _rejectOffer(
                                                                                   offerId: item.offerId,
                                                                                 ),
-                                                                    child:
-                                                                        const Text(
-                                                                      'رفض',
+                                                                    child: Text(
+                                                                      l10n.translate(
+                                                                        'reject',
+                                                                      ),
                                                                     ),
                                                                   ),
                                                                 ),
@@ -1900,11 +1994,11 @@ class _CustomerRequestOffersScreenState
   String _statusText(String status) {
     switch (status) {
       case 'accepted':
-        return 'مقبول';
+        return l10n.translate('accepted');
       case 'rejected':
-        return 'مرفوض';
+        return l10n.translate('rejected');
       default:
-        return 'بانتظار القرار';
+        return l10n.translate('waiting_decision');
     }
   }
 }

@@ -121,5 +121,44 @@
   "status_unavailable": "غير متوفر",
   "status_reserved": "محجوز",
   "status_confirmed": "مؤكد",
-  "status_offer_selected": "تم اختيار العرض"
+  "status_offer_selected": "تم اختيار العرض",
+  "part_request": "طلب قطعة",
+  "no_vehicle_selected": "لا توجد مركبة محددة",
+  "enter_part_name": "يرجى إدخال اسم القطعة",
+  "enter_city": "يرجى إدخال المدينة",
+  "enter_phone": "يرجى إدخال رقم التواصل",
+  "select_delivery_address": "يرجى تحديد عنوان التوصيل",
+  "request_sent_success": "تم إرسال الطلب بنجاح",
+  "request_failed": "فشل إرسال الطلب",
+
+  "location_service_disabled": "خدمة الموقع غير مفعلة",
+  "location_permission_denied": "تم رفض صلاحية الموقع",
+  "location_permission_denied_forever": "صلاحية الموقع مرفوضة نهائيًا",
+
+  "address_search_failed": "فشل البحث عن العنوان",
+  "select_address_failed": "فشل اختيار العنوان",
+  "get_location_failed": "فشل جلب الموقع",
+
+  "part_name": "اسم القطعة",
+  "part_name_hint": "مثال: باب أمامي يمين",
+
+  "notes": "وصف إضافي",
+  "notes_hint": "أي تفاصيل تساعد في تحديد القطعة",
+
+  "city": "المدينة",
+  "phone": "رقم التواصل",
+
+  "needs_shipping": "أحتاج شحن",
+  "shipping_description": "فعّلها إذا كنت تريد التوصيل",
+
+  "delivery_address": "عنوان التوصيل",
+  "search_address": "ابحث عن عنوانك أو اختر موقعك الحالي",
+
+  "use_current_location": "استخدام موقعي الحالي",
+  "getting_location": "جاري جلب الموقع...",
+
+  "saved_addresses": "العناوين المحفوظة",
+  "selected_address": "العنوان المحدد",
+
+  "send_request": "إرسال الطلب"
 }
