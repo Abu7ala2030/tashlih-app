@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/app_item_card.dart';
@@ -115,14 +116,16 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     BuildContext context,
     List<Map<String, dynamic>> sortedRequests,
   ) {
+    final l10n = AppLocalizations.of(context);
+
     final target = sortedRequests.where((request) {
       return ((request['newOffersCount'] ?? 0) as num).toInt() > 0;
     }).toList();
 
     if (target.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('لا يوجد حاليًا أي طلب يحتوي على عروض جديدة'),
+        SnackBar(
+          content: Text(l10n.translate('no_requests_with_new_offers_now')),
         ),
       );
       return;
@@ -141,14 +144,16 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     BuildContext context,
     List<Map<String, dynamic>> allRequests,
   ) {
+    final l10n = AppLocalizations.of(context);
+
     final candidates = allRequests.where((request) {
       return _bestOfferValue(request) > 0;
     }).toList();
 
     if (candidates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('لا يوجد حاليًا أي طلب يحتوي على أعلى عرض محفوظ'),
+        SnackBar(
+          content: Text(l10n.translate('no_saved_highest_offer_now')),
         ),
       );
       return;
@@ -168,6 +173,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final provider = context.watch<RequestProvider>();
     final allRequests = _sortRequests(provider.requests);
 
@@ -217,22 +223,22 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'طلباتي',
-                                style: TextStyle(
+                                l10n.translate('my_requests'),
+                                style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: .2,
                                 ),
                               ),
-                              SizedBox(height: 8),
+                              const SizedBox(height: 8),
                               Text(
-                                'يمكنك الآن فتح أول طلب فيه عروض جديدة أو الانتقال مباشرة إلى أعلى عرض قيمة.',
-                                style: TextStyle(
+                                l10n.translate('my_requests_subtitle'),
+                                style: const TextStyle(
                                   color: Colors.white70,
                                   height: 1.5,
                                 ),
@@ -252,14 +258,14 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                       children: [
                         Expanded(
                           child: StatCard(
-                            label: 'الكل',
+                            label: l10n.translate('all'),
                             value: allRequests.length.toString(),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: StatCard(
-                            label: 'جديد',
+                            label: l10n.translate('new'),
                             value: allRequests
                                 .where((r) => (r['status'] ?? '') == 'newRequest')
                                 .length
@@ -269,7 +275,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: StatCard(
-                            label: 'عروض جديدة',
+                            label: l10n.translate('new_offers'),
                             value: newOffersRequestsCount.toString(),
                           ),
                         ),
@@ -292,14 +298,16 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                           if (created == true && mounted) {
                             context.read<RequestProvider>().listenToMyRequests();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('تم إنشاء الطلب ويمكنك متابعته هنا'),
+                              SnackBar(
+                                content: Text(
+                                  l10n.translate('request_created_follow_here'),
+                                ),
                               ),
                             );
                           }
                         },
                         icon: const Icon(Icons.add_circle_outline),
-                        label: const Text('طلب جديد'),
+                        label: Text(l10n.translate('new_request')),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -330,8 +338,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             Expanded(
                               child: Text(
                                 selectedStatus == 'newOffersOnly'
-                                    ? 'أنت الآن تعرض الطلبات التي وصلتها عروض جديدة فقط.'
-                                    : 'الزران السريعان بالأسفل يساعدانك على فتح أهم الطلبات مباشرة.',
+                                    ? l10n.translate('showing_new_offers_only')
+                                    : l10n.translate('quick_buttons_help'),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   height: 1.5,
@@ -360,8 +368,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             icon: const Icon(Icons.flash_on_outlined),
                             label: Text(
                               newOffersRequestsCount > 0
-                                  ? 'فتح أول طلب فيه عروض جديدة'
-                                  : 'لا توجد طلبات بعروض جديدة',
+                                  ? l10n.translate('open_first_request_with_new_offers')
+                                  : l10n.translate('no_requests_with_new_offers'),
                             ),
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -383,8 +391,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             icon: const Icon(Icons.trending_up),
                             label: Text(
                               highestOfferCount > 0
-                                  ? 'فتح أعلى عرض قيمة'
-                                  : 'لا يوجد عرض محفوظ',
+                                  ? l10n.translate('open_highest_offer')
+                                  : l10n.translate('no_saved_offer'),
                             ),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -406,49 +414,49 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                       scrollDirection: Axis.horizontal,
                       children: [
                         StatusChipFilter(
-                          label: 'الكل',
+                          label: l10n.translate('all'),
                           selected: selectedStatus == 'all',
                           onTap: () => setState(() => selectedStatus = 'all'),
                         ),
                         StatusChipFilter(
-                          label: 'عروض جديدة فقط',
+                          label: l10n.translate('new_offers_only'),
                           selected: selectedStatus == 'newOffersOnly',
                           onTap: () =>
                               setState(() => selectedStatus = 'newOffersOnly'),
                         ),
                         StatusChipFilter(
-                          label: 'جديد',
+                          label: l10n.translate('new'),
                           selected: selectedStatus == 'newRequest',
                           onTap: () =>
                               setState(() => selectedStatus = 'newRequest'),
                         ),
                         StatusChipFilter(
-                          label: 'جاري التحقق',
+                          label: l10n.translate('checking_availability'),
                           selected: selectedStatus == 'checkingAvailability',
                           onTap: () => setState(
                             () => selectedStatus = 'checkingAvailability',
                           ),
                         ),
                         StatusChipFilter(
-                          label: 'عروض',
+                          label: l10n.translate('offers'),
                           selected: selectedStatus == 'available',
                           onTap: () =>
                               setState(() => selectedStatus = 'available'),
                         ),
                         StatusChipFilter(
-                          label: 'تم التعيين',
+                          label: l10n.translate('assigned'),
                           selected: selectedStatus == 'assigned',
                           onTap: () =>
                               setState(() => selectedStatus = 'assigned'),
                         ),
                         StatusChipFilter(
-                          label: 'تم الشحن',
+                          label: l10n.translate('shipped'),
                           selected: selectedStatus == 'shipped',
                           onTap: () =>
                               setState(() => selectedStatus = 'shipped'),
                         ),
                         StatusChipFilter(
-                          label: 'تم التسليم',
+                          label: l10n.translate('delivered'),
                           selected: selectedStatus == 'delivered',
                           onTap: () =>
                               setState(() => selectedStatus = 'delivered'),
@@ -462,17 +470,17 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'الطلبات',
-                            style: TextStyle(
+                            l10n.translate('requests'),
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
                         Text(
-                          '${requests.length} طلب',
+                          '${requests.length} ${l10n.translate('request_count_suffix')}',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w700,
@@ -493,11 +501,11 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                               ? Icons.local_offer_outlined
                               : Icons.inventory_2_outlined,
                           title: selectedStatus == 'newOffersOnly'
-                              ? 'لا توجد طلبات بعروض جديدة الآن'
-                              : 'لا توجد طلبات ضمن هذه الحالة',
+                              ? l10n.translate('no_requests_with_new_offers')
+                              : l10n.translate('no_requests_in_this_status'),
                           subtitle: selectedStatus == 'newOffersOnly'
-                              ? 'عندما يرسل العامل عرضًا جديدًا سيظهر الطلب هنا مباشرة.'
-                              : 'بمجرد إرسال طلب جديد سيظهر هنا مع حالته الحالية.',
+                              ? l10n.translate('new_offer_will_appear_here')
+                              : l10n.translate('new_request_will_appear_here'),
                         ),
                       ),
                     ),
@@ -519,10 +527,10 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             AppItemCard(
                               title: (request['partName'] ?? '').toString(),
                               subtitle:
-                                  '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\nالمدينة: ${request['city'] ?? '-'}${_extraSubtitle(request)}',
+                                  '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\n${l10n.translate('city')}: ${request['city'] ?? '-'}${_extraSubtitle(request, l10n)}',
                               imageUrl:
                                   (request['vehicleCoverImage'] ?? '').toString(),
-                              statusText: _statusText(status),
+                              statusText: _statusText(status, l10n),
                               statusColor: _statusColor(status),
                               onTap: () => _openRequest(context, request),
                             ),
@@ -548,8 +556,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                                   ),
                                   child: Text(
                                     newOffersCount == 1
-                                        ? 'عرض جديد'
-                                        : '$newOffersCount عروض جديدة',
+                                        ? l10n.translate('one_new_offer')
+                                        : '${newOffersCount} ${l10n.translate('multiple_new_offers')}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
@@ -572,7 +580,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
-                                    'أعلى عرض: ${_bestOfferValue(request).toStringAsFixed(0)} ريال',
+                                    '${l10n.translate('highest_offer')}: ${_bestOfferValue(request).toStringAsFixed(0)} ${l10n.translate('sar')}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
@@ -594,12 +602,15 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     );
   }
 
-  String _extraSubtitle(Map<String, dynamic> request) {
+  String _extraSubtitle(
+    Map<String, dynamic> request,
+    AppLocalizations l10n,
+  ) {
     final status = (request['status'] ?? '').toString();
     if (status == 'assigned' || status == 'shipped' || status == 'delivered') {
       final rawPrice = request['acceptedOfferPrice'] ?? 0;
       final displayPrice = rawPrice.toString();
-      return '\nالسعر المختار: $displayPrice ريال';
+      return '\n${l10n.translate('selected_price')}: $displayPrice ${l10n.translate('sar')}';
     }
 
     final bestOffer = _bestOfferValue(request);
@@ -607,10 +618,14 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
 
     final lines = <String>[];
     if (newOffersCount > 0) {
-      lines.add('لديك $newOffersCount عروض جديدة على هذا الطلب');
+      lines.add(
+        '${l10n.translate('you_have')} $newOffersCount ${l10n.translate('new_offers_on_request')}',
+      );
     }
     if (bestOffer > 0) {
-      lines.add('أعلى عرض حالي: ${bestOffer.toStringAsFixed(0)} ريال');
+      lines.add(
+        '${l10n.translate('current_highest_offer')}: ${bestOffer.toStringAsFixed(0)} ${l10n.translate('sar')}',
+      );
     }
 
     if (lines.isEmpty) return '';
@@ -640,30 +655,30 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     }
   }
 
-  String _statusText(String status) {
+  String _statusText(String status, AppLocalizations l10n) {
     switch (status) {
       case 'newRequest':
-        return 'طلب جديد';
+        return l10n.translate('status_new_request');
       case 'checkingAvailability':
-        return 'جاري التحقق';
+        return l10n.translate('status_checking');
       case 'available':
-        return 'وصلت عروض';
+        return l10n.translate('status_offers_arrived');
       case 'unavailable':
-        return 'غير متوفر';
+        return l10n.translate('status_unavailable');
       case 'reserved':
-        return 'محجوز';
+        return l10n.translate('status_reserved');
       case 'confirmed':
-        return 'مؤكد';
+        return l10n.translate('status_confirmed');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       case 'cancelled':
-        return 'ملغي';
+        return l10n.translate('status_cancelled');
       case 'assigned':
-        return 'تم اختيار العرض';
+        return l10n.translate('status_offer_selected');
       default:
-        return 'غير معروف';
+        return l10n.translate('unknown');
     }
   }
 }
