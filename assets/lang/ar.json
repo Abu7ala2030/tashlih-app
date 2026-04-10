@@ -298,5 +298,18 @@
   "request_actions_delivered": "تم التسليم. ما زال بإمكانك الرجوع للمحادثة عند الحاجة.",
   "request_actions_default": "سيظهر زر المحادثة بعد اعتماد أحد العروض.",
   "chat_available_after_accept": "المحادثة متاحة بعد قبول العرض",
-  "call_worker": "اتصال بالعامل"
+  "call_worker": "اتصال بالعامل",
+  "load_chats_failed": "فشل تحميل المحادثات",
+  "no_chats_yet": "لا توجد محادثات حتى الآن",
+  "request_hash": "طلب #",
+  "no_messages_yet": "لا توجد رسائل بعد",
+  "status_offer_submitted": "تم تقديم عرض",
+  "send_message_failed": "فشل إرسال الرسالة",
+  "chat_linked_to_request": "المحادثة مرتبطة بطلب #",
+  "approved_price": "السعر المعتمد",
+  "chat": "المحادثة",
+  "load_messages_failed": "فشل تحميل الرسائل",
+  "no_messages_start_now": "لا توجد رسائل بعد.\nابدأ أول رسالة الآن.",
+  "system_message": "رسالة نظام",
+  "type_your_message": "اكتب رسالتك..."
 }

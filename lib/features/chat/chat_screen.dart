@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../data/services/chat_service.dart';
 import '../../providers/auth_provider.dart';
 
@@ -9,11 +10,7 @@ class ChatScreen extends StatefulWidget {
   final String chatId;
   final String title;
 
-  const ChatScreen({
-    super.key,
-    required this.chatId,
-    required this.title,
-  });
+  const ChatScreen({super.key, required this.chatId, required this.title});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -25,6 +22,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool isSending = false;
   String senderRole = 'customer';
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -79,7 +78,9 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل إرسال الرسالة: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('send_message_failed')}: $e'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -127,21 +128,21 @@ class _ChatScreenState extends State<ChatScreen> {
   String _statusText(String status) {
     switch (status) {
       case 'newRequest':
-        return 'طلب جديد';
+        return l10n.translate('status_new_request');
       case 'checkingAvailability':
-        return 'جاري التحقق';
+        return l10n.translate('status_checking');
       case 'available':
-        return 'تم تقديم عرض';
+        return l10n.translate('status_offer_submitted');
       case 'unavailable':
-        return 'غير متوفر';
+        return l10n.translate('status_unavailable');
       case 'assigned':
-        return 'تم اختيار العرض';
+        return l10n.translate('status_offer_selected');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        return 'غير معروف';
+        return l10n.translate('unknown');
     }
   }
 
@@ -173,7 +174,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'المحادثة مرتبطة بطلب #${_requestShortId(requestId)}',
+                    '${l10n.translate('chat_linked_to_request')} ${_requestShortId(requestId)}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.w700,
@@ -224,7 +225,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      partName.isEmpty ? 'طلب بدون اسم' : partName,
+                      partName.isEmpty
+                          ? l10n.translate('unnamed_request')
+                          : partName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -266,13 +269,14 @@ class _ChatScreenState extends State<ChatScreen> {
               const SizedBox(height: 6),
               _HeaderMetaRow(
                 icon: Icons.tag_outlined,
-                text: 'طلب #${_requestShortId(requestId)}',
+                text: '${l10n.translate('request_hash')} ${_requestShortId(requestId)}',
               ),
               if (acceptedPrice.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _HeaderMetaRow(
                   icon: Icons.sell_outlined,
-                  text: 'السعر المعتمد: $acceptedPrice ريال',
+                  text:
+                      '${l10n.translate('approved_price')}: $acceptedPrice ${l10n.translate('sar')}',
                 ),
               ],
             ],
@@ -290,7 +294,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (otherUserId.isEmpty) {
       return Text(
-        widget.title.isEmpty ? 'المحادثة' : widget.title,
+        widget.title.isEmpty ? l10n.translate('chat') : widget.title,
         style: const TextStyle(color: Colors.white),
       );
     }
@@ -306,15 +310,15 @@ class _ChatScreenState extends State<ChatScreen> {
         final role = (user?['role'] ?? '').toString().trim().toLowerCase();
 
         String roleText = '';
-        if (role == 'customer') roleText = 'عميل';
-        if (role == 'worker') roleText = 'عامل';
-        if (role == 'driver') roleText = 'سائق';
+        if (role == 'customer') roleText = l10n.translate('customer');
+        if (role == 'worker') roleText = l10n.translate('worker');
+        if (role == 'driver') roleText = l10n.translate('driver');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              name.isEmpty ? 'المحادثة' : name,
+              name.isEmpty ? l10n.translate('chat') : name,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -324,10 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
             if (roleText.isNotEmpty)
               Text(
                 roleText,
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
               ),
           ],
         );
@@ -378,7 +379,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             padding: const EdgeInsets.all(24),
                             child: Center(
                               child: Text(
-                                'فشل تحميل الرسائل:\n${snapshot.error}',
+                                '${l10n.translate('load_messages_failed')}:\n${snapshot.error}',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Colors.white70,
@@ -393,13 +394,13 @@ class _ChatScreenState extends State<ChatScreen> {
                         final messages = snapshot.data?.docs ?? [];
 
                         if (messages.isEmpty) {
-                          return const Center(
+                          return Center(
                             child: Padding(
-                              padding: EdgeInsets.all(24),
+                              padding: const EdgeInsets.all(24),
                               child: Text(
-                                'لا توجد رسائل بعد.\nابدأ أول رسالة الآن.',
+                                l10n.translate('no_messages_start_now'),
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -418,8 +419,59 @@ class _ChatScreenState extends State<ChatScreen> {
                           itemBuilder: (context, index) {
                             final data = messages[index].data();
                             final senderId = (data['senderId'] ?? '').toString();
+                            final type = (data['type'] ?? 'text').toString();
                             final text = (data['text'] ?? '').toString();
                             final isMe = senderId == currentUserId;
+
+                            if (type == 'system') {
+                              return Center(
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 320,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white10,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.white10),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        l10n.translate('system_message'),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        text,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _formatTime(data['createdAt']),
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
 
                             return Align(
                               alignment: isMe
@@ -431,23 +483,17 @@ class _ChatScreenState extends State<ChatScreen> {
                                   horizontal: 14,
                                   vertical: 10,
                                 ),
-                                constraints: BoxConstraints(
-                                  maxWidth:
-                                      MediaQuery.of(context).size.width * 0.75,
-                                ),
+                                constraints: const BoxConstraints(maxWidth: 280),
                                 decoration: BoxDecoration(
                                   color: isMe
-                                      ? const Color(0xFF2563EB)
-                                      : const Color(0xFF1F2937),
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(16),
-                                    topRight: const Radius.circular(16),
-                                    bottomLeft:
-                                        Radius.circular(isMe ? 16 : 4),
-                                    bottomRight:
-                                        Radius.circular(isMe ? 4 : 16),
+                                      ? Colors.blueAccent.withOpacity(0.22)
+                                      : Colors.white10,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isMe
+                                        ? Colors.blueAccent.withOpacity(0.25)
+                                        : Colors.white10,
                                   ),
-                                  border: Border.all(color: Colors.white10),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: isMe
@@ -455,25 +501,18 @@ class _ChatScreenState extends State<ChatScreen> {
                                       : CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      text.isEmpty ? '...' : text,
+                                      text,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 15,
+                                        fontSize: 14,
                                         height: 1.5,
-                                        shadows: [
-                                          Shadow(
-                                            blurRadius: 2,
-                                            color: Colors.black45,
-                                            offset: Offset(0, 1),
-                                          ),
-                                        ],
                                       ),
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
                                       _formatTime(data['createdAt']),
                                       style: const TextStyle(
-                                        color: Colors.white70,
+                                        color: Colors.white54,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -491,9 +530,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   decoration: const BoxDecoration(
                     color: Color(0xFF0F1115),
-                    border: Border(
-                      top: BorderSide(color: Colors.white10),
-                    ),
+                    border: Border(top: BorderSide(color: Colors.white10)),
                   ),
                   child: Row(
                     children: [
@@ -504,9 +541,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           maxLines: 4,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: 'اكتب رسالتك...',
-                            hintStyle:
-                                const TextStyle(color: Colors.white54),
+                            hintText: l10n.translate('type_your_message'),
+                            hintStyle: const TextStyle(color: Colors.white54),
                             filled: true,
                             fillColor: const Color(0xFF1A1D21),
                             contentPadding: const EdgeInsets.symmetric(
@@ -523,8 +559,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide:
-                                  const BorderSide(color: Colors.white24),
+                              borderSide: const BorderSide(
+                                color: Colors.white24,
+                              ),
                             ),
                           ),
                         ),
@@ -568,10 +605,7 @@ class _HeaderMetaRow extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _HeaderMetaRow({
-    required this.icon,
-    required this.text,
-  });
+  const _HeaderMetaRow({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {

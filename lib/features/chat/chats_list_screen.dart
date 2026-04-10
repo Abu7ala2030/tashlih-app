@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import 'chat_screen.dart';
 
@@ -36,24 +37,24 @@ class ChatsListScreen extends StatelessWidget {
     }
   }
 
-  String _statusText(String status) {
+  String _statusText(String status, AppLocalizations l10n) {
     switch (status) {
       case 'newRequest':
-        return 'طلب جديد';
+        return l10n.translate('status_new_request');
       case 'checkingAvailability':
-        return 'جاري التحقق';
+        return l10n.translate('status_checking');
       case 'available':
-        return 'تم تقديم عرض';
+        return l10n.translate('status_offer_submitted');
       case 'unavailable':
-        return 'غير متوفر';
+        return l10n.translate('status_unavailable');
       case 'assigned':
-        return 'تم اختيار العرض';
+        return l10n.translate('status_offer_selected');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        return 'غير معروف';
+        return l10n.translate('unknown');
     }
   }
 
@@ -114,6 +115,7 @@ class ChatsListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final auth = context.watch<AuthProvider>();
     final uid = auth.uid ?? '';
     final role = auth.safeRole;
@@ -123,16 +125,16 @@ class ChatsListScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F1115),
         elevation: 0,
-        title: const Text(
-          'المحادثات',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          l10n.translate('chats'),
+          style: const TextStyle(color: Colors.white),
         ),
       ),
       body: uid.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
-                'لا يوجد مستخدم مسجل',
-                style: TextStyle(color: Colors.white70),
+                l10n.translate('no_authenticated_user'),
+                style: const TextStyle(color: Colors.white70),
               ),
             )
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -147,7 +149,7 @@ class ChatsListScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Text(
-                        'فشل تحميل المحادثات:\n${chatSnapshot.error}',
+                        '${l10n.translate('load_chats_failed')}:\n${chatSnapshot.error}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white70,
@@ -162,10 +164,10 @@ class ChatsListScreen extends StatelessWidget {
                 final chatDocs = _sortedChats(rawDocs);
 
                 if (chatDocs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
-                      'لا توجد محادثات حتى الآن',
-                      style: TextStyle(
+                      l10n.translate('no_chats_yet'),
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -183,23 +185,13 @@ class ChatsListScreen extends StatelessWidget {
                     final chat = chatDoc.data();
 
                     final chatId = chatDoc.id;
-                    final requestId = (chat['requestId'] ?? '')
-                        .toString()
-                        .trim();
-                    final customerId = (chat['customerId'] ?? '')
-                        .toString()
-                        .trim();
-                    final workerId = (chat['workerId'] ?? '')
-                        .toString()
-                        .trim();
-                    final lastMessage = (chat['lastMessage'] ?? '')
-                        .toString()
-                        .trim();
+                    final requestId = (chat['requestId'] ?? '').toString().trim();
+                    final customerId = (chat['customerId'] ?? '').toString().trim();
+                    final workerId = (chat['workerId'] ?? '').toString().trim();
+                    final lastMessage = (chat['lastMessage'] ?? '').toString().trim();
                     final lastMessageAt = chat['lastMessageAt'];
 
-                    final otherUserId = uid == customerId
-                        ? workerId
-                        : customerId;
+                    final otherUserId = uid == customerId ? workerId : customerId;
 
                     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                       stream: FirebaseFirestore.instance
@@ -208,41 +200,33 @@ class ChatsListScreen extends StatelessWidget {
                           .snapshots(),
                       builder: (context, userSnapshot) {
                         final user = userSnapshot.data?.data() ?? {};
-                        final otherName = (user['name'] ?? 'مستخدم')
-                            .toString()
-                            .trim();
+                        final otherName =
+                            (user['name'] ?? l10n.translate('user'))
+                                .toString()
+                                .trim();
 
-                        return StreamBuilder<
-                            DocumentSnapshot<Map<String, dynamic>>>(
+                        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                           stream: FirebaseFirestore.instance
                               .collection('requests')
                               .doc(requestId)
                               .snapshots(),
                           builder: (context, requestSnapshot) {
                             final request = requestSnapshot.data?.data() ?? {};
-                            final partName = (request['partName'] ??
-                                    'طلب بدون اسم')
-                                .toString()
-                                .trim();
-                            final vehicleMake = (request['vehicleMake'] ?? '')
-                                .toString()
-                                .trim();
-                            final vehicleModel = (request['vehicleModel'] ?? '')
-                                .toString()
-                                .trim();
-                            final vehicleYear = (request['vehicleYear'] ?? '')
-                                .toString()
-                                .trim();
-                            final city = (request['city'] ?? '')
-                                .toString()
-                                .trim();
-                            final status = (request['status'] ?? '')
-                                .toString()
-                                .trim();
+                            final partName =
+                                (request['partName'] ?? l10n.translate('unnamed_request'))
+                                    .toString()
+                                    .trim();
+                            final vehicleMake =
+                                (request['vehicleMake'] ?? '').toString().trim();
+                            final vehicleModel =
+                                (request['vehicleModel'] ?? '').toString().trim();
+                            final vehicleYear =
+                                (request['vehicleYear'] ?? '').toString().trim();
+                            final city = (request['city'] ?? '').toString().trim();
+                            final status = (request['status'] ?? '').toString().trim();
 
                             final vehicle =
-                                '$vehicleMake $vehicleModel $vehicleYear'
-                                    .trim();
+                                '$vehicleMake $vehicleModel $vehicleYear'.trim();
                             final statusColor = _statusColor(status);
 
                             final unreadCount = uid == customerId
@@ -270,8 +254,7 @@ class ChatsListScreen extends StatelessWidget {
                                 child: Padding(
                                   padding: const EdgeInsets.all(14),
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -296,11 +279,10 @@ class ChatsListScreen extends StatelessWidget {
                                               children: [
                                                 Text(
                                                   otherName.isEmpty
-                                                      ? 'مستخدم'
+                                                      ? l10n.translate('user')
                                                       : otherName,
                                                   maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
+                                                  overflow: TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 15,
@@ -311,8 +293,7 @@ class ChatsListScreen extends StatelessWidget {
                                                 Text(
                                                   partName,
                                                   maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
+                                                  overflow: TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                     color: Colors.white70,
                                                     fontWeight: FontWeight.w700,
@@ -345,17 +326,14 @@ class ChatsListScreen extends StatelessWidget {
                                                   decoration: BoxDecoration(
                                                     color: Colors.redAccent,
                                                     borderRadius:
-                                                        BorderRadius.circular(
-                                                          999,
-                                                        ),
+                                                        BorderRadius.circular(999),
                                                   ),
                                                   child: Text(
                                                     unreadCount.toString(),
                                                     style: const TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w800,
+                                                      fontWeight: FontWeight.w800,
                                                     ),
                                                   ),
                                                 ),
@@ -372,18 +350,16 @@ class ChatsListScreen extends StatelessWidget {
                                           _InfoChip(
                                             icon: Icons.tag_outlined,
                                             text:
-                                                'طلب #${_requestShortId(requestId)}',
+                                                '${l10n.translate('request_hash')} ${_requestShortId(requestId)}',
                                           ),
                                           if (city.isNotEmpty)
                                             _InfoChip(
-                                              icon: Icons
-                                                  .location_city_outlined,
+                                              icon: Icons.location_city_outlined,
                                               text: city,
                                             ),
                                           if (vehicle.isNotEmpty)
                                             _InfoChip(
-                                              icon: Icons
-                                                  .directions_car_outlined,
+                                              icon: Icons.directions_car_outlined,
                                               text: vehicle,
                                             ),
                                         ],
@@ -397,14 +373,12 @@ class ChatsListScreen extends StatelessWidget {
                                               vertical: 6,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: statusColor.withOpacity(
-                                                0.16,
-                                              ),
+                                              color: statusColor.withOpacity(0.16),
                                               borderRadius:
                                                   BorderRadius.circular(999),
                                             ),
                                             child: Text(
-                                              _statusText(status),
+                                              _statusText(status, l10n),
                                               style: TextStyle(
                                                 color: statusColor,
                                                 fontSize: 12,
@@ -416,7 +390,7 @@ class ChatsListScreen extends StatelessWidget {
                                           Expanded(
                                             child: Text(
                                               lastMessage.isEmpty
-                                                  ? 'لا توجد رسائل بعد'
+                                                  ? l10n.translate('no_messages_yet')
                                                   : lastMessage,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,

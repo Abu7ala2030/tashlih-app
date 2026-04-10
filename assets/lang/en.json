@@ -298,5 +298,18 @@
   "request_actions_delivered": "The request has been delivered. You can still return to the chat if needed.",
   "request_actions_default": "The chat button will appear after one of the offers is accepted.",
   "chat_available_after_accept": "Chat is available after offer acceptance",
-  "call_worker": "Call worker"
+  "call_worker": "Call worker",
+  "load_chats_failed": "Failed to load chats",
+  "no_chats_yet": "No chats yet",
+  "request_hash": "Request #",
+  "no_messages_yet": "No messages yet",
+  "status_offer_submitted": "Offer submitted",
+  "send_message_failed": "Failed to send message",
+  "chat_linked_to_request": "This chat is linked to request #",
+  "approved_price": "Approved price",
+  "chat": "Chat",
+  "load_messages_failed": "Failed to load messages",
+  "no_messages_start_now": "No messages yet.\nStart the first message now.",
+  "system_message": "System message",
+  "type_your_message": "Type your message..."
 }
