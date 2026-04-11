@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../features/worker/dashboard/worker_dashboard_screen.dart';
 import '../../features/worker/profile/worker_profile_screen.dart';
 import '../../features/worker/requests/worker_requests_screen.dart';
@@ -26,6 +27,8 @@ class _WorkerShellState extends State<WorkerShell> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: pages[currentIndex],
       bottomNavigationBar: NavigationBar(
@@ -33,26 +36,26 @@ class _WorkerShellState extends State<WorkerShell> {
         onDestinationSelected: (index) {
           setState(() => currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'الرئيسية',
+            icon: const Icon(Icons.dashboard_outlined),
+            label: l10n.translate('nav_home'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.add_box_outlined),
-            label: 'إضافة',
+            icon: const Icon(Icons.add_box_outlined),
+            label: l10n.translate('add'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined),
-            label: 'مركباتي',
+            icon: const Icon(Icons.directions_car_outlined),
+            label: l10n.translate('my_vehicles'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            label: 'الطلبات',
+            icon: const Icon(Icons.assignment_outlined),
+            label: l10n.translate('requests'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'الحساب',
+            icon: const Icon(Icons.person_outline),
+            label: l10n.translate('account'),
           ),
         ],
       ),

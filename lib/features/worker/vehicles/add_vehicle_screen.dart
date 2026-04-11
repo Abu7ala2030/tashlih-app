@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../providers/vehicle_provider.dart';
@@ -39,17 +40,19 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   String? scrapyardGoogleMapsUrl;
 
   final List<String> allParts = const [
-    'باب',
-    'مرآة',
-    'صدام',
-    'اسطب',
-    'جنط',
-    'مكينة',
-    'قير',
-    'طبلون',
-    'مقاعد',
-    'شاشة',
+    'door',
+    'mirror',
+    'bumper',
+    'tail_light',
+    'rim',
+    'engine',
+    'gearbox',
+    'dashboard',
+    'seats',
+    'screen',
   ];
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -111,7 +114,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         cityController.text = (data['city'] ?? '').toString().trim();
       }
     } catch (_) {
-      // تجاهل الخطأ هنا حتى لا نمنع العامل من إضافة المركبة
+      // ignore
     } finally {
       if (mounted) {
         setState(() => _isLoadingProfile = false);
@@ -156,7 +159,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   String _locationText() {
     if (scrapyardLat == null || scrapyardLng == null) {
-      return 'لم يتم تحديث الموقع الفعلي بعد';
+      return l10n.translate('scrapyard_location_not_updated');
     }
     return '${scrapyardLat!.toStringAsFixed(6)}, ${scrapyardLng!.toStringAsFixed(6)}';
   }
@@ -167,8 +170,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         yearController.text.trim().isEmpty ||
         cityController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('أكمل الماركة والموديل والسنة والمدينة'),
+        SnackBar(
+          content: Text(l10n.translate('complete_make_model_year_city')),
         ),
       );
       return;
@@ -176,8 +179,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
     if (scrapyardNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('أدخل اسم التشليح'),
+        SnackBar(
+          content: Text(l10n.translate('enter_scrapyard_name')),
         ),
       );
       return;
@@ -185,8 +188,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
     if (scrapyardLat == null || scrapyardLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('حدّث موقع التشليح الفعلي أولًا من شاشة حسابي'),
+        SnackBar(
+          content: Text(l10n.translate('update_scrapyard_location_first')),
         ),
       );
       return;
@@ -195,8 +198,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final year = int.tryParse(yearController.text.trim());
     if (year == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('السنة يجب أن تكون رقمًا صحيحًا'),
+        SnackBar(
+          content: Text(l10n.translate('year_must_be_number')),
         ),
       );
       return;
@@ -204,8 +207,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
     if (_selectedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('اختر صورة واحدة على الأقل للمركبة'),
+        SnackBar(
+          content: Text(l10n.translate('select_at_least_one_vehicle_image')),
         ),
       );
       return;
@@ -214,8 +217,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('لا يوجد مستخدم مسجل حاليًا'),
+        SnackBar(
+          content: Text(l10n.translate('no_authenticated_user')),
         ),
       );
       return;
@@ -253,8 +256,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم رفع المركبة والصور بنجاح'),
+        SnackBar(
+          content: Text(l10n.translate('vehicle_uploaded_successfully')),
         ),
       );
 
@@ -266,9 +269,59 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('فشل رفع المركبة: $e'),
+          content: Text('${l10n.translate('vehicle_upload_failed')}: $e'),
         ),
       );
+    }
+  }
+
+  String _partLabel(String part) {
+    switch (part) {
+      case 'door':
+        return l10n.translate('part_door');
+      case 'mirror':
+        return l10n.translate('part_mirror');
+      case 'bumper':
+        return l10n.translate('part_bumper');
+      case 'tail_light':
+        return l10n.translate('part_tail_light');
+      case 'rim':
+        return l10n.translate('part_rim');
+      case 'engine':
+        return l10n.translate('part_engine');
+      case 'gearbox':
+        return l10n.translate('part_gearbox');
+      case 'dashboard':
+        return l10n.translate('part_dashboard');
+      case 'seats':
+        return l10n.translate('part_seats');
+      case 'screen':
+        return l10n.translate('part_screen');
+      default:
+        return part;
+    }
+  }
+
+  String _damageTypeLabel(String value) {
+    switch (value) {
+      case 'front':
+        return l10n.translate('damage_front');
+      case 'rear':
+        return l10n.translate('damage_rear');
+      case 'leftSide':
+        return l10n.translate('damage_left_side');
+      case 'rightSide':
+        return l10n.translate('damage_right_side');
+      case 'rollover':
+        return l10n.translate('damage_rollover');
+      case 'flood':
+        return l10n.translate('damage_flood');
+      case 'fire':
+        return l10n.translate('damage_fire');
+      case 'unknown':
+        return l10n.translate('unknown');
+      default:
+        return value;
     }
   }
 
@@ -293,22 +346,22 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                             icon: const Icon(Icons.arrow_back),
                           ),
                           const SizedBox(width: 4),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'إضافة مركبة',
-                                  style: TextStyle(
+                                  l10n.translate('add_vehicle'),
+                                  style: const TextStyle(
                                     fontSize: 28,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: .2,
                                   ),
                                 ),
-                                SizedBox(height: 8),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'ارفع صور السيارة وأضف تفاصيلها بشكل واضح لزيادة فرص الطلب',
-                                  style: TextStyle(
+                                  l10n.translate('add_vehicle_subtitle'),
+                                  style: const TextStyle(
                                     color: Colors.white70,
                                     height: 1.5,
                                   ),
@@ -337,20 +390,20 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                           ),
                           border: Border.all(color: Colors.white10),
                         ),
-                        child: const Column(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'نصيحة سريعة',
-                              style: TextStyle(
+                              l10n.translate('quick_tip'),
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
-                              'صوّر السيارة من عدة زوايا، وركّز على جهة الضرر والقطع المهمة.',
-                              style: TextStyle(
+                              l10n.translate('vehicle_photography_tip'),
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                                 height: 1.4,
@@ -375,13 +428,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
                         child: _SectionCard(
-                          title: 'صور المركبة',
+                          title: l10n.translate('vehicle_images'),
                           child: Column(
                             children: [
                               OutlinedButton.icon(
                                 onPressed: _isSubmitting ? null : _pickImages,
                                 icon: const Icon(Icons.photo_library_outlined),
-                                label: const Text('اختيار صور المركبة'),
+                                label: Text(l10n.translate('select_vehicle_images')),
                               ),
                               const SizedBox(height: 14),
                               if (_selectedImages.isEmpty)
@@ -393,16 +446,16 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                     borderRadius: BorderRadius.circular(18),
                                     border: Border.all(color: Colors.white10),
                                   ),
-                                  child: const Column(
+                                  child: Column(
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.add_photo_alternate_outlined,
                                         size: 40,
                                       ),
-                                      SizedBox(height: 10),
+                                      const SizedBox(height: 10),
                                       Text(
-                                        'لم يتم اختيار صور بعد',
-                                        style: TextStyle(
+                                        l10n.translate('no_images_selected_yet'),
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
@@ -471,19 +524,19 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
                         child: _SectionCard(
-                          title: 'بيانات المركبة',
+                          title: l10n.translate('vehicle_data'),
                           child: Column(
                             children: [
                               _InputField(
                                 controller: makeController,
-                                label: 'الماركة',
-                                hint: 'مثال: Toyota',
+                                label: l10n.translate('make'),
+                                hint: l10n.translate('make_hint'),
                               ),
                               const SizedBox(height: 12),
                               _InputField(
                                 controller: modelController,
-                                label: 'الموديل',
-                                hint: 'مثال: Camry',
+                                label: l10n.translate('model'),
+                                hint: l10n.translate('model_hint'),
                               ),
                               const SizedBox(height: 12),
                               Row(
@@ -491,7 +544,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                   Expanded(
                                     child: _InputField(
                                       controller: yearController,
-                                      label: 'السنة',
+                                      label: l10n.translate('year'),
                                       hint: '2018',
                                       keyboardType: TextInputType.number,
                                     ),
@@ -500,8 +553,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                   Expanded(
                                     child: _InputField(
                                       controller: colorController,
-                                      label: 'اللون',
-                                      hint: 'أبيض',
+                                      label: l10n.translate('color'),
+                                      hint: l10n.translate('color_hint'),
                                     ),
                                   ),
                                 ],
@@ -509,14 +562,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                               const SizedBox(height: 12),
                               _InputField(
                                 controller: cityController,
-                                label: 'المدينة',
-                                hint: 'مثال: الدمام',
+                                label: l10n.translate('city'),
+                                hint: l10n.translate('city_hint'),
                               ),
                               const SizedBox(height: 12),
                               _InputField(
                                 controller: scrapyardNameController,
-                                label: 'اسم التشليح',
-                                hint: 'مثال: تشليح الدمام الحديث',
+                                label: l10n.translate('scrapyard_name'),
+                                hint: l10n.translate('scrapyard_name_hint'),
                               ),
                               const SizedBox(height: 12),
                               Container(
@@ -530,9 +583,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      'موقع التشليح الفعلي',
-                                      style: TextStyle(
+                                    Text(
+                                      l10n.translate('actual_scrapyard_location'),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.w900,
                                       ),
                                     ),
@@ -556,9 +609,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                         ),
                                       ),
                                     const SizedBox(height: 10),
-                                    const Text(
-                                      'لتحديث الموقع اذهب إلى تبويب "حسابي" ثم اضغط "استخدام موقعي الحالي".',
-                                      style: TextStyle(
+                                    Text(
+                                      l10n.translate('update_location_from_profile_hint'),
+                                      style: const TextStyle(
                                         color: Colors.white60,
                                         fontSize: 12,
                                         height: 1.5,
@@ -568,48 +621,48 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              const Align(
+                              Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  'نوع الضرر',
-                                  style: TextStyle(fontWeight: FontWeight.w900),
+                                  l10n.translate('damage_type'),
+                                  style: const TextStyle(fontWeight: FontWeight.w900),
                                 ),
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
                                 value: selectedDamageType,
-                                items: const [
+                                items: [
                                   DropdownMenuItem(
                                     value: 'front',
-                                    child: Text('أمامي'),
+                                    child: Text(_damageTypeLabel('front')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'rear',
-                                    child: Text('خلفي'),
+                                    child: Text(_damageTypeLabel('rear')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'leftSide',
-                                    child: Text('جهة يسار'),
+                                    child: Text(_damageTypeLabel('leftSide')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'rightSide',
-                                    child: Text('جهة يمين'),
+                                    child: Text(_damageTypeLabel('rightSide')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'rollover',
-                                    child: Text('انقلاب'),
+                                    child: Text(_damageTypeLabel('rollover')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'flood',
-                                    child: Text('غرق'),
+                                    child: Text(_damageTypeLabel('flood')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'fire',
-                                    child: Text('حريق'),
+                                    child: Text(_damageTypeLabel('fire')),
                                   ),
                                   DropdownMenuItem(
                                     value: 'unknown',
-                                    child: Text('غير محدد'),
+                                    child: Text(_damageTypeLabel('unknown')),
                                   ),
                                 ],
                                 onChanged: (value) {
@@ -621,8 +674,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                               const SizedBox(height: 12),
                               _InputField(
                                 controller: descriptionController,
-                                label: 'وصف الحالة',
-                                hint: 'اكتب وصفًا مختصرًا لحالة السيارة',
+                                label: l10n.translate('condition_description'),
+                                hint: l10n.translate('condition_description_hint'),
                                 maxLines: 4,
                               ),
                             ],
@@ -634,13 +687,13 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
                         child: _SectionCard(
-                          title: 'القطع الظاهرة أو المحتملة',
+                          title: l10n.translate('visible_or_possible_parts'),
                           child: Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: allParts.map((part) {
                               return FilterChip(
-                                label: Text(part),
+                                label: Text(_partLabel(part)),
                                 selected: selectedParts.contains(part),
                                 onSelected: _isSubmitting
                                     ? null
@@ -680,7 +733,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('إرسال للمراجعة'),
+                      : Text(l10n.translate('submit_for_review')),
                 ),
               ),
             ),
