@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/chat_service.dart';
 import '../../../data/services/firestore_paths.dart';
@@ -32,6 +33,8 @@ class _WorkerRequestDetailsScreenState
   String get _requestId => (widget.request['id'] ?? '').toString().trim();
   String get _customerId =>
       (widget.request['customerId'] ?? '').toString().trim();
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   String get _workerId {
     final direct = (widget.request['workerId'] ?? '').toString().trim();
@@ -101,14 +104,14 @@ class _WorkerRequestDetailsScreenState
         MaterialPageRoute(
           builder: (_) => ChatScreen(
             chatId: chatId,
-            title: 'محادثة العميل',
+            title: l10n.translate('customer_chat'),
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل فتح المحادثة: $e')),
+        SnackBar(content: Text('${l10n.translate('open_chat_failed')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -125,7 +128,7 @@ class _WorkerRequestDetailsScreenState
     if (phone.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رقم العميل غير متوفر')),
+        SnackBar(content: Text(l10n.translate('customer_phone_not_available'))),
       );
       return;
     }
@@ -138,7 +141,7 @@ class _WorkerRequestDetailsScreenState
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر إجراء الاتصال')),
+      SnackBar(content: Text(l10n.translate('unable_to_make_call'))),
     );
   }
 
@@ -155,7 +158,7 @@ class _WorkerRequestDetailsScreenState
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح الموقع')),
+      SnackBar(content: Text(l10n.translate('unable_to_open_location'))),
     );
   }
 
@@ -178,7 +181,7 @@ class _WorkerRequestDetailsScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ: $e')),
+        SnackBar(content: Text('${l10n.translate('error_happened')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -195,7 +198,7 @@ class _WorkerRequestDetailsScreenState
 
     if (rawPrice.isEmpty || price == null || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل سعرًا صحيحًا للعرض')),
+        SnackBar(content: Text(l10n.translate('enter_valid_offer_price'))),
       );
       return;
     }
@@ -217,13 +220,13 @@ class _WorkerRequestDetailsScreenState
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إرسال العرض بنجاح')),
+        SnackBar(content: Text(l10n.translate('offer_sent_successfully'))),
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل إرسال العرض: $e')),
+        SnackBar(content: Text('${l10n.translate('send_offer_failed')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -237,7 +240,7 @@ class _WorkerRequestDetailsScreenState
       action: () => context.read<RequestProvider>().markRequestShipped(
             requestId: _requestId,
           ),
-      success: 'تم تحديث الطلب إلى تم الشحن',
+      success: l10n.translate('request_marked_shipped'),
     );
   }
 
@@ -249,7 +252,7 @@ class _WorkerRequestDetailsScreenState
             );
         LocationService.instance.stopTracking();
       },
-      success: 'تم تحديث الطلب إلى تم التسليم',
+      success: l10n.translate('request_marked_delivered'),
     );
   }
 
@@ -259,7 +262,7 @@ class _WorkerRequestDetailsScreenState
             requestId: _requestId,
             status: status,
           ),
-      success: 'تم تحديث حالة الطلب',
+      success: l10n.translate('request_status_updated'),
     );
   }
 
@@ -277,11 +280,11 @@ class _WorkerRequestDetailsScreenState
   String _offerStatusText(String status) {
     switch (status) {
       case 'accepted':
-        return 'تم قبول عرضك';
+        return l10n.translate('your_offer_accepted');
       case 'rejected':
-        return 'تم رفض عرضك';
+        return l10n.translate('your_offer_rejected');
       default:
-        return 'عرضك بانتظار القرار';
+        return l10n.translate('your_offer_waiting_decision');
     }
   }
 
@@ -322,8 +325,8 @@ class _WorkerRequestDetailsScreenState
                 const SizedBox(height: 8),
                 Text(
                   price.isEmpty
-                      ? 'تم تسجيل عرضك على هذا الطلب.'
-                      : 'قيمة عرضك: $price ريال',
+                      ? l10n.translate('your_offer_recorded')
+                      : '${l10n.translate('your_offer_value')}: $price ${l10n.translate('sar')}',
                   style: const TextStyle(
                     color: Colors.white70,
                     height: 1.5,
@@ -331,9 +334,9 @@ class _WorkerRequestDetailsScreenState
                 ),
                 if (status == 'rejected') ...[
                   const SizedBox(height: 8),
-                  const Text(
-                    'يمكنك تجاهل هذا الطلب أو إرسال عرض جديد إذا كان ما زال متاحًا.',
-                    style: TextStyle(
+                  Text(
+                    l10n.translate('ignore_or_send_new_offer'),
+                    style: const TextStyle(
                       color: Colors.white70,
                       height: 1.5,
                     ),
@@ -350,10 +353,10 @@ class _WorkerRequestDetailsScreenState
   @override
   Widget build(BuildContext context) {
     if (_requestId.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         body: AppGradientBackground(
           child: SafeArea(
-            child: Center(child: Text('تعذر تحميل الطلب')),
+            child: Center(child: Text(l10n.translate('unable_load_request'))),
           ),
         ),
       );
@@ -378,7 +381,8 @@ class _WorkerRequestDetailsScreenState
 
         final status = (request['status'] ?? '').toString().trim();
         final scrapyardName =
-            (request['scrapyardName'] ?? 'غير محدد').toString();
+            (request['scrapyardName'] ?? l10n.translate('not_specified'))
+                .toString();
         final scrapyardLocation =
             (request['scrapyardLocation'] ??
                     request['scrapyardGoogleMapsUrl'] ??
@@ -507,31 +511,31 @@ class _WorkerRequestDetailsScreenState
                             children: [
                               _buildMyOfferBanner(),
                               _SectionCard(
-                                title: 'معلومات الطلب',
+                                title: l10n.translate('request_information'),
                                 child: Column(
                                   children: [
                                     _DetailRow(
-                                      label: 'القطعة المطلوبة',
+                                      label: l10n.translate('requested_part'),
                                       value: (request['partName'] ?? '-')
                                           .toString(),
                                     ),
                                     _DetailRow(
-                                      label: 'المركبة',
+                                      label: l10n.translate('vehicle'),
                                       value:
                                           '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}',
                                     ),
                                     _DetailRow(
-                                      label: 'المدينة',
+                                      label: l10n.translate('city'),
                                       value:
                                           (request['city'] ?? '-').toString(),
                                     ),
                                     _DetailRow(
-                                      label: 'رقم التواصل',
+                                      label: l10n.translate('phone'),
                                       value:
                                           (request['phone'] ?? '-').toString(),
                                     ),
                                     _DetailRow(
-                                      label: 'التشليح',
+                                      label: l10n.translate('scrapyard'),
                                       value: scrapyardName,
                                       isLast: true,
                                     ),
@@ -545,8 +549,8 @@ class _WorkerRequestDetailsScreenState
                                           icon: const Icon(
                                             Icons.location_on_outlined,
                                           ),
-                                          label: const Text(
-                                            'فتح موقع التشليح',
+                                          label: Text(
+                                            l10n.translate('open_scrapyard_location'),
                                           ),
                                         ),
                                       ),
@@ -556,13 +560,13 @@ class _WorkerRequestDetailsScreenState
                               ),
                               const SizedBox(height: 18),
                               _SectionCard(
-                                title: 'ملاحظات العميل',
+                                title: l10n.translate('customer_notes'),
                                 child: Text(
                                   (request['notes'] ?? '')
                                           .toString()
                                           .trim()
                                           .isEmpty
-                                      ? 'لا توجد ملاحظات'
+                                      ? l10n.translate('no_notes')
                                       : (request['notes'] ?? '').toString(),
                                   style: const TextStyle(
                                     color: Colors.white70,
@@ -572,7 +576,7 @@ class _WorkerRequestDetailsScreenState
                               ),
                               const SizedBox(height: 18),
                               _SectionCard(
-                                title: 'التواصل',
+                                title: l10n.translate('communication'),
                                 child: Column(
                                   children: [
                                     SizedBox(
@@ -580,7 +584,7 @@ class _WorkerRequestDetailsScreenState
                                       child: OutlinedButton.icon(
                                         onPressed: () => _callCustomer(request),
                                         icon: const Icon(Icons.phone_outlined),
-                                        label: const Text('اتصال بالعميل'),
+                                        label: Text(l10n.translate('call_customer')),
                                       ),
                                     ),
                                     const SizedBox(height: 10),
@@ -604,8 +608,8 @@ class _WorkerRequestDetailsScreenState
                                               ),
                                         label: Text(
                                           _canOpenChat(request)
-                                              ? 'محادثة العميل'
-                                              : 'المحادثة متاحة بعد قبول العرض',
+                                              ? l10n.translate('customer_chat')
+                                              : l10n.translate('chat_available_after_accept'),
                                         ),
                                       ),
                                     ),
@@ -650,13 +654,13 @@ class _WorkerRequestDetailsScreenState
     return Column(
       children: [
         _SectionCard(
-          title: 'تقديم عرض سعر',
+          title: l10n.translate('submit_price_offer'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'أدخل السعر الذي تريد تقديمه للعميل',
-                style: TextStyle(
+              Text(
+                l10n.translate('enter_price_for_customer'),
+                style: const TextStyle(
                   color: Colors.white70,
                   fontWeight: FontWeight.w600,
                 ),
@@ -667,7 +671,7 @@ class _WorkerRequestDetailsScreenState
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  hintText: 'مثال: 350',
+                  hintText: l10n.translate('price_example'),
                   prefixIcon: const Icon(Icons.sell_outlined),
                   filled: true,
                   fillColor: Colors.white10,
@@ -689,7 +693,7 @@ class _WorkerRequestDetailsScreenState
               ),
               const SizedBox(height: 12),
               _ActionButton(
-                text: 'إرسال العرض',
+                text: l10n.translate('send_offer'),
                 color: Colors.green,
                 enabled: !isSubmitting,
                 onTap: _submitOffer,
@@ -699,18 +703,18 @@ class _WorkerRequestDetailsScreenState
         ),
         const SizedBox(height: 18),
         _SectionCard(
-          title: 'اتخاذ إجراء بديل',
+          title: l10n.translate('take_alternative_action'),
           child: Column(
             children: [
               _ActionButton(
-                text: 'تحتاج فحص',
+                text: l10n.translate('needs_checking'),
                 color: Colors.orange,
                 enabled: !isSubmitting,
                 onTap: () => _updateStatus('checkingAvailability'),
               ),
               const SizedBox(height: 10),
               _ActionButton(
-                text: 'غير متوفرة',
+                text: l10n.translate('unavailable'),
                 color: const Color(0xFF2B1D1D),
                 enabled: !isSubmitting,
                 onTap: () => _updateStatus('unavailable'),
@@ -726,28 +730,28 @@ class _WorkerRequestDetailsScreenState
     final acceptedPrice = (request['acceptedOfferPrice'] ?? '-').toString();
 
     return _SectionCard(
-      title: 'متابعة الطلب',
+      title: l10n.translate('follow_request'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'السعر المختار: $acceptedPrice ريال',
+            '${l10n.translate('selected_price')}: $acceptedPrice ${l10n.translate('sar')}',
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 16,
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'تم اختيار عرضك من قبل العميل. يمكنك الآن متابعة التنفيذ وبدء مرحلة الشحن.',
-            style: TextStyle(
+          Text(
+            l10n.translate('your_offer_selected_start_shipping'),
+            style: const TextStyle(
               color: Colors.white70,
               height: 1.6,
             ),
           ),
           const SizedBox(height: 14),
           _ActionButton(
-            text: 'تأكيد أن الطلب تم شحنه',
+            text: l10n.translate('confirm_request_shipped'),
             color: Colors.indigo,
             enabled: !isSubmitting,
             onTap: _markShipped,
@@ -759,20 +763,20 @@ class _WorkerRequestDetailsScreenState
 
   Widget _buildShippedSection() {
     return _SectionCard(
-      title: 'الطلب في مرحلة الشحن',
+      title: l10n.translate('request_in_shipping_stage'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'تم تحديث الطلب إلى مرحلة الشحن، ويجري الآن تتبع موقع السائق مباشرة للعميل.',
-            style: TextStyle(
+          Text(
+            l10n.translate('request_shipped_tracking_running'),
+            style: const TextStyle(
               color: Colors.white70,
               height: 1.6,
             ),
           ),
           const SizedBox(height: 14),
           _ActionButton(
-            text: 'تأكيد التسليم',
+            text: l10n.translate('confirm_delivery'),
             color: Colors.green,
             enabled: !isSubmitting,
             onTap: _markDelivered,
@@ -784,20 +788,20 @@ class _WorkerRequestDetailsScreenState
 
   Widget _buildDeliveredSection(Map<String, dynamic> request) {
     return _SectionCard(
-      title: 'اكتمل الطلب',
+      title: l10n.translate('request_completed'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'تم تسليم القطعة للعميل بنجاح.',
-            style: TextStyle(
+          Text(
+            l10n.translate('part_delivered_successfully'),
+            style: const TextStyle(
               color: Colors.white70,
               height: 1.6,
             ),
           ),
           const SizedBox(height: 10),
           Text(
-            'الحالة الحالية: ${_statusText((request['status'] ?? '').toString())}',
+            '${l10n.translate('current_status')}: ${_statusText((request['status'] ?? '').toString())}',
             style: const TextStyle(
               fontWeight: FontWeight.w800,
             ),
@@ -831,21 +835,21 @@ class _WorkerRequestDetailsScreenState
   String _statusText(String status) {
     switch (status) {
       case 'newRequest':
-        return 'طلب جديد';
+        return l10n.translate('status_new_request');
       case 'checkingAvailability':
-        return 'جاري التحقق';
+        return l10n.translate('status_checking');
       case 'available':
-        return 'تم تقديم عرض';
+        return l10n.translate('status_offer_submitted');
       case 'unavailable':
-        return 'غير متوفر';
+        return l10n.translate('status_unavailable');
       case 'assigned':
-        return 'تم اختيار عرضك';
+        return l10n.translate('your_offer_selected');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        return 'غير معروف';
+        return l10n.translate('unknown');
     }
   }
 }
