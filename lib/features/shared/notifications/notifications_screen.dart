@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../admin/requests/admin_request_timeline_screen.dart';
@@ -26,6 +27,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String selectedSort = 'newest';
   final TextEditingController searchController = TextEditingController();
   String searchQuery = '';
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -59,15 +62,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     switch (type) {
       case 'new_offer':
-        return '$count عروض جديدة على نفس الطلب';
+        return '$count ${l10n.translate('new_offers_same_request')}';
       case 'offer_accepted':
-        return '$count تحديثات قبول عرض';
+        return '$count ${l10n.translate('offer_acceptance_updates')}';
       case 'request_shipped':
-        return '$count تحديثات شحن';
+        return '$count ${l10n.translate('shipping_updates')}';
       case 'request_delivered':
-        return '$count تحديثات تسليم';
+        return '$count ${l10n.translate('delivery_updates')}';
       default:
-        return '$count إشعارات متشابهة';
+        return '$count ${l10n.translate('similar_notifications')}';
     }
   }
 
@@ -80,15 +83,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     switch (type) {
       case 'new_offer':
-        return 'تم استلام $count عروض مرتبطة بنفس الطلب.';
+        return '${l10n.translate('received')} $count ${l10n.translate('offers_for_same_request')}.';
       case 'offer_accepted':
-        return 'هناك $count تحديثات تخص قبول العرض لنفس الطلب.';
+        return '${l10n.translate('there_are')} $count ${l10n.translate('offer_acceptance_updates_same_request')}.';
       case 'request_shipped':
-        return 'هناك $count تحديثات تخص شحن نفس الطلب.';
+        return '${l10n.translate('there_are')} $count ${l10n.translate('shipping_updates_same_request')}.';
       case 'request_delivered':
-        return 'هناك $count تحديثات تخص تسليم نفس الطلب.';
+        return '${l10n.translate('there_are')} $count ${l10n.translate('delivery_updates_same_request')}.';
       default:
-        return 'هناك $count إشعارات متشابهة مرتبطة بنفس الطلب.';
+        return '${l10n.translate('there_are')} $count ${l10n.translate('similar_notifications_same_request')}.';
     }
   }
 
@@ -185,8 +188,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (request == null) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تعذر العثور على الطلب المرتبط بهذا الإشعار'),
+        SnackBar(
+          content: Text(l10n.translate('cannot_find_related_request')),
         ),
       );
       return;
@@ -255,12 +258,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تعيين الإشعار كمقروء')),
+        SnackBar(content: Text(l10n.translate('notification_marked_read'))),
       );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث الإشعار: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('notification_update_failed')}: $e'),
+        ),
       );
     }
   }
@@ -277,7 +282,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (snapshot.docs.isEmpty) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا توجد إشعارات غير مقروءة')),
+          SnackBar(content: Text(l10n.translate('no_unread_notifications'))),
         );
         return;
       }
@@ -292,12 +297,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديد جميع الإشعارات كمقروءة')),
+        SnackBar(content: Text(l10n.translate('all_notifications_marked_read'))),
       );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث الإشعارات: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('notifications_update_failed')}: $e'),
+        ),
       );
     }
   }
@@ -315,7 +322,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (unreadPriority.isEmpty) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا توجد إشعارات مهمة غير مقروءة')),
+          SnackBar(content: Text(l10n.translate('no_unread_priority_notifications'))),
         );
         return;
       }
@@ -329,12 +336,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تعيين الإشعارات المهمة كمقروءة')),
+        SnackBar(content: Text(l10n.translate('priority_notifications_marked_read'))),
       );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث الإشعارات المهمة: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('priority_notifications_update_failed')}: $e'),
+        ),
       );
     }
   }
@@ -348,12 +357,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حذف الإشعار')),
+        SnackBar(content: Text(l10n.translate('notification_deleted'))),
       );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل حذف الإشعار: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('notification_delete_failed')}: $e'),
+        ),
       );
     }
   }
@@ -372,7 +383,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (snapshot.docs.isEmpty) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا توجد إشعارات للحذف')),
+          SnackBar(content: Text(l10n.translate('no_notifications_to_delete'))),
         );
         return;
       }
@@ -387,12 +398,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حذف جميع الإشعارات')),
+        SnackBar(content: Text(l10n.translate('all_notifications_deleted'))),
       );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل حذف جميع الإشعارات: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('delete_all_notifications_failed')}: $e'),
+        ),
       );
     }
   }
@@ -405,7 +418,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (priorityItems.isEmpty) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا توجد إشعارات مهمة للحذف')),
+          SnackBar(content: Text(l10n.translate('no_priority_notifications_to_delete'))),
         );
         return;
       }
@@ -419,12 +432,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حذف الإشعارات المهمة')),
+        SnackBar(content: Text(l10n.translate('priority_notifications_deleted'))),
       );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل حذف الإشعارات المهمة: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('delete_priority_notifications_failed')}: $e'),
+        ),
       );
     }
   }
@@ -436,7 +451,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (priorityItems.isEmpty) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا توجد إشعارات مهمة')),
+        SnackBar(content: Text(l10n.translate('no_priority_notifications'))),
       );
       return;
     }
@@ -461,33 +476,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   _NotificationVisual _visualForType(String type) {
     switch (type) {
       case 'new_offer':
-        return const _NotificationVisual(
+        return _NotificationVisual(
           icon: Icons.local_offer_outlined,
-          label: 'عرض جديد',
+          label: l10n.translate('new_offer'),
           color: Colors.orange,
         );
       case 'offer_accepted':
-        return const _NotificationVisual(
+        return _NotificationVisual(
           icon: Icons.verified_outlined,
-          label: 'تم قبول العرض',
+          label: l10n.translate('offer_accepted'),
           color: Colors.green,
         );
       case 'request_shipped':
-        return const _NotificationVisual(
+        return _NotificationVisual(
           icon: Icons.local_shipping_outlined,
-          label: 'تم الشحن',
+          label: l10n.translate('status_shipped'),
           color: Colors.indigo,
         );
       case 'request_delivered':
-        return const _NotificationVisual(
+        return _NotificationVisual(
           icon: Icons.inventory_2_outlined,
-          label: 'تم التسليم',
+          label: l10n.translate('status_delivered'),
           color: Colors.teal,
         );
       default:
-        return const _NotificationVisual(
+        return _NotificationVisual(
           icon: Icons.notifications_none,
-          label: 'إشعار',
+          label: l10n.translate('notification'),
           color: Colors.blueGrey,
         );
     }
@@ -520,16 +535,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('حذف الإشعار'),
-        content: const Text('هل تريد حذف هذا الإشعار؟'),
+        title: Text(l10n.translate('delete_notification')),
+        content: Text(l10n.translate('delete_notification_confirm')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(l10n.translate('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
+            child: Text(l10n.translate('delete')),
           ),
         ],
       ),
@@ -540,16 +555,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('حذف جميع الإشعارات'),
-        content: const Text('هل أنت متأكد من حذف جميع الإشعارات؟'),
+        title: Text(l10n.translate('delete_all_notifications')),
+        content: Text(l10n.translate('delete_all_notifications_confirm')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(l10n.translate('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف الكل'),
+            child: Text(l10n.translate('delete_all')),
           ),
         ],
       ),
@@ -560,16 +575,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('حذف الإشعارات المهمة'),
-        content: const Text('هل تريد حذف جميع الإشعارات المهمة فقط؟'),
+        title: Text(l10n.translate('delete_priority_notifications')),
+        content: Text(l10n.translate('delete_priority_notifications_confirm')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(l10n.translate('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
+            child: Text(l10n.translate('delete')),
           ),
         ],
       ),
@@ -602,7 +617,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String _formatTimeOnly(DateTime date) {
     int hour = date.hour;
     final minute = date.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'م' : 'ص';
+    final period = hour >= 12
+        ? l10n.translate('pm_short')
+        : l10n.translate('am_short');
 
     hour = hour % 12;
     if (hour == 0) hour = 12;
@@ -616,32 +633,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final target = DateTime(date.year, date.month, date.day);
     final daysDiff = today.difference(target).inDays;
 
-    const months = [
+    final months = [
       '',
-      'يناير',
-      'فبراير',
-      'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
-      'سبتمبر',
-      'أكتوبر',
-      'نوفمبر',
-      'ديسمبر',
+      l10n.translate('month_january'),
+      l10n.translate('month_february'),
+      l10n.translate('month_march'),
+      l10n.translate('month_april'),
+      l10n.translate('month_may'),
+      l10n.translate('month_june'),
+      l10n.translate('month_july'),
+      l10n.translate('month_august'),
+      l10n.translate('month_september'),
+      l10n.translate('month_october'),
+      l10n.translate('month_november'),
+      l10n.translate('month_december'),
     ];
 
     if (_isToday(date)) {
-      return 'اليوم ${_formatTimeOnly(date)}';
+      return '${l10n.translate('today')} ${_formatTimeOnly(date)}';
     }
 
     if (_isYesterday(date)) {
-      return 'أمس ${_formatTimeOnly(date)}';
+      return '${l10n.translate('yesterday')} ${_formatTimeOnly(date)}';
     }
 
     if (daysDiff >= 2 && daysDiff <= 6) {
-      return 'قبل $daysDiff أيام';
+      return '${l10n.translate('before_days')} $daysDiff ${l10n.translate('days')}';
     }
 
     return '${date.day} ${months[date.month]} ${date.year}، ${_formatTimeOnly(date)}';
@@ -775,9 +792,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.red.withOpacity(.35)),
       ),
-      child: const Text(
-        'مهم',
-        style: TextStyle(
+      child: Text(
+        l10n.translate('important'),
+        style: const TextStyle(
           color: Colors.redAccent,
           fontSize: 10,
           fontWeight: FontWeight.w900,
@@ -825,9 +842,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'إجراءات الإشعارات المهمة',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            Text(
+              l10n.translate('priority_notification_actions'),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -835,18 +852,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               runSpacing: 6,
               children: [
                 _buildActionButton(
-                  text: 'المهم كمقروء',
+                  text: l10n.translate('mark_priority_read'),
                   icon: Icons.done_all,
                   onTap: () => _markPriorityAsRead(priorityItems, context),
                 ),
                 _buildActionButton(
-                  text: 'فتح أول مهم',
+                  text: l10n.translate('open_first_priority'),
                   icon: Icons.open_in_new,
                   color: Colors.lightBlueAccent,
                   onTap: () => _openFirstPriorityNotification(priorityItems, context),
                 ),
                 _buildActionButton(
-                  text: 'حذف المهم',
+                  text: l10n.translate('delete_priority'),
                   icon: Icons.delete_sweep_outlined,
                   color: Colors.redAccent,
                   onTap: () async {
@@ -880,11 +897,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final ts = data['createdAt'];
     final timeText =
-        ts is Timestamp ? _formatFriendlyDate(ts.toDate()) : 'بدون وقت';
+        ts is Timestamp ? _formatFriendlyDate(ts.toDate()) : l10n.translate('no_time');
 
     final borderColor = isRead
-        ? (isPriority ? Colors.red.withValues(alpha: 64) : Colors.white10)
-        : (isPriority ? Colors.red.withValues(alpha: 166) : visual.color.withValues(alpha: 141));
+        ? (isPriority ? Colors.red.withOpacity(.25) : Colors.white10)
+        : (isPriority ? Colors.red.withOpacity(.65) : visual.color.withOpacity(.55));
 
     final backgroundColor = isPriority
         ? (isRead ? const Color(0xFF21181A) : const Color(0xFF2B2023))
@@ -903,7 +920,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         boxShadow: isPriority
             ? [
                 BoxShadow(
-                  color: Colors.red.withValues(alpha: 20),
+                  color: Colors.red.withOpacity(.08),
                   blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
@@ -917,7 +934,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: visual.color.withValues(alpha: .18),
+              color: visual.color.withOpacity(.18),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
@@ -937,7 +954,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         _groupedTitle(
                           type: type,
                           count: count,
-                          originalTitle: (data['title'] ?? 'إشعار').toString(),
+                          originalTitle: (data['title'] ?? l10n.translate('notification')).toString(),
                         ),
                         style: const TextStyle(
                           fontSize: 17,
@@ -974,7 +991,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: visual.color.withValues(alpha: .18),
+                          color: visual.color.withOpacity(.18),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
@@ -1011,7 +1028,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (requestId.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'رقم الطلب: $requestId',
+                    '${l10n.translate('request_number')}: $requestId',
                     style: const TextStyle(
                       color: Colors.white60,
                       fontSize: 12,
@@ -1026,13 +1043,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   children: [
                     if (!isRead)
                       _buildActionButton(
-                        text: 'كمقروء',
+                        text: l10n.translate('mark_read'),
                         icon: Icons.done,
                         onTap: () => _markAsRead(doc.reference, context),
                       ),
                     if (requestId.isNotEmpty)
                       _buildActionButton(
-                        text: 'فتح الطلب',
+                        text: l10n.translate('open_request'),
                         icon: Icons.open_in_new,
                         color: Colors.lightBlueAccent,
                         onTap: () => _openRelatedRequest(
@@ -1042,7 +1059,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ),
                       ),
                     _buildActionButton(
-                      text: 'حذف',
+                      text: l10n.translate('delete'),
                       icon: Icons.delete_outline,
                       color: Colors.redAccent,
                       onTap: () async {
@@ -1102,21 +1119,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       icon: const Icon(Icons.arrow_back),
                     ),
                     const SizedBox(width: 4),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'الإشعارات',
-                            style: TextStyle(
+                            l10n.translate('notifications'),
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'تابع آخر التحديثات المرتبطة بطلباتك',
-                            style: TextStyle(color: Colors.white70),
+                            l10n.translate('notifications_subtitle'),
+                            style: const TextStyle(color: Colors.white70),
                           ),
                         ],
                       ),
@@ -1133,14 +1150,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             }
                           }
                         },
-                        itemBuilder: (_) => const [
+                        itemBuilder: (_) => [
                           PopupMenuItem(
                             value: 'read_all',
-                            child: Text('تحديد الكل كمقروء'),
+                            child: Text(l10n.translate('mark_all_read')),
                           ),
                           PopupMenuItem(
                             value: 'delete_all',
-                            child: Text('حذف جميع الإشعارات'),
+                            child: Text(l10n.translate('delete_all_notifications')),
                           ),
                         ],
                         icon: const Icon(Icons.more_vert),
@@ -1158,7 +1175,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     });
                   },
                   decoration: InputDecoration(
-                    hintText: 'ابحث في الإشعارات أو رقم الطلب',
+                    hintText: l10n.translate('search_notifications_or_request'),
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
@@ -1195,35 +1212,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     _FilterChip(
-                      label: 'الكل',
+                      label: l10n.translate('all'),
                       selected: selectedType == 'all',
                       onTap: () => setState(() => selectedType = 'all'),
                     ),
                     _FilterChip(
-                      label: 'مهم',
+                      label: l10n.translate('important'),
                       selected: selectedType == 'priority',
                       onTap: () => setState(() => selectedType = 'priority'),
                     ),
                     _FilterChip(
-                      label: 'عرض جديد',
+                      label: l10n.translate('new_offer'),
                       selected: selectedType == 'new_offer',
                       onTap: () => setState(() => selectedType = 'new_offer'),
                     ),
                     _FilterChip(
-                      label: 'قبول عرض',
+                      label: l10n.translate('offer_accepted'),
                       selected: selectedType == 'offer_accepted',
                       onTap: () => setState(() => selectedType = 'offer_accepted'),
                     ),
                     _FilterChip(
-                      label: 'تم الشحن',
+                      label: l10n.translate('status_shipped'),
                       selected: selectedType == 'request_shipped',
                       onTap: () => setState(() => selectedType = 'request_shipped'),
                     ),
                     _FilterChip(
-                      label: 'تم التسليم',
+                      label: l10n.translate('status_delivered'),
                       selected: selectedType == 'request_delivered',
-                      onTap: () =>
-                          setState(() => selectedType = 'request_delivered'),
+                      onTap: () => setState(() => selectedType = 'request_delivered'),
                     ),
                   ],
                 ),
@@ -1232,9 +1248,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
                   children: [
-                    const Text(
-                      'الفرز:',
-                      style: TextStyle(
+                    Text(
+                      '${l10n.translate('sort')}:',
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1243,18 +1259,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: selectedSort,
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: 'newest',
-                            child: Text('الأحدث أولًا'),
+                            child: Text(l10n.translate('newest_first')),
                           ),
                           DropdownMenuItem(
                             value: 'oldest',
-                            child: Text('الأقدم أولًا'),
+                            child: Text(l10n.translate('oldest_first')),
                           ),
                           DropdownMenuItem(
                             value: 'unread_first',
-                            child: Text('غير المقروء أولًا'),
+                            child: Text(l10n.translate('unread_first')),
                           ),
                         ],
                         onChanged: (value) {
@@ -1306,7 +1322,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'فشل تحميل الإشعارات: ${snapshot.error}',
+                            '${l10n.translate('load_notifications_failed')}: ${snapshot.error}',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1359,13 +1375,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             child: Row(
                               children: [
                                 _buildCounterCard(
-                                  label: 'غير المقروء',
+                                  label: l10n.translate('unread'),
                                   value: unreadCount.toString(),
                                   icon: Icons.mark_email_unread_outlined,
                                 ),
                                 const SizedBox(width: 10),
                                 _buildCounterCard(
-                                  label: 'اليوم',
+                                  label: l10n.translate('today'),
                                   value: todayCount.toString(),
                                   icon: Icons.today_outlined,
                                 ),
@@ -1377,24 +1393,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             child: Row(
                               children: [
                                 _buildCounterCard(
-                                  label: 'هذا الأسبوع',
+                                  label: l10n.translate('this_week'),
                                   value: weekCount.toString(),
                                   icon: Icons.date_range_outlined,
                                 ),
                                 const SizedBox(width: 10),
                                 _buildCounterCard(
-                                  label: 'الكل',
+                                  label: l10n.translate('all'),
                                   value: totalCount.toString(),
                                   icon: Icons.notifications_outlined,
                                 ),
                               ],
                             ),
                           ),
-                          const Expanded(
+                          Expanded(
                             child: Center(
                               child: Text(
-                                'لا توجد نتائج مطابقة',
-                                style: TextStyle(
+                                l10n.translate('no_matching_results'),
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -1415,13 +1431,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: Row(
                             children: [
                               _buildCounterCard(
-                                label: 'غير المقروء',
+                                label: l10n.translate('unread'),
                                 value: unreadCount.toString(),
                                 icon: Icons.mark_email_unread_outlined,
                               ),
                               const SizedBox(width: 10),
                               _buildCounterCard(
-                                label: 'اليوم',
+                                label: l10n.translate('today'),
                                 value: todayCount.toString(),
                                 icon: Icons.today_outlined,
                               ),
@@ -1433,13 +1449,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: Row(
                             children: [
                               _buildCounterCard(
-                                label: 'هذا الأسبوع',
+                                label: l10n.translate('this_week'),
                                 value: weekCount.toString(),
                                 icon: Icons.date_range_outlined,
                               ),
                               const SizedBox(width: 10),
                               _buildCounterCard(
-                                label: 'الكل',
+                                label: l10n.translate('all'),
                                 value: totalCount.toString(),
                                 icon: Icons.notifications_outlined,
                               ),
@@ -1450,23 +1466,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         if (priorityItems.isNotEmpty && selectedType != 'priority')
                           _buildMergedSection(
                             context,
-                            'الإشعارات المهمة',
+                            l10n.translate('priority_notifications'),
                             priorityItems,
                           ),
                         if (selectedType == 'priority')
                           _buildMergedSection(
                             context,
-                            'الإشعارات المهمة',
+                            l10n.translate('priority_notifications'),
                             priorityItems,
                           ),
                         if (selectedType != 'priority') ...[
-                          _buildMergedSection(context, 'اليوم', grouped['today']!),
                           _buildMergedSection(
                             context,
-                            'هذا الأسبوع',
+                            l10n.translate('today'),
+                            grouped['today']!,
+                          ),
+                          _buildMergedSection(
+                            context,
+                            l10n.translate('this_week'),
                             grouped['week']!,
                           ),
-                          _buildMergedSection(context, 'الأقدم', grouped['older']!),
+                          _buildMergedSection(
+                            context,
+                            l10n.translate('older'),
+                            grouped['older']!,
+                          ),
                         ],
                       ],
                     );

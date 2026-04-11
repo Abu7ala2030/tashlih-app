@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../data/services/firestore_paths.dart';
 import 'notifications_screen.dart';
 
@@ -16,6 +17,7 @@ class NotificationBellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     if (userId.isEmpty) {
@@ -107,8 +109,8 @@ class NotificationBellButton extends StatelessWidget {
                   ),
                   child: Text(
                     priorityUnreadCount > 9
-                        ? 'مهم 9+'
-                        : 'مهم $priorityUnreadCount',
+                        ? '${l10n.translate('important')} 9+'
+                        : '${l10n.translate('important')} $priorityUnreadCount',
                     style: const TextStyle(
                       color: Colors.redAccent,
                       fontSize: 9,
