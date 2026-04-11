@@ -426,5 +426,9 @@
   "confirm_delivery": "Confirm delivery",
   "request_completed": "Request completed",
   "part_delivered_successfully": "The part was delivered to the customer successfully.",
-  "your_offer_selected": "Your offer was selected"
+  "your_offer_selected": "Your offer was selected",
+  "customer_requests": "Customer requests",
+  "worker_requests_subtitle": "Review new requests and continue tracking the requests where your offers were selected",
+  "assigned_short": "Assigned",
+  "worker_requests_empty_subtitle": "As soon as new requests arrive, they will appear here for you to review or follow up."
 }

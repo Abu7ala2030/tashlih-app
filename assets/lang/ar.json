@@ -426,5 +426,9 @@
   "confirm_delivery": "تأكيد التسليم",
   "request_completed": "اكتمل الطلب",
   "part_delivered_successfully": "تم تسليم القطعة للعميل بنجاح.",
-  "your_offer_selected": "تم اختيار عرضك"
+  "your_offer_selected": "تم اختيار عرضك",
+  "customer_requests": "طلبات العملاء",
+  "worker_requests_subtitle": "راجع الطلبات الجديدة وأكمل تتبع الطلبات التي تم اختيار عروضك فيها",
+  "assigned_short": "معينة",
+  "worker_requests_empty_subtitle": "بمجرد وصول طلبات جديدة ستظهر هنا لتقوم بمراجعتها أو متابعتها."
 }

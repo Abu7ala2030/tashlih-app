@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/app_item_card.dart';
@@ -20,6 +21,8 @@ class WorkerRequestsScreen extends StatefulWidget {
 
 class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
   String selectedStatus = 'all';
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -65,15 +68,28 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('طلبات العملاء', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: .2)),
-                      SizedBox(height: 8),
-                      Text('راجع الطلبات الجديدة وأكمل تتبع الطلبات التي تم اختيار عروضك فيها', style: TextStyle(color: Colors.white70, height: 1.5)),
+                      Text(
+                        l10n.translate('customer_requests'),
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.translate('worker_requests_subtitle'),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.5,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -83,11 +99,35 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
                   child: Row(
                     children: [
-                      Expanded(child: StatCard(label: 'الكل', value: allRequests.length.toString(), icon: Icons.list_alt_outlined)),
+                      Expanded(
+                        child: StatCard(
+                          label: l10n.translate('all'),
+                          value: allRequests.length.toString(),
+                          icon: Icons.list_alt_outlined,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: StatCard(label: 'جديد', value: allRequests.where((r) => (r['status'] ?? '') == 'newRequest').length.toString(), icon: Icons.fiber_new_outlined)),
+                      Expanded(
+                        child: StatCard(
+                          label: l10n.translate('new'),
+                          value: allRequests
+                              .where((r) => (r['status'] ?? '') == 'newRequest')
+                              .length
+                              .toString(),
+                          icon: Icons.fiber_new_outlined,
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: StatCard(label: 'معينة', value: allRequests.where((r) => (r['status'] ?? '') == 'assigned').length.toString(), icon: Icons.verified_outlined)),
+                      Expanded(
+                        child: StatCard(
+                          label: l10n.translate('assigned_short'),
+                          value: allRequests
+                              .where((r) => (r['status'] ?? '') == 'assigned')
+                              .length
+                              .toString(),
+                          icon: Icons.verified_outlined,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -99,13 +139,42 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     scrollDirection: Axis.horizontal,
                     children: [
-                      StatusChipFilter(label: 'الكل', selected: selectedStatus == 'all', onTap: () => setState(() => selectedStatus = 'all')),
-                      StatusChipFilter(label: 'جديد', selected: selectedStatus == 'newRequest', onTap: () => setState(() => selectedStatus = 'newRequest')),
-                      StatusChipFilter(label: 'جاري التحقق', selected: selectedStatus == 'checkingAvailability', onTap: () => setState(() => selectedStatus = 'checkingAvailability')),
-                      StatusChipFilter(label: 'عروض', selected: selectedStatus == 'available', onTap: () => setState(() => selectedStatus = 'available')),
-                      StatusChipFilter(label: 'تم التعيين', selected: selectedStatus == 'assigned', onTap: () => setState(() => selectedStatus = 'assigned')),
-                      StatusChipFilter(label: 'تم الشحن', selected: selectedStatus == 'shipped', onTap: () => setState(() => selectedStatus = 'shipped')),
-                      StatusChipFilter(label: 'تم التسليم', selected: selectedStatus == 'delivered', onTap: () => setState(() => selectedStatus = 'delivered')),
+                      StatusChipFilter(
+                        label: l10n.translate('all'),
+                        selected: selectedStatus == 'all',
+                        onTap: () => setState(() => selectedStatus = 'all'),
+                      ),
+                      StatusChipFilter(
+                        label: l10n.translate('new'),
+                        selected: selectedStatus == 'newRequest',
+                        onTap: () => setState(() => selectedStatus = 'newRequest'),
+                      ),
+                      StatusChipFilter(
+                        label: l10n.translate('checking_availability'),
+                        selected: selectedStatus == 'checkingAvailability',
+                        onTap: () =>
+                            setState(() => selectedStatus = 'checkingAvailability'),
+                      ),
+                      StatusChipFilter(
+                        label: l10n.translate('offers'),
+                        selected: selectedStatus == 'available',
+                        onTap: () => setState(() => selectedStatus = 'available'),
+                      ),
+                      StatusChipFilter(
+                        label: l10n.translate('assigned'),
+                        selected: selectedStatus == 'assigned',
+                        onTap: () => setState(() => selectedStatus = 'assigned'),
+                      ),
+                      StatusChipFilter(
+                        label: l10n.translate('shipped'),
+                        selected: selectedStatus == 'shipped',
+                        onTap: () => setState(() => selectedStatus = 'shipped'),
+                      ),
+                      StatusChipFilter(
+                        label: l10n.translate('delivered'),
+                        selected: selectedStatus == 'delivered',
+                        onTap: () => setState(() => selectedStatus = 'delivered'),
+                      ),
                     ],
                   ),
                 ),
@@ -115,22 +184,36 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                   child: Row(
                     children: [
-                      const Expanded(child: Text('الطلبات', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
-                      Text('${requests.length} طلب', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
+                      Expanded(
+                        child: Text(
+                          l10n.translate('requests'),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${requests.length} ${l10n.translate('request_count_suffix')}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               if (requests.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: EmptyStateCard(
                         icon: Icons.assignment_outlined,
-                        title: 'لا توجد طلبات ضمن هذه الحالة',
-                        subtitle: 'بمجرد وصول طلبات جديدة ستظهر هنا لتقوم بمراجعتها أو متابعتها.',
+                        title: l10n.translate('no_requests_in_this_status'),
+                        subtitle: l10n.translate('worker_requests_empty_subtitle'),
                       ),
                     ),
                   ),
@@ -147,7 +230,8 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
 
                       return AppItemCard(
                         title: (request['partName'] ?? '').toString(),
-                        subtitle: '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\nالمدينة: ${request['city'] ?? '-'}${_extraSubtitle(request)}',
+                        subtitle:
+                            '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\n${l10n.translate('city')}: ${request['city'] ?? '-'}${_extraSubtitle(request)}',
                         imageUrl: (request['vehicleCoverImage'] ?? '').toString(),
                         statusText: _statusText(status),
                         statusColor: _statusColor(status),
@@ -155,7 +239,9 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => WorkerRequestDetailsScreen(request: request),
+                              builder: (_) => WorkerRequestDetailsScreen(
+                                request: request,
+                              ),
                             ),
                           );
                         },
@@ -173,7 +259,7 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
   String _extraSubtitle(Map<String, dynamic> request) {
     final status = (request['status'] ?? '').toString();
     if (status == 'assigned' || status == 'shipped' || status == 'delivered') {
-      return '\nالسعر المختار: ${(request['acceptedOfferPrice'] ?? '-').toString()} ريال';
+      return '\n${l10n.translate('selected_price')}: ${(request['acceptedOfferPrice'] ?? '-').toString()} ${l10n.translate('sar')}';
     }
     return '';
   }
@@ -202,21 +288,21 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
   String _statusText(String status) {
     switch (status) {
       case 'newRequest':
-        return 'طلب جديد';
+        return l10n.translate('status_new_request');
       case 'checkingAvailability':
-        return 'جاري التحقق';
+        return l10n.translate('status_checking');
       case 'available':
-        return 'تم تقديم عرض';
+        return l10n.translate('status_offer_submitted');
       case 'unavailable':
-        return 'غير متوفر';
+        return l10n.translate('status_unavailable');
       case 'assigned':
-        return 'تم اختيار عرضك';
+        return l10n.translate('your_offer_selected');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        return 'غير معروف';
+        return l10n.translate('unknown');
     }
   }
 }
