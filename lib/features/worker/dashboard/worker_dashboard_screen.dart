@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../providers/request_provider.dart';
@@ -28,8 +29,8 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
       if (!mounted) return;
       context.read<VehicleProvider>().listenToMyVehicles();
       context.read<RequestProvider>().listenToWorkerRequests(
-        includeOpenRequests: true,
-      );
+            includeOpenRequests: true,
+          );
     });
   }
 
@@ -41,6 +42,8 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final pages = [
       _WorkerOverviewTab(onOpenChats: () => setState(() => _currentIndex = 3)),
       const _WorkerRequestsTab(),
@@ -56,31 +59,31 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'الرئيسية',
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard),
+            label: l10n.translate('nav_home'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'الطلبات',
+            icon: const Icon(Icons.assignment_outlined),
+            selectedIcon: const Icon(Icons.assignment),
+            label: l10n.translate('requests'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined),
-            selectedIcon: Icon(Icons.directions_car),
-            label: 'مركباتي',
+            icon: const Icon(Icons.directions_car_outlined),
+            selectedIcon: const Icon(Icons.directions_car),
+            label: l10n.translate('my_vehicles'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'المحادثات',
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: l10n.translate('chats'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'حسابي',
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: l10n.translate('profile'),
           ),
         ],
       ),
@@ -93,6 +96,7 @@ class _WorkerRequestsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final provider = context.watch<RequestProvider>();
     final workerRequests = provider.requests;
 
@@ -101,25 +105,26 @@ class _WorkerRequestsTab extends StatelessWidget {
     }
 
     if (workerRequests.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Text(
-            'لا توجد طلبات مسندة لك حاليًا',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            l10n.translate('no_assigned_requests_now'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
         ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('طلباتي')),
+      appBar: AppBar(title: Text(l10n.translate('my_requests'))),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: workerRequests.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final request = workerRequests[index];
-          final partName = (request['partName'] ?? 'طلب بدون اسم').toString();
+          final partName =
+              (request['partName'] ?? l10n.translate('unnamed_request')).toString();
           final vehicle =
               '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}';
           final status = (request['status'] ?? '').toString();
@@ -127,15 +132,16 @@ class _WorkerRequestsTab extends StatelessWidget {
           return Card(
             child: ListTile(
               title: Text(partName),
-              subtitle: Text('$vehicle\nالحالة: $status'),
+              subtitle: Text(
+                '$vehicle\n${l10n.translate('status')}: ${_statusText(status, l10n)}',
+              ),
               isThreeLine: true,
               trailing: const Icon(Icons.arrow_forward_ios, size: 18),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        WorkerRequestDetailsScreen(request: request),
+                    builder: (_) => WorkerRequestDetailsScreen(request: request),
                   ),
                 );
               },
@@ -145,6 +151,27 @@ class _WorkerRequestsTab extends StatelessWidget {
       ),
     );
   }
+
+  String _statusText(String status, AppLocalizations l10n) {
+    switch (status) {
+      case 'newRequest':
+        return l10n.translate('status_new_request');
+      case 'checkingAvailability':
+        return l10n.translate('status_checking');
+      case 'available':
+        return l10n.translate('status_offer_submitted');
+      case 'unavailable':
+        return l10n.translate('status_unavailable');
+      case 'assigned':
+        return l10n.translate('your_offer_selected');
+      case 'shipped':
+        return l10n.translate('status_shipped');
+      case 'delivered':
+        return l10n.translate('status_delivered');
+      default:
+        return l10n.translate('unknown');
+    }
+  }
 }
 
 class _WorkerVehiclesTab extends StatelessWidget {
@@ -152,6 +179,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final vehicleProvider = context.watch<VehicleProvider>();
 
     if (vehicleProvider.isLoading) {
@@ -160,7 +188,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
 
     if (vehicleProvider.errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('مركباتي')),
+        appBar: AppBar(title: Text(l10n.translate('my_vehicles'))),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -182,7 +210,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.add),
-          label: const Text('إضافة مركبة'),
+          label: Text(l10n.translate('add_vehicle')),
         ),
       );
     }
@@ -190,7 +218,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
     final vehicles = vehicleProvider.vehicles;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('مركباتي')),
+      appBar: AppBar(title: Text(l10n.translate('my_vehicles'))),
       body: vehicles.isEmpty
           ? Center(
               child: Padding(
@@ -202,23 +230,26 @@ class _WorkerVehiclesTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white10),
                   ),
-                  child: const Column(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_photo_alternate_outlined, size: 48),
-                      SizedBox(height: 12),
+                      const Icon(Icons.add_photo_alternate_outlined, size: 48),
+                      const SizedBox(height: 12),
                       Text(
-                        'لا توجد مركبات مضافة بعد',
-                        style: TextStyle(
+                        l10n.translate('no_vehicles_added_yet'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
-                        'أضف مركبتك وارفع الصور حتى تظهر للإدارة للمراجعة.',
+                        l10n.translate('add_vehicle_to_appear_for_review'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, height: 1.5),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
@@ -242,12 +273,11 @@ class _WorkerVehiclesTab extends StatelessWidget {
                   final year = (vehicle['year'] ?? '').toString();
                   final city = (vehicle['city'] ?? '').toString();
                   final status = (vehicle['status'] ?? '').toString();
-                  final coverImage =
-                      (vehicle['coverImage'] ??
-                              vehicle['cover'] ??
-                              vehicle['vehicleCoverImage'] ??
-                              '')
-                          .toString();
+                  final coverImage = (vehicle['coverImage'] ??
+                          vehicle['cover'] ??
+                          vehicle['vehicleCoverImage'] ??
+                          '')
+                      .toString();
 
                   return Container(
                     decoration: BoxDecoration(
@@ -318,13 +348,11 @@ class _WorkerVehiclesTab extends StatelessWidget {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _statusColor(
-                                        status,
-                                      ).withValues(alpha: .18),
+                                      color: _statusColor(status).withValues(alpha: .18),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
-                                      _statusText(status),
+                                      _statusText(status, l10n),
                                       style: TextStyle(
                                         color: _statusColor(status),
                                         fontWeight: FontWeight.w800,
@@ -336,24 +364,23 @@ class _WorkerVehiclesTab extends StatelessWidget {
                               ),
                               const SizedBox(height: 10),
                               _VehicleInfoRow(
-                                label: 'المدينة',
+                                label: l10n.translate('city'),
                                 value: city.isEmpty ? '-' : city,
                               ),
                               _VehicleInfoRow(
-                                label: 'نوع الضرر',
+                                label: l10n.translate('damage_type'),
                                 value: _damageTypeText(
                                   (vehicle['damageType'] ?? '').toString(),
+                                  l10n,
                                 ),
                               ),
                               _VehicleInfoRow(
-                                label: 'التشليح',
-                                value: (vehicle['scrapyardName'] ?? '-')
-                                    .toString(),
+                                label: l10n.translate('scrapyard'),
+                                value: (vehicle['scrapyardName'] ?? '-').toString(),
                                 isLast: true,
                               ),
                               if ((vehicle['visibleParts'] as List?) != null &&
-                                  (vehicle['visibleParts'] as List)
-                                      .isNotEmpty) ...[
+                                  (vehicle['visibleParts'] as List).isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 Wrap(
                                   spacing: 8,
@@ -367,12 +394,11 @@ class _WorkerVehiclesTab extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.white10,
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
                                           ),
                                           child: Text(
-                                            part.toString(),
+                                            _partLabel(part.toString(), l10n),
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -404,7 +430,7 @@ class _WorkerVehiclesTab extends StatelessWidget {
           }
         },
         icon: const Icon(Icons.add),
-        label: const Text('إضافة مركبة'),
+        label: Text(l10n.translate('add_vehicle')),
       ),
     );
   }
@@ -422,37 +448,64 @@ class _WorkerVehiclesTab extends StatelessWidget {
     }
   }
 
-  String _statusText(String status) {
+  String _statusText(String status, AppLocalizations l10n) {
     switch (status) {
       case 'published':
-        return 'منشورة';
+        return l10n.translate('published');
       case 'pending':
-        return 'قيد المراجعة';
+        return l10n.translate('pending_review');
       case 'rejected':
-        return 'مرفوضة';
+        return l10n.translate('rejected');
       default:
-        return 'غير محدد';
+        return l10n.translate('unknown');
     }
   }
 
-  String _damageTypeText(String value) {
+  String _damageTypeText(String value, AppLocalizations l10n) {
     switch (value) {
       case 'front':
-        return 'أمامي';
+        return l10n.translate('damage_front');
       case 'rear':
-        return 'خلفي';
+        return l10n.translate('damage_rear');
       case 'leftSide':
-        return 'جهة يسار';
+        return l10n.translate('damage_left_side');
       case 'rightSide':
-        return 'جهة يمين';
+        return l10n.translate('damage_right_side');
       case 'rollover':
-        return 'انقلاب';
+        return l10n.translate('damage_rollover');
       case 'flood':
-        return 'غرق';
+        return l10n.translate('damage_flood');
       case 'fire':
-        return 'حريق';
+        return l10n.translate('damage_fire');
       default:
-        return 'غير محدد';
+        return l10n.translate('unknown');
+    }
+  }
+
+  String _partLabel(String value, AppLocalizations l10n) {
+    switch (value) {
+      case 'door':
+        return l10n.translate('part_door');
+      case 'mirror':
+        return l10n.translate('part_mirror');
+      case 'bumper':
+        return l10n.translate('part_bumper');
+      case 'tail_light':
+        return l10n.translate('part_tail_light');
+      case 'rim':
+        return l10n.translate('part_rim');
+      case 'engine':
+        return l10n.translate('part_engine');
+      case 'gearbox':
+        return l10n.translate('part_gearbox');
+      case 'dashboard':
+        return l10n.translate('part_dashboard');
+      case 'seats':
+        return l10n.translate('part_seats');
+      case 'screen':
+        return l10n.translate('part_screen');
+      default:
+        return value;
     }
   }
 }
@@ -466,6 +519,7 @@ class _WorkerOverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final vehicleProvider = context.watch<VehicleProvider>();
     final requestProvider = context.watch<RequestProvider>();
     final currentUserId = vehicleProvider.currentUserId ?? '';
@@ -475,31 +529,26 @@ class _WorkerOverviewTab extends StatelessWidget {
       return workerId == currentUserId;
     }).toList();
 
-    final pendingVehicles = myVehicles
-        .where((v) => (v['status'] ?? '') == 'pending')
-        .toList();
-    final publishedVehicles = myVehicles
-        .where((v) => (v['status'] ?? '') == 'published')
-        .toList();
+    final pendingVehicles =
+        myVehicles.where((v) => (v['status'] ?? '') == 'pending').toList();
+    final publishedVehicles =
+        myVehicles.where((v) => (v['status'] ?? '') == 'published').toList();
 
     final myRequests = requestProvider.requests;
-    final assignedRequests = myRequests
-        .where((r) => (r['status'] ?? '') == 'assigned')
-        .toList();
-    final shippedRequests = myRequests
-        .where((r) => (r['status'] ?? '') == 'shipped')
-        .toList();
-    final deliveredRequests = myRequests
-        .where((r) => (r['status'] ?? '') == 'delivered')
-        .toList();
+    final assignedRequests =
+        myRequests.where((r) => (r['status'] ?? '') == 'assigned').toList();
+    final shippedRequests =
+        myRequests.where((r) => (r['status'] ?? '') == 'shipped').toList();
+    final deliveredRequests =
+        myRequests.where((r) => (r['status'] ?? '') == 'delivered').toList();
 
     return AppGradientBackground(
       child: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
                   children: [
                     Expanded(
@@ -507,17 +556,17 @@ class _WorkerOverviewTab extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'لوحة العامل',
-                            style: TextStyle(
+                            l10n.translate('worker_dashboard'),
+                            style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
                               letterSpacing: .2,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
-                            'تابع طلباتك وحالة مركباتك بسرعة',
-                            style: TextStyle(
+                            l10n.translate('worker_dashboard_subtitle'),
+                            style: const TextStyle(
                               color: Colors.white70,
                               height: 1.5,
                             ),
@@ -550,20 +599,20 @@ class _WorkerOverviewTab extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'جاهز للعمل',
-                        style: TextStyle(
+                        l10n.translate('ready_to_work'),
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
-                        'أضف مركباتك من تبويب "مركباتي" ثم تابع طلباتك ومحادثاتك من نفس التطبيق.',
-                        style: TextStyle(
+                        l10n.translate('worker_dashboard_hint'),
+                        style: const TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w900,
                           height: 1.4,
@@ -582,7 +631,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onOpenChats,
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('فتح المحادثات'),
+                    label: Text(l10n.translate('open_chats')),
                   ),
                 ),
               ),
@@ -594,7 +643,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'مركباتي',
+                        label: l10n.translate('my_vehicles'),
                         value: myVehicles.length.toString(),
                         icon: Icons.directions_car_outlined,
                       ),
@@ -602,7 +651,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'قيد المراجعة',
+                        label: l10n.translate('pending_review'),
                         value: pendingVehicles.length.toString(),
                         icon: Icons.hourglass_top_outlined,
                       ),
@@ -610,7 +659,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'منشورة',
+                        label: l10n.translate('published'),
                         value: publishedVehicles.length.toString(),
                         icon: Icons.verified_outlined,
                       ),
@@ -626,7 +675,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: StatCard(
-                        label: 'طلباتي',
+                        label: l10n.translate('my_requests'),
                         value: myRequests.length.toString(),
                         icon: Icons.assignment_outlined,
                       ),
@@ -634,7 +683,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'قيد التنفيذ',
+                        label: l10n.translate('in_execution'),
                         value: assignedRequests.length.toString(),
                         icon: Icons.build_circle_outlined,
                       ),
@@ -642,7 +691,7 @@ class _WorkerOverviewTab extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: StatCard(
-                        label: 'تم الشحن',
+                        label: l10n.translate('shipped'),
                         value: shippedRequests.length.toString(),
                         icon: Icons.local_shipping_outlined,
                       ),
@@ -654,9 +703,9 @@ class _WorkerOverviewTab extends StatelessWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                child: const Text(
-                  'ملخص سريع',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                child: Text(
+                  l10n.translate('quick_summary'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
                 ),
               ),
             ),
@@ -673,19 +722,19 @@ class _WorkerOverviewTab extends StatelessWidget {
                   child: Column(
                     children: [
                       _SummaryRow(
-                        label: 'المركبات المضافة',
+                        label: l10n.translate('added_vehicles'),
                         value: myVehicles.length.toString(),
                       ),
                       _SummaryRow(
-                        label: 'المركبات بانتظار الاعتماد',
+                        label: l10n.translate('vehicles_waiting_approval'),
                         value: pendingVehicles.length.toString(),
                       ),
                       _SummaryRow(
-                        label: 'المركبات المنشورة',
+                        label: l10n.translate('published_vehicles'),
                         value: publishedVehicles.length.toString(),
                       ),
                       _SummaryRow(
-                        label: 'الطلبات المكتملة',
+                        label: l10n.translate('completed_requests'),
                         value: deliveredRequests.length.toString(),
                         isLast: true,
                       ),

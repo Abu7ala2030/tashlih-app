@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../vehicles/add_vehicle_screen.dart';
 
@@ -20,8 +21,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController scrapyardNameController =
-      TextEditingController();
+  final TextEditingController scrapyardNameController = TextEditingController();
 
   bool isLoading = true;
   bool isSaving = false;
@@ -30,6 +30,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
   double? scrapyardLat;
   double? scrapyardLng;
   String? scrapyardGoogleMapsUrl;
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -83,7 +85,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحميل بيانات العامل: $e')),
+        SnackBar(content: Text('${l10n.translate('load_worker_data_failed')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -97,7 +99,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     if (!serviceEnabled) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('خدمة الموقع غير مفعلة على الجهاز')),
+        SnackBar(content: Text(l10n.translate('location_service_disabled'))),
       );
       return false;
     }
@@ -111,7 +113,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     if (permission == LocationPermission.denied) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم رفض صلاحية الموقع')),
+        SnackBar(content: Text(l10n.translate('location_permission_denied'))),
       );
       return false;
     }
@@ -119,8 +121,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     if (permission == LocationPermission.deniedForever) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('صلاحية الموقع مرفوضة نهائيًا، فعّلها من إعدادات الجهاز'),
+        SnackBar(
+          content: Text(l10n.translate('worker_location_permission_denied_forever')),
         ),
       );
       return false;
@@ -137,7 +139,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     final user = _auth.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد مستخدم مسجل حاليًا')),
+        SnackBar(content: Text(l10n.translate('no_authenticated_user'))),
       );
       return;
     }
@@ -179,12 +181,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديث الموقع الفعلي بنجاح')),
+        SnackBar(content: Text(l10n.translate('actual_location_updated_successfully'))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل جلب الموقع الحالي: $e')),
+        SnackBar(content: Text('${l10n.translate('get_location_failed')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -198,37 +200,35 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد مستخدم مسجل حاليًا')),
+        SnackBar(content: Text(l10n.translate('no_authenticated_user'))),
       );
       return;
     }
 
     if (nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل اسم العامل')),
+        SnackBar(content: Text(l10n.translate('enter_worker_name'))),
       );
       return;
     }
 
     if (phoneController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل رقم الجوال')),
+        SnackBar(content: Text(l10n.translate('enter_phone_error'))),
       );
       return;
     }
 
     if (scrapyardNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل اسم التشليح')),
+        SnackBar(content: Text(l10n.translate('enter_scrapyard_name'))),
       );
       return;
     }
 
     if (scrapyardLat == null || scrapyardLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('حدّث موقع التشليح الحالي أولًا قبل الحفظ'),
-        ),
+        SnackBar(content: Text(l10n.translate('update_current_scrapyard_location_first'))),
       );
       return;
     }
@@ -257,12 +257,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حفظ بيانات العامل بنجاح')),
+        SnackBar(content: Text(l10n.translate('worker_data_saved_successfully'))),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل حفظ البيانات: $e')),
+        SnackBar(content: Text('${l10n.translate('save_failed')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -276,7 +276,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد موقع محفوظ للتشليح')),
+        SnackBar(content: Text(l10n.translate('no_saved_scrapyard_location'))),
       );
       return;
     }
@@ -284,7 +284,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     final uri = Uri.tryParse(url);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('رابط الموقع غير صالح')),
+        SnackBar(content: Text(l10n.translate('invalid_location_link'))),
       );
       return;
     }
@@ -296,7 +296,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح الموقع')),
+      SnackBar(content: Text(l10n.translate('unable_to_open_location'))),
     );
   }
 
@@ -310,7 +310,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
     if (created == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمت إضافة المركبة بنجاح')),
+        SnackBar(content: Text(l10n.translate('vehicle_added_successfully'))),
       );
     }
   }
@@ -329,22 +329,18 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'الدعم الفني',
-                  style: TextStyle(
+                  l10n.translate('support'),
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Text(
-                  'إذا واجهت مشكلة، تأكد أولًا من:\n'
-                  '1) تحديث موقعك الحالي من هذه الشاشة.\n'
-                  '2) إضافة المركبة من تبويب مركباتي.\n'
-                  '3) توفر الإنترنت وصلاحية الموقع.\n'
-                  '4) انتظار مراجعة الإدارة للمركبات المضافة.',
-                  style: TextStyle(
+                  l10n.translate('worker_support_description'),
+                  style: const TextStyle(
                     color: Colors.white70,
                     height: 1.7,
                   ),
@@ -376,11 +372,11 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'حالة الاعتماد',
-                    style: TextStyle(
+                    l10n.translate('approval_status'),
+                    style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
                     ),
@@ -388,19 +384,19 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 _StatusInfoRow(
-                  label: 'إجمالي المركبات',
+                  label: l10n.translate('total_vehicles'),
                   value: totalVehicles.toString(),
                 ),
                 _StatusInfoRow(
-                  label: 'قيد المراجعة',
+                  label: l10n.translate('pending_review'),
                   value: pendingVehicles.toString(),
                 ),
                 _StatusInfoRow(
-                  label: 'منشورة',
+                  label: l10n.translate('published'),
                   value: publishedVehicles.toString(),
                 ),
                 _StatusInfoRow(
-                  label: 'مرفوضة',
+                  label: l10n.translate('rejected'),
                   value: rejectedVehicles.toString(),
                   isLast: true,
                 ),
@@ -429,13 +425,13 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
             height: MediaQuery.of(context).size.height * 0.72,
             child: Column(
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'آخر الإشعارات',
-                      style: TextStyle(
+                      l10n.translate('latest_notifications'),
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -461,12 +457,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                       final docs = snapshot.data?.docs ?? [];
 
                       if (docs.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Padding(
-                            padding: EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(24),
                             child: Text(
-                              'لا توجد إشعارات حتى الآن',
-                              style: TextStyle(
+                              l10n.translate('no_notifications'),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -481,7 +477,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final data = docs[index].data();
-                          final title = (data['title'] ?? 'إشعار').toString();
+                          final title =
+                              (data['title'] ?? l10n.translate('notification')).toString();
                           final body = (data['body'] ?? '').toString();
                           final type = (data['type'] ?? '').toString();
 
@@ -504,7 +501,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  body.isEmpty ? 'بدون تفاصيل' : body,
+                                  body.isEmpty ? l10n.translate('no_details') : body,
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     height: 1.5,
@@ -554,14 +551,14 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تسجيل الخروج: $e')),
+        SnackBar(content: Text('${l10n.translate('logout_failed')}: $e')),
       );
     }
   }
 
   String _locationText() {
     if (scrapyardLat == null || scrapyardLng == null) {
-      return 'لم يتم تحديد الموقع بعد';
+      return l10n.translate('location_not_set_yet');
     }
     return '${scrapyardLat!.toStringAsFixed(6)}, ${scrapyardLng!.toStringAsFixed(6)}';
   }
@@ -585,10 +582,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: uid == null
           ? null
-          : _db
-              .collection('vehicles')
-              .where('workerId', isEqualTo: uid)
-              .snapshots(),
+          : _db.collection('vehicles').where('workerId', isEqualTo: uid).snapshots(),
       builder: (context, vehicleSnapshot) {
         final vehicleDocs = vehicleSnapshot.data?.docs ?? [];
         final totalVehicles = vehicleDocs.length;
@@ -607,24 +601,24 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
             child: SafeArea(
               child: CustomScrollView(
                 slivers: [
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'حساب العامل',
-                            style: TextStyle(
+                            l10n.translate('worker_account'),
+                            style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
                               letterSpacing: .2,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
-                            'تابع حسابك وحالتك العامة والبيانات المرتبطة بنشاطك',
-                            style: TextStyle(
+                            l10n.translate('worker_account_subtitle'),
+                            style: const TextStyle(
                               color: Colors.white70,
                               height: 1.5,
                             ),
@@ -661,7 +655,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                 children: [
                                   Text(
                                     nameController.text.trim().isEmpty
-                                        ? 'عامل'
+                                        ? l10n.translate('worker')
                                         : nameController.text.trim(),
                                     style: const TextStyle(
                                       fontSize: 20,
@@ -671,7 +665,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     phoneController.text.trim().isEmpty
-                                        ? 'بدون رقم'
+                                        ? l10n.translate('no_phone')
                                         : phoneController.text.trim(),
                                     style: const TextStyle(
                                       color: Colors.white70,
@@ -680,7 +674,9 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    publishedVehicles > 0 ? 'نشط' : 'بانتظار الاعتماد',
+                                    publishedVehicles > 0
+                                        ? l10n.translate('active')
+                                        : l10n.translate('waiting_approval'),
                                     style: TextStyle(
                                       color: publishedVehicles > 0
                                           ? Colors.greenAccent
@@ -703,7 +699,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         children: [
                           Expanded(
                             child: _MiniStatCard(
-                              label: 'مركباتي',
+                              label: l10n.translate('my_vehicles'),
                               value: totalVehicles.toString(),
                               icon: Icons.directions_car_outlined,
                             ),
@@ -711,7 +707,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _MiniStatCard(
-                              label: 'قيد المراجعة',
+                              label: l10n.translate('pending_review'),
                               value: pendingVehicles.toString(),
                               icon: Icons.hourglass_top_outlined,
                             ),
@@ -719,7 +715,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _MiniStatCard(
-                              label: 'منشورة',
+                              label: l10n.translate('published'),
                               value: publishedVehicles.toString(),
                               icon: Icons.verified_outlined,
                             ),
@@ -728,12 +724,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                       ),
                     ),
                   ),
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
                       child: Text(
-                        'بيانات العامل والتشليح',
-                        style: TextStyle(
+                        l10n.translate('worker_and_scrapyard_data'),
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
@@ -754,21 +750,21 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           children: [
                             _InputField(
                               controller: nameController,
-                              label: 'اسم العامل',
-                              hint: 'مثال: أحمد محمد',
+                              label: l10n.translate('worker_name'),
+                              hint: l10n.translate('worker_name_hint'),
                             ),
                             const SizedBox(height: 12),
                             _InputField(
                               controller: phoneController,
-                              label: 'رقم الجوال',
+                              label: l10n.translate('phone'),
                               hint: '05xxxxxxxx',
                               keyboardType: TextInputType.phone,
                             ),
                             const SizedBox(height: 12),
                             _InputField(
                               controller: scrapyardNameController,
-                              label: 'اسم التشليح',
-                              hint: 'مثال: تشليح الدمام الحديث',
+                              label: l10n.translate('scrapyard_name'),
+                              hint: l10n.translate('scrapyard_name_hint'),
                             ),
                             const SizedBox(height: 16),
                             Container(
@@ -782,9 +778,9 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'الموقع الفعلي الحالي',
-                                    style: TextStyle(
+                                  Text(
+                                    l10n.translate('current_actual_location'),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
@@ -824,8 +820,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                           : const Icon(Icons.my_location_outlined),
                                       label: Text(
                                         isGettingLocation
-                                            ? 'جاري تحديد الموقع...'
-                                            : 'استخدام موقعي الحالي',
+                                            ? l10n.translate('getting_location')
+                                            : l10n.translate('use_current_location'),
                                       ),
                                     ),
                                   ),
@@ -845,7 +841,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text('حفظ البيانات'),
+                                    : Text(l10n.translate('save')),
                               ),
                             ),
                           ],
@@ -853,12 +849,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                       ),
                     ),
                   ),
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
                       child: Text(
-                        'الإعدادات',
-                        style: TextStyle(
+                        l10n.translate('settings'),
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
@@ -872,15 +868,15 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         children: [
                           _ProfileTile(
                             icon: Icons.add_photo_alternate_outlined,
-                            title: 'إضافة مركبة جديدة',
-                            subtitle: 'افتح شاشة إضافة مركبة وارفع الصور والبيانات',
+                            title: l10n.translate('add_new_vehicle'),
+                            subtitle: l10n.translate('open_add_vehicle_and_upload'),
                             onTap: _openAddVehicle,
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.verified_user_outlined,
-                            title: 'حالة الاعتماد',
-                            subtitle: 'تابع حالة مركباتك المنشورة وتلك التي بانتظار المراجعة',
+                            title: l10n.translate('approval_status'),
+                            subtitle: l10n.translate('track_vehicle_approval_status'),
                             onTap: () => _showApprovalStatusSheet(
                               totalVehicles: totalVehicles,
                               pendingVehicles: pendingVehicles,
@@ -891,22 +887,22 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.notifications_none,
-                            title: 'الإشعارات',
-                            subtitle: 'اعرض آخر الإشعارات والرسائل المرتبطة بطلباتك',
+                            title: l10n.translate('notifications'),
+                            subtitle: l10n.translate('view_latest_notifications_and_messages'),
                             onTap: _showNotificationsSheet,
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.location_on_outlined,
-                            title: 'فتح موقع التشليح',
-                            subtitle: 'افتح الموقع الحالي المحفوظ للتشليح على الخريطة',
+                            title: l10n.translate('open_scrapyard_location'),
+                            subtitle: l10n.translate('open_saved_scrapyard_location'),
                             onTap: _openMapUrl,
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.support_agent_outlined,
-                            title: 'الدعم الفني',
-                            subtitle: 'مساعدة سريعة لمعالجة أكثر المشاكل الشائعة داخل التطبيق',
+                            title: l10n.translate('support'),
+                            subtitle: l10n.translate('quick_help_common_issues'),
                             onTap: _showSupportSheet,
                           ),
                         ],
@@ -924,7 +920,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                             foregroundColor: Colors.white,
                           ),
                           onPressed: _signOut,
-                          child: const Text('تسجيل الخروج'),
+                          child: Text(l10n.translate('logout')),
                         ),
                       ),
                     ),
