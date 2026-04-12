@@ -529,5 +529,16 @@
   "track_vehicle_approval_status": "تابع حالة مركباتك المنشورة وتلك التي بانتظار المراجعة",
   "view_latest_notifications_and_messages": "اعرض آخر الإشعارات والرسائل المرتبطة بطلباتك",
   "open_saved_scrapyard_location": "افتح الموقع الحالي المحفوظ للتشليح على الخريطة",
-  "quick_help_common_issues": "مساعدة سريعة لمعالجة أكثر المشاكل الشائعة داخل التطبيق"
+  "quick_help_common_issues": "مساعدة سريعة لمعالجة أكثر المشاكل الشائعة داخل التطبيق",
+  "admin": "مدير",
+  "choose_account_type": "اختيار نوع الحساب",
+  "welcome_back": "مرحبًا بعودتك",
+  "select_role_to_continue": "اختر نوع الحساب المناسب للمتابعة داخل التطبيق",
+  "customer_role_description": "استعرض المركبات، اطلب القطع، وتابع العروض والشحن",
+  "worker_role_description": "أضف المركبات، استقبل الطلبات، وقدّم عروض الأسعار",
+  "admin_role_description": "راقب الطلبات والمستخدمين والعمليات من لوحة الإدارة",
+  "login": "دخول",
+  "otp_verification": "التحقق عبر OTP",
+  "otp_screen_placeholder": "هذه شاشة OTP التجريبية حاليًا.\nيمكن ربطها لاحقًا بخدمة تحقق حقيقية.",
+  "back_to_login": "الرجوع للدخول"
 }

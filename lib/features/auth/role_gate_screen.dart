@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../shared/layout/admin_shell.dart';
 import '../../shared/layout/customer_shell.dart';
@@ -12,6 +13,7 @@ class RoleGateScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final auth = context.watch<AuthProvider>();
 
     if (!auth.authResolved || auth.isLoading) {
@@ -41,7 +43,7 @@ class RoleGateScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
                   },
-                  child: const Text('الرجوع للدخول'),
+                  child: Text(l10n.translate('back_to_login')),
                 ),
               ],
             ),

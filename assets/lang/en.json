@@ -529,5 +529,16 @@
   "track_vehicle_approval_status": "Track your published vehicles and those waiting for review",
   "view_latest_notifications_and_messages": "View the latest notifications and messages related to your requests",
   "open_saved_scrapyard_location": "Open the currently saved scrapyard location on the map",
-  "quick_help_common_issues": "Quick help for the most common app issues"
+  "quick_help_common_issues": "Quick help for the most common app issues",
+  "admin": "Admin",
+  "choose_account_type": "Choose account type",
+  "welcome_back": "Welcome back",
+  "select_role_to_continue": "Select the appropriate account type to continue in the app",
+  "customer_role_description": "Browse vehicles, request parts, and track offers and shipping",
+  "worker_role_description": "Add vehicles, receive requests, and submit price offers",
+  "admin_role_description": "Monitor requests, users, and operations from the admin dashboard",
+  "login": "Login",
+  "otp_verification": "OTP Verification",
+  "otp_screen_placeholder": "This is currently a placeholder OTP screen.\nIt can be connected later to a real verification service.",
+  "back_to_login": "Back to login"
 }
