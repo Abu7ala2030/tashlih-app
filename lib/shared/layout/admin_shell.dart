@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../features/admin/dashboard/admin_dashboard_screen.dart';
 import '../../features/admin/profile/admin_profile_screen.dart';
 import '../../features/admin/requests/admin_requests_screen.dart';
@@ -24,6 +25,8 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: pages[currentIndex],
       bottomNavigationBar: NavigationBar(
@@ -31,22 +34,22 @@ class _AdminShellState extends State<AdminShell> {
         onDestinationSelected: (index) {
           setState(() => currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'الرئيسية',
+            icon: const Icon(Icons.dashboard_outlined),
+            label: l10n.translate('nav_home'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.fact_check_outlined),
-            label: 'المراجعة',
+            icon: const Icon(Icons.fact_check_outlined),
+            label: l10n.translate('review'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            label: 'الطلبات',
+            icon: const Icon(Icons.list_alt_outlined),
+            label: l10n.translate('requests'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            label: 'الحساب',
+            icon: const Icon(Icons.person_outline),
+            label: l10n.translate('account'),
           ),
         ],
       ),

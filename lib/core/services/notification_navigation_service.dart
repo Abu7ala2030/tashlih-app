@@ -118,7 +118,7 @@ class NotificationNavigationService {
       MaterialPageRoute(
         builder: (_) => ChatScreen(
           chatId: chatId,
-          title: 'المحادثة',
+          title: 'Chat',
         ),
       ),
     );
