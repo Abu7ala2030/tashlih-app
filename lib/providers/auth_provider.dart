@@ -75,7 +75,7 @@ class AuthProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
-      errorMessage = 'فشل تحميل بيانات المستخدم: $e';
+      errorMessage = 'Failed to load user data: $e';
     }
   }
 
@@ -113,9 +113,9 @@ class AuthProvider extends ChangeNotifier {
 
       await PushNotificationService.instance.syncCurrentUserToken();
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message ?? 'فشل إنشاء الحساب';
+      errorMessage = e.message ?? 'Failed to create account';
     } catch (e) {
-      errorMessage = 'فشل إنشاء الحساب: $e';
+      errorMessage = 'Failed to create account: $e';
     } finally {
       isLoading = false;
       authResolved = true;
@@ -144,9 +144,9 @@ class AuthProvider extends ChangeNotifier {
         await PushNotificationService.instance.syncCurrentUserToken();
       }
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message ?? 'فشل تسجيل الدخول';
+      errorMessage = e.message ?? 'Login failed';
     } catch (e) {
-      errorMessage = 'فشل تسجيل الدخول: $e';
+      errorMessage = 'Login failed: $e';
     } finally {
       isLoading = false;
       authResolved = true;
@@ -172,9 +172,9 @@ class AuthProvider extends ChangeNotifier {
       user = null;
       currentUser = null;
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message ?? 'فشل تسجيل الخروج';
+      errorMessage = e.message ?? 'Logout failed';
     } catch (e) {
-      errorMessage = 'فشل تسجيل الخروج: $e';
+      errorMessage = 'Logout failed: $e';
     } finally {
       isLoading = false;
       authResolved = true;

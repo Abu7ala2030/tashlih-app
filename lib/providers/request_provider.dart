@@ -79,7 +79,7 @@ class RequestProvider extends ChangeNotifier {
   }) async {
     final uid = actorId ?? currentUserId;
     if (uid == null || uid.isEmpty) {
-      return fallbackRole == 'system' ? 'النظام' : 'مستخدم';
+      return fallbackRole == 'system' ? 'System' : 'User';
     }
 
     try {
@@ -101,17 +101,17 @@ class RequestProvider extends ChangeNotifier {
 
     switch (fallbackRole) {
       case 'customer':
-        return 'العميل';
+        return 'Customer';
       case 'worker':
-        return 'العامل';
+        return 'Worker';
       case 'driver':
-        return 'السائق';
+        return 'Driver';
       case 'admin':
-        return 'الإدارة';
+        return 'Admin';
       case 'system':
-        return 'النظام';
+        return 'System';
       default:
-        return 'مستخدم';
+        return 'User';
     }
   }
 
@@ -304,7 +304,7 @@ class RequestProvider extends ChangeNotifier {
     final uid = currentUserId;
     if (uid == null) {
       requests = [];
-      _setError('لا يوجد مستخدم مسجل');
+      _setError('No authenticated user');
       notifyListeners();
       return;
     }
@@ -373,7 +373,7 @@ class RequestProvider extends ChangeNotifier {
     final uid = currentUserId;
     if (uid == null) {
       requests = [];
-      _setError('لا يوجد مستخدم مسجل');
+      _setError('No authenticated user');
       notifyListeners();
       return;
     }
@@ -398,7 +398,7 @@ class RequestProvider extends ChangeNotifier {
     final uid = currentUserId;
     if (uid == null) {
       requests = [];
-      _setError('لا يوجد مستخدم مسجل');
+      _setError('No authenticated user');
       notifyListeners();
       return;
     }
@@ -417,7 +417,7 @@ class RequestProvider extends ChangeNotifier {
   Future<void> addRequest(Map<String, dynamic> data) async {
     final uid = currentUserId;
     if (uid == null) {
-      throw Exception('لا يوجد مستخدم مسجل');
+      throw Exception('No authenticated user');
     }
 
     final ref = await _db.collection(FirestorePaths.requests).add({
@@ -433,8 +433,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: ref.id,
       type: 'request_created',
-      title: 'تم إنشاء الطلب',
-      description: 'تم إرسال طلب جديد من العميل.',
+      title: 'Request created',
+      description: 'A new request was submitted by the customer.',
       actorId: uid,
       actorRole: 'customer',
     );
@@ -454,7 +454,7 @@ class RequestProvider extends ChangeNotifier {
   }) async {
     final uid = currentUserId;
     if (uid == null) {
-      throw Exception('لا يوجد مستخدم مسجل');
+      throw Exception('No authenticated user');
     }
 
     final ref = await _db.collection(FirestorePaths.requests).add({
@@ -486,8 +486,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: ref.id,
       type: 'request_created',
-      title: 'تم إنشاء الطلب',
-      description: 'تم إنشاء الطلب من مركبة موجودة في التطبيق.',
+      title: 'Request created',
+      description: 'The request was created from a vehicle already listed in the app.',
       actorId: uid,
       actorRole: 'customer',
       extra: {
@@ -510,8 +510,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'worker_assigned',
-      title: 'تم تعيين عامل',
-      description: 'تم ربط الطلب بالعامل المحدد.',
+      title: 'Worker assigned',
+      description: 'The request was linked to the selected worker.',
       actorId: currentUserId ?? '',
       actorRole: 'admin',
       extra: {'workerId': workerId},
@@ -536,8 +536,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'driver_assigned',
-      title: 'تم تعيين السائق',
-      description: 'تم إسناد الطلب إلى السائق لمتابعة التوصيل.',
+      title: 'Driver assigned',
+      description: 'The request was assigned to the driver for delivery.',
       actorId: currentUserId ?? '',
       actorRole: 'admin',
       extra: {'driverId': driverId},
@@ -545,8 +545,8 @@ class RequestProvider extends ChangeNotifier {
 
     await _sendUserNotification(
       userId: driverId,
-      title: 'تم إسناد طلب جديد لك',
-      body: 'يوجد طلب جديد بانتظار الاستلام والتوصيل.',
+      title: 'A new request was assigned to you',
+      body: 'There is a new request waiting for pickup and delivery.',
       type: 'driver_assigned',
       requestId: requestId,
       dedupWithin: const Duration(hours: 12),
@@ -559,8 +559,8 @@ class RequestProvider extends ChangeNotifier {
     if (customerId.isNotEmpty) {
       await _sendUserNotification(
         userId: customerId,
-        title: 'تم تعيين سائق للطلب',
-        body: 'تم تعيين سائق لطلبك وسيبدأ الاستلام قريبًا.',
+        title: 'A driver was assigned to your request',
+        body: 'A driver has been assigned and pickup will start soon.',
         type: 'driver_assigned_customer',
         requestId: requestId,
         dedupWithin: const Duration(hours: 12),
@@ -580,8 +580,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'status_changed',
-      title: 'تم تحديث الحالة',
-      description: 'تم تغيير حالة الطلب إلى $status.',
+      title: 'Status updated',
+      description: 'The request status was changed to $status.',
       actorId: currentUserId ?? '',
       actorRole: 'worker',
       extra: {'status': status},
@@ -604,8 +604,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'driver_picked_up',
-      title: 'استلم السائق الطلب',
-      description: 'تم استلام الطلب من العامل أو التشليح.',
+      title: 'Driver picked up the request',
+      description: 'The request was picked up from the worker or scrapyard.',
       actorId: currentUserId ?? '',
       actorRole: 'driver',
     );
@@ -614,8 +614,8 @@ class RequestProvider extends ChangeNotifier {
     if (customerId.isNotEmpty) {
       await _sendUserNotification(
         userId: customerId,
-        title: 'تم استلام الطلب',
-        body: 'استلم السائق طلبك وجارٍ تجهيزه للتوصيل.',
+        title: 'Your request was picked up',
+        body: 'The driver picked up your request and it is being prepared for delivery.',
         type: 'driver_picked_up',
         requestId: requestId,
         dedupWithin: const Duration(hours: 6),
@@ -640,8 +640,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'driver_on_the_way',
-      title: 'السائق في الطريق',
-      description: 'بدأ السائق التوصيل إلى عنوان العميل.',
+      title: 'Driver is on the way',
+      description: 'The driver started delivery to the customer address.',
       actorId: currentUserId ?? '',
       actorRole: 'driver',
     );
@@ -650,8 +650,8 @@ class RequestProvider extends ChangeNotifier {
     if (customerId.isNotEmpty) {
       await _sendUserNotification(
         userId: customerId,
-        title: 'السائق في الطريق',
-        body: 'طلبك الآن في الطريق إليك.',
+        title: 'Driver is on the way',
+        body: 'Your request is now on the way to you.',
         type: 'request_shipped',
         requestId: requestId,
         dedupWithin: const Duration(hours: 6),
@@ -676,8 +676,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'driver_delivered',
-      title: 'تم التسليم',
-      description: 'أكد السائق تسليم الطلب للعميل.',
+      title: 'Request delivered',
+      description: 'The driver confirmed successful delivery to the customer.',
       actorId: currentUserId ?? '',
       actorRole: 'driver',
     );
@@ -686,8 +686,8 @@ class RequestProvider extends ChangeNotifier {
     if (customerId.isNotEmpty) {
       await _sendUserNotification(
         userId: customerId,
-        title: 'تم تسليم الطلب',
-        body: 'أكد السائق تسليم طلبك بنجاح.',
+        title: 'Your request was delivered',
+        body: 'The driver confirmed successful delivery of your request.',
         type: 'request_delivered',
         requestId: requestId,
         dedupWithin: const Duration(hours: 12),
@@ -713,16 +713,16 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'shipped',
-      title: 'تم شحن الطلب',
-      description: 'تم شحن القطعة إلى العميل.',
+      title: 'Request shipped',
+      description: 'The part was shipped to the customer.',
       actorId: currentUserId ?? '',
       actorRole: 'worker',
     );
 
     await _sendUserNotification(
       userId: customerId,
-      title: 'تم شحن الطلب',
-      body: 'تم شحن القطعة المطلوبة وهي الآن في الطريق إليك.',
+      title: 'Your request was shipped',
+      body: 'The requested part was shipped and is now on the way to you.',
       type: 'request_shipped',
       requestId: requestId,
       dedupWithin: const Duration(hours: 6),
@@ -747,16 +747,16 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'delivered',
-      title: 'تم التسليم',
-      description: 'تم تسليم القطعة للعميل بنجاح.',
+      title: 'Request delivered',
+      description: 'The part was delivered successfully to the customer.',
       actorId: currentUserId ?? '',
       actorRole: 'worker',
     );
 
     await _sendUserNotification(
       userId: customerId,
-      title: 'تم تسليم الطلب',
-      body: 'تم تسليم القطعة الخاصة بطلبك بنجاح.',
+      title: 'Your request was delivered',
+      body: 'The part for your request was delivered successfully.',
       type: 'request_delivered',
       requestId: requestId,
       dedupWithin: const Duration(hours: 12),
@@ -769,7 +769,7 @@ class RequestProvider extends ChangeNotifier {
   }) async {
     final uid = currentUserId;
     if (uid == null) {
-      throw Exception('لا يوجد مستخدم مسجل');
+      throw Exception('No authenticated user');
     }
 
     final requestSnap =
@@ -805,8 +805,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'offer_submitted',
-      title: 'تم تقديم عرض',
-      description: 'تم إرسال عرض سعر جديد على الطلب.',
+      title: 'Offer submitted',
+      description: 'A new price offer was submitted for this request.',
       actorId: uid,
       actorRole: 'worker',
       extra: {
@@ -817,8 +817,8 @@ class RequestProvider extends ChangeNotifier {
 
     await _sendUserNotification(
       userId: customerId,
-      title: 'وصل عرض جديد',
-      body: 'تم استلام عرض سعر جديد على طلبك.',
+      title: 'New offer received',
+      body: 'A new price offer was received for your request.',
       type: 'new_offer',
       requestId: requestId,
       secondaryId: offerRef.id,
@@ -843,11 +843,11 @@ class RequestProvider extends ChangeNotifier {
       final offerSnap = await transaction.get(offerRef);
 
       if (!requestSnap.exists) {
-        throw Exception('الطلب غير موجود');
+        throw Exception('Request not found');
       }
 
       if (!offerSnap.exists) {
-        throw Exception('العرض غير موجود');
+        throw Exception('Offer not found');
       }
 
       final requestData = requestSnap.data() ?? {};
@@ -859,7 +859,7 @@ class RequestProvider extends ChangeNotifier {
           status == 'shipped' ||
           status == 'delivered' ||
           status == 'cancelled') {
-        throw Exception('تم اختيار عرض مسبقًا');
+        throw Exception('An offer has already been selected');
       }
 
       final acceptedOfferPrice = (offerData['price'] is num)
@@ -915,8 +915,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'offer_accepted',
-      title: 'تم اختيار العرض',
-      description: 'تم قبول عرض سعر واعتماد العامل للطلب.',
+      title: 'Offer selected',
+      description: 'A price offer was accepted and the worker was assigned to the request.',
       actorId: currentUserId ?? '',
       actorRole: 'customer',
       extra: {
@@ -928,8 +928,8 @@ class RequestProvider extends ChangeNotifier {
 
     await _sendUserNotification(
       userId: workerId,
-      title: 'تم قبول عرضك',
-      body: 'تم قبول عرضك على الطلب وبدء التنفيذ.',
+      title: 'Your offer was accepted',
+      body: 'Your offer was accepted and execution has started.',
       type: 'offer_accepted',
       requestId: requestId,
       secondaryId: offerId,
@@ -951,8 +951,8 @@ class RequestProvider extends ChangeNotifier {
       await _addTimelineEvent(
         requestId: requestId,
         type: 'driver_assignment_pending',
-        title: 'بانتظار تعيين السائق',
-        description: 'تم قبول العرض ولكن لا يوجد حساب سائق جاهز حاليًا.',
+        title: 'Waiting for driver assignment',
+        description: 'The offer was accepted, but there is no active driver account ready yet.',
         actorId: currentUserId ?? '',
         actorRole: 'system',
       );
@@ -995,8 +995,8 @@ class RequestProvider extends ChangeNotifier {
     await _addTimelineEvent(
       requestId: requestId,
       type: 'offer_rejected',
-      title: 'تم رفض عرض',
-      description: 'تم رفض أحد العروض على الطلب.',
+      title: 'Offer rejected',
+      description: 'One of the offers on this request was rejected.',
       actorId: currentUserId ?? '',
       actorRole: 'customer',
       extra: {'offerId': offerId},
@@ -1005,8 +1005,8 @@ class RequestProvider extends ChangeNotifier {
     if (workerId.isNotEmpty) {
       await _sendUserNotification(
         userId: workerId,
-        title: 'تم رفض العرض',
-        body: 'للأسف تم رفض عرضك على الطلب.',
+        title: 'Offer rejected',
+        body: 'Unfortunately, your offer was rejected.',
         type: 'offer_rejected',
         requestId: requestId,
         secondaryId: offerId,
