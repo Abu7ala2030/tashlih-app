@@ -163,12 +163,12 @@ class ChatService {
   }) async {
     final uid = currentUserId;
     if (uid == null || uid.isEmpty) {
-      throw Exception('لا يوجد مستخدم مسجل');
+      throw Exception('No authenticated user');
     }
 
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
-      throw Exception('الرسالة فارغة');
+      throw Exception('Message is empty');
     }
 
     final chatRef = _chatsRef.doc(chatId);
@@ -176,7 +176,7 @@ class ChatService {
 
     final chatSnap = await chatRef.get();
     if (!chatSnap.exists) {
-      throw Exception('المحادثة غير موجودة');
+      throw Exception('Chat not found');
     }
 
     final chatData = chatSnap.data() ?? <String, dynamic>{};
@@ -187,7 +187,7 @@ class ChatService {
             : <String>[];
 
     if (!participants.contains(uid)) {
-      throw Exception('غير مصرح لك بإرسال رسالة في هذه المحادثة');
+      throw Exception('You are not allowed to send messages in this chat');
     }
 
     final receiverRole = senderRole == 'customer' ? 'worker' : 'customer';
