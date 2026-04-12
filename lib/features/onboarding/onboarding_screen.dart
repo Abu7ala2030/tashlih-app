@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../routes/app_routes.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -13,26 +14,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int currentPage = 0;
 
-  final List<_OnboardingItem> items = const [
-    _OnboardingItem(
-      icon: Icons.directions_car_filled_outlined,
-      title: 'استعرض سيارات التشاليح',
-      subtitle: 'شوف الفيديو والصور وانت في بيتك بدون تعب التنقل.',
-    ),
-    _OnboardingItem(
-      icon: Icons.search_outlined,
-      title: 'اطلب القطعة بسهولة',
-      subtitle: 'اختر السيارة المناسبة ثم اطلب القطعة المطلوبة مباشرة.',
-    ),
-    _OnboardingItem(
-      icon: Icons.bookmark_border,
-      title: 'احجز قبل ما تروح عليك',
-      subtitle: 'احجز القطعة وتابع حالة الطلب من التطبيق بكل سهولة.',
-    ),
-  ];
+  List<_OnboardingItem> _items(AppLocalizations l10n) => [
+        _OnboardingItem(
+          icon: Icons.directions_car_filled_outlined,
+          title: l10n.translate('onboarding_title_1'),
+          subtitle: l10n.translate('onboarding_subtitle_1'),
+        ),
+        _OnboardingItem(
+          icon: Icons.search_outlined,
+          title: l10n.translate('onboarding_title_2'),
+          subtitle: l10n.translate('onboarding_subtitle_2'),
+        ),
+        _OnboardingItem(
+          icon: Icons.bookmark_border,
+          title: l10n.translate('onboarding_title_3'),
+          subtitle: l10n.translate('onboarding_subtitle_3'),
+        ),
+      ];
 
-  void _next() {
-    if (currentPage < items.length - 1) {
+  void _next(int length) {
+    if (currentPage < length - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -44,6 +45,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final items = _items(l10n);
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -54,7 +58,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPressed: () {
                   Navigator.pushReplacementNamed(context, AppRoutes.login);
                 },
-                child: const Text('تخطي'),
+                child: Text(l10n.translate('skip')),
               ),
             ),
             Expanded(
@@ -137,9 +141,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: double.infinity,
                 height: 54,
                 child: FilledButton(
-                  onPressed: _next,
+                  onPressed: () => _next(items.length),
                   child: Text(
-                    currentPage == items.length - 1 ? 'ابدأ الآن' : 'التالي',
+                    currentPage == items.length - 1
+                        ? l10n.translate('start_now')
+                        : l10n.translate('next'),
                   ),
                 ),
               ),

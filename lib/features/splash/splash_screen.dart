@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -23,6 +24,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -36,32 +39,32 @@ class _SplashScreenState extends State<SplashScreen> {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.car_crash_outlined,
               size: 84,
               color: Colors.white,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
-              'سناب التشاليح',
-              style: TextStyle(
+              l10n.translate('app_brand_name'),
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
-              'شوف السيارة قبل ما تطلب القطعة',
-              style: TextStyle(
+              l10n.translate('splash_tagline'),
+              style: const TextStyle(
                 fontSize: 15,
                 color: Colors.white70,
               ),
             ),
-            SizedBox(height: 28),
-            CircularProgressIndicator(),
+            const SizedBox(height: 28),
+            const CircularProgressIndicator(),
           ],
         ),
       ),

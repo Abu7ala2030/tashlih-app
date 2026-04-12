@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/vehicle_card.dart';
 import '../../../providers/home_provider.dart';
@@ -27,6 +28,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final homeProvider = context.watch<HomeProvider>();
     final publishedVehicles = context
         .watch<VehicleProvider>()
@@ -47,28 +49,30 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'البحث',
-                        style: TextStyle(
+                      Text(
+                        l10n.translate('search'),
+                        style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           letterSpacing: .2,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'ابحث عن المركبة المناسبة وشاهد صورها قبل طلب القطعة',
-                        style: TextStyle(
+                      Text(
+                        l10n.translate('search_subtitle'),
+                        style: const TextStyle(
                           color: Colors.white70,
                           height: 1.5,
                         ),
                       ),
                       const SizedBox(height: 18),
                       TextField(
-                        onChanged: (value) =>
-                            homeProvider.updateSearchQuery(value, publishedVehicles),
+                        onChanged: (value) => homeProvider.updateSearchQuery(
+                          value,
+                          publishedVehicles,
+                        ),
                         decoration: InputDecoration(
-                          hintText: 'ابحث عن سيارة أو موديل أو مدينة',
+                          hintText: l10n.translate('search_vehicle_hint'),
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: homeProvider.searchQuery.isEmpty
                               ? null
@@ -92,8 +96,9 @@ class _SearchScreenState extends State<SearchScreen> {
                     scrollDirection: Axis.horizontal,
                     children: [
                       _BrandChip(
-                        label: 'الكل',
-                        selected: homeProvider.selectedBrand == 'الكل',
+                        label: l10n.translate('all'),
+                        selected: homeProvider.selectedBrand == 'الكل' ||
+                            homeProvider.selectedBrand == 'all',
                         onTap: () => homeProvider.selectBrand('الكل', publishedVehicles),
                       ),
                       _BrandChip(
@@ -120,11 +125,36 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
                   child: Row(
                     children: [
-                      Expanded(child: _MiniStatCard(label: 'كل النتائج', value: filtered.length.toString())),
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.translate('all_results'),
+                          value: filtered.length.toString(),
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _MiniStatCard(label: 'تويوتا', value: filtered.where((v) => ((v['make'] ?? '').toString().toLowerCase() == 'toyota')).length.toString())),
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.translate('brand_toyota'),
+                          value: filtered
+                              .where((v) =>
+                                  ((v['make'] ?? '').toString().toLowerCase() ==
+                                      'toyota'))
+                              .length
+                              .toString(),
+                        ),
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: _MiniStatCard(label: 'هيونداي', value: filtered.where((v) => ((v['make'] ?? '').toString().toLowerCase() == 'hyundai')).length.toString())),
+                      Expanded(
+                        child: _MiniStatCard(
+                          label: l10n.translate('brand_hyundai'),
+                          value: filtered
+                              .where((v) =>
+                                  ((v['make'] ?? '').toString().toLowerCase() ==
+                                      'hyundai'))
+                              .length
+                              .toString(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -134,24 +164,36 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'النتائج',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                          l10n.translate('results'),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
-                      Text('${filtered.length} مركبة', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
+                      Text(
+                        '${filtered.length} ${l10n.translate('vehicle_count_suffix_single')}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               if (filtered.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: _EmptySearchView(),
+                      padding: const EdgeInsets.all(24),
+                      child: _EmptySearchView(
+                        title: l10n.translate('no_matching_results'),
+                        subtitle: l10n.translate('search_empty_subtitle'),
+                      ),
                     ),
                   ),
                 )
@@ -223,7 +265,10 @@ class _MiniStatCard extends StatelessWidget {
   final String label;
   final String value;
 
-  const _MiniStatCard({required this.label, required this.value});
+  const _MiniStatCard({
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -236,9 +281,18 @@ class _MiniStatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -246,7 +300,13 @@ class _MiniStatCard extends StatelessWidget {
 }
 
 class _EmptySearchView extends StatelessWidget {
-  const _EmptySearchView();
+  final String title;
+  final String subtitle;
+
+  const _EmptySearchView({
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -257,20 +317,20 @@ class _EmptySearchView extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white10),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off_outlined, size: 56),
-          SizedBox(height: 14),
+          const Icon(Icons.search_off_outlined, size: 56),
+          const SizedBox(height: 14),
           Text(
-            'لا توجد نتائج مطابقة',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'جرّب اسم سيارة مختلف أو غيّر الفئة المختارة.',
+            subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, height: 1.5),
+            style: const TextStyle(color: Colors.white70, height: 1.5),
           ),
         ],
       ),

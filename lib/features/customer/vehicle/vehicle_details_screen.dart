@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../providers/home_provider.dart';
 import '../../../routes/app_routes.dart';
 
@@ -14,15 +15,65 @@ class VehicleDetailsScreen extends StatefulWidget {
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
   int selectedImageIndex = 0;
 
+  AppLocalizations get l10n => AppLocalizations.of(context);
+
+  String _damageTypeText(String value) {
+    switch (value) {
+      case 'front':
+        return l10n.translate('damage_front');
+      case 'rear':
+        return l10n.translate('damage_rear');
+      case 'leftSide':
+        return l10n.translate('damage_left_side');
+      case 'rightSide':
+        return l10n.translate('damage_right_side');
+      case 'rollover':
+        return l10n.translate('damage_rollover');
+      case 'flood':
+        return l10n.translate('damage_flood');
+      case 'fire':
+        return l10n.translate('damage_fire');
+      default:
+        return l10n.translate('unknown');
+    }
+  }
+
+  String _partLabel(String value) {
+    switch (value) {
+      case 'door':
+        return l10n.translate('part_door');
+      case 'mirror':
+        return l10n.translate('part_mirror');
+      case 'bumper':
+        return l10n.translate('part_bumper');
+      case 'tail_light':
+        return l10n.translate('part_tail_light');
+      case 'rim':
+        return l10n.translate('part_rim');
+      case 'engine':
+        return l10n.translate('part_engine');
+      case 'gearbox':
+        return l10n.translate('part_gearbox');
+      case 'dashboard':
+        return l10n.translate('part_dashboard');
+      case 'seats':
+        return l10n.translate('part_seats');
+      case 'screen':
+        return l10n.translate('part_screen');
+      default:
+        return value;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vehicle = context.watch<HomeProvider>().selectedVehicle;
 
     if (vehicle == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('تفاصيل المركبة')),
-        body: const Center(
-          child: Text('لا توجد مركبة محددة'),
+        appBar: AppBar(title: Text(l10n.translate('vehicle_details'))),
+        body: Center(
+          child: Text(l10n.translate('no_vehicle_selected')),
         ),
       );
     }
@@ -60,6 +111,12 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                           ? Image.network(
                               imageUrl,
                               fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: const Color(0xFF1A1D21),
+                                child: const Center(
+                                  child: Icon(Icons.image_outlined, size: 72),
+                                ),
+                              ),
                             )
                           : Container(
                               color: const Color(0xFF1A1D21),
@@ -128,9 +185,18 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              _InfoChip(label: 'المدينة: ${vehicle['city'] ?? '-'}'),
-                              _InfoChip(label: 'اللون: ${vehicle['color'] ?? '-'}'),
-                              _InfoChip(label: 'الضرر: ${vehicle['damageType'] ?? '-'}'),
+                              _InfoChip(
+                                label:
+                                    '${l10n.translate('city')}: ${vehicle['city'] ?? '-'}',
+                              ),
+                              _InfoChip(
+                                label:
+                                    '${l10n.translate('color')}: ${vehicle['color'] ?? '-'}',
+                              ),
+                              _InfoChip(
+                                label:
+                                    '${l10n.translate('damage_type')}: ${_damageTypeText((vehicle['damageType'] ?? '-').toString())}',
+                              ),
                             ],
                           ),
                         ],
@@ -169,6 +235,10 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                               child: Image.network(
                                 media[index],
                                 fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.white10,
+                                  child: const Icon(Icons.image_outlined),
+                                ),
                               ),
                             ),
                           ),
@@ -184,10 +254,10 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _SectionCard(
-                        title: 'وصف الحالة',
+                        title: l10n.translate('condition_description'),
                         child: Text(
                           (vehicle['description'] ?? '').toString().isEmpty
-                              ? 'لا يوجد وصف متاح حاليًا.'
+                              ? l10n.translate('no_condition_description_available')
                               : (vehicle['description'] ?? '').toString(),
                           style: const TextStyle(
                             height: 1.7,
@@ -198,11 +268,11 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                       ),
                       const SizedBox(height: 18),
                       _SectionCard(
-                        title: 'القطع الظاهرة أو المحتملة',
+                        title: l10n.translate('visible_or_possible_parts'),
                         child: visibleParts.isEmpty
-                            ? const Text(
-                                'لا توجد قطع محددة حتى الآن',
-                                style: TextStyle(color: Colors.white70),
+                            ? Text(
+                                l10n.translate('no_parts_specified_yet'),
+                                style: const TextStyle(color: Colors.white70),
                               )
                             : Wrap(
                                 spacing: 8,
@@ -216,16 +286,21 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.white10,
-                                          borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(color: Colors.white12),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          border:
+                                              Border.all(color: Colors.white12),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Icon(Icons.build_outlined, size: 18),
+                                            const Icon(
+                                              Icons.build_outlined,
+                                              size: 18,
+                                            ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              part,
+                                              _partLabel(part),
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -239,28 +314,30 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                       ),
                       const SizedBox(height: 18),
                       _SectionCard(
-                        title: 'معلومات إضافية',
+                        title: l10n.translate('additional_information'),
                         child: Column(
                           children: [
                             _DetailRow(
-                              label: 'الماركة',
+                              label: l10n.translate('make'),
                               value: (vehicle['make'] ?? '-').toString(),
                             ),
                             _DetailRow(
-                              label: 'الموديل',
+                              label: l10n.translate('model'),
                               value: (vehicle['model'] ?? '-').toString(),
                             ),
                             _DetailRow(
-                              label: 'السنة',
+                              label: l10n.translate('year'),
                               value: (vehicle['year'] ?? '-').toString(),
                             ),
                             _DetailRow(
-                              label: 'المدينة',
+                              label: l10n.translate('city'),
                               value: (vehicle['city'] ?? '-').toString(),
                             ),
                             _DetailRow(
-                              label: 'نوع الضرر',
-                              value: (vehicle['damageType'] ?? '-').toString(),
+                              label: l10n.translate('damage_type'),
+                              value: _damageTypeText(
+                                (vehicle['damageType'] ?? '-').toString(),
+                              ),
                               isLast: true,
                             ),
                           ],
@@ -300,7 +377,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                     Navigator.pushNamed(context, AppRoutes.partRequest);
                   },
                   icon: const Icon(Icons.shopping_bag_outlined),
-                  label: const Text('اطلب قطعة'),
+                  label: Text(l10n.translate('request_part')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -317,7 +394,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                   ),
                   onPressed: () {},
                   icon: const Icon(Icons.bookmark_border),
-                  label: const Text('احجز'),
+                  label: Text(l10n.translate('reserve')),
                 ),
               ),
             ],
