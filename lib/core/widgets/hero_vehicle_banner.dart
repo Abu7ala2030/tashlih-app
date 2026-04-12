@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../providers/home_provider.dart';
 import '../../routes/app_routes.dart';
 
@@ -14,6 +15,8 @@ class HeroVehicleBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     if (vehicle == null) {
       return Container(
         height: 220,
@@ -21,10 +24,10 @@ class HeroVehicleBanner extends StatelessWidget {
           color: const Color(0xFF1A1D21),
           borderRadius: BorderRadius.circular(24),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
-            'لا توجد مركبات منشورة حاليًا',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            l10n.translate('no_published_vehicles_yet'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
         ),
       );
@@ -58,6 +61,8 @@ class HeroVehicleBanner extends StatelessWidget {
                 ? Image.network(
                     coverImage,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        Container(color: const Color(0xFF1A1D21)),
                   )
                 : Container(color: const Color(0xFF1A1D21)),
             DecoratedBox(
@@ -100,7 +105,9 @@ class HeroVehicleBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    description.isEmpty ? 'اطلب أي قطعة من هذه السيارة بسهولة.' : description,
+                    description.isEmpty
+                        ? l10n.translate('request_any_part_easily')
+                        : description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -127,7 +134,7 @@ class HeroVehicleBanner extends StatelessWidget {
                             Navigator.pushNamed(context, AppRoutes.vehicleDetails);
                           },
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('عرض الآن'),
+                          label: Text(l10n.translate('view_now')),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -147,7 +154,7 @@ class HeroVehicleBanner extends StatelessWidget {
                             Navigator.pushNamed(context, AppRoutes.partRequest);
                           },
                           icon: const Icon(Icons.add_box_outlined),
-                          label: const Text('اطلب قطعة'),
+                          label: Text(l10n.translate('request_part')),
                         ),
                       ),
                     ],

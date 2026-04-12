@@ -563,5 +563,9 @@
   "no_parts_specified_yet": "No parts specified yet",
   "additional_information": "Additional information",
   "request_part": "Request part",
-  "reserve": "Reserve"
+  "reserve": "Reserve",
+  "available": "Available",
+  "view": "View",
+  "request_any_part_easily": "Request any part from this vehicle easily.",
+  "view_now": "View now"
 }

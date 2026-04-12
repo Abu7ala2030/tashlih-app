@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/localization/app_localizations.dart';
 import '../../providers/home_provider.dart';
 import '../../routes/app_routes.dart';
 
@@ -12,8 +13,44 @@ class VehicleCard extends StatelessWidget {
     required this.vehicle,
   });
 
+  String _statusText(String status, AppLocalizations l10n) {
+    switch (status) {
+      case 'published':
+        return l10n.translate('available');
+      case 'pending':
+        return l10n.translate('pending_review');
+      case 'rejected':
+        return l10n.translate('rejected');
+      default:
+        return l10n.translate('unknown');
+    }
+  }
+
+  String _damageTypeText(String damageType, AppLocalizations l10n) {
+    switch (damageType) {
+      case 'front':
+        return l10n.translate('damage_front');
+      case 'rear':
+        return l10n.translate('damage_rear');
+      case 'leftSide':
+        return l10n.translate('damage_left_side');
+      case 'rightSide':
+        return l10n.translate('damage_right_side');
+      case 'rollover':
+        return l10n.translate('damage_rollover');
+      case 'flood':
+        return l10n.translate('damage_flood');
+      case 'fire':
+        return l10n.translate('damage_fire');
+      default:
+        return l10n.translate('unknown');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final coverImage = (vehicle['coverImage'] ?? '').toString();
     final make = (vehicle['make'] ?? '').toString();
     final model = (vehicle['model'] ?? '').toString();
@@ -48,13 +85,20 @@ class VehicleCard extends StatelessWidget {
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(18)),
                     child: coverImage.isNotEmpty
                         ? Image.network(
                             coverImage,
                             width: double.infinity,
                             height: double.infinity,
                             fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Colors.black26,
+                              child: const Center(
+                                child: Icon(Icons.directions_car, size: 48),
+                              ),
+                            ),
                           )
                         : Container(
                             color: Colors.black26,
@@ -66,7 +110,8 @@ class VehicleCard extends StatelessWidget {
                   Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                        borderRadius:
+                            const BorderRadius.vertical(top: Radius.circular(18)),
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -82,13 +127,16 @@ class VehicleCard extends StatelessWidget {
                     top: 10,
                     right: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: _statusColor(status).withOpacity(.95),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        _statusText(status),
+                        _statusText(status, l10n),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -102,13 +150,16 @@ class VehicleCard extends StatelessWidget {
                       left: 10,
                       top: 10,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          damageType,
+                          _damageTypeText(damageType, l10n),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -169,7 +220,7 @@ class VehicleCard extends StatelessWidget {
                         Navigator.pushNamed(context, AppRoutes.vehicleDetails);
                       },
                       icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                      label: const Text('عرض'),
+                      label: Text(l10n.translate('view')),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -208,19 +259,6 @@ class VehicleCard extends StatelessWidget {
         return Colors.red;
       default:
         return Colors.blueGrey;
-    }
-  }
-
-  String _statusText(String status) {
-    switch (status) {
-      case 'published':
-        return 'متاح';
-      case 'pending':
-        return 'مراجعة';
-      case 'rejected':
-        return 'مرفوض';
-      default:
-        return 'غير محدد';
     }
   }
 }
