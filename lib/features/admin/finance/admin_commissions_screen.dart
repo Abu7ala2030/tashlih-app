@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 
@@ -24,6 +25,8 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
     super.dispose();
   }
 
+  AppLocalizations get l10n => AppLocalizations.of(context);
+
   Future<void> _updateCommissionStatus({
     required String commissionId,
     required String status,
@@ -44,15 +47,15 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
         SnackBar(
           content: Text(
             status == 'paid'
-                ? 'تم تحديث العمولة إلى مدفوعة'
-                : 'تم تحديث العمولة إلى ملغية',
+                ? l10n.translate('commission_marked_paid')
+                : l10n.translate('commission_marked_cancelled'),
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث حالة العمولة: $e')),
+        SnackBar(content: Text('${l10n.translate('commission_status_update_failed')}: $e')),
       );
     } finally {
       if (mounted) {
@@ -80,21 +83,21 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                       icon: const Icon(Icons.arrow_back),
                     ),
                     const SizedBox(width: 4),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'لوحة العمولات',
-                            style: TextStyle(
+                            l10n.translate('commissions_dashboard'),
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'عرض سجلات العمولات الفعلية من المبيعات',
-                            style: TextStyle(color: Colors.white70),
+                            l10n.translate('commissions_dashboard_subtitle'),
+                            style: const TextStyle(color: Colors.white70),
                           ),
                         ],
                       ),
@@ -113,10 +116,10 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'نسبة العمولة %',
-                          style: TextStyle(
+                          l10n.translate('commission_percent'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 16,
                           ),
@@ -162,22 +165,22 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     _StatusChip(
-                      label: 'الكل',
+                      label: l10n.translate('all'),
                       selected: selectedStatus == 'all',
                       onTap: () => setState(() => selectedStatus = 'all'),
                     ),
                     _StatusChip(
-                      label: 'معلقة',
+                      label: l10n.translate('pending'),
                       selected: selectedStatus == 'pending',
                       onTap: () => setState(() => selectedStatus = 'pending'),
                     ),
                     _StatusChip(
-                      label: 'مدفوعة',
+                      label: l10n.translate('paid'),
                       selected: selectedStatus == 'paid',
                       onTap: () => setState(() => selectedStatus = 'paid'),
                     ),
                     _StatusChip(
-                      label: 'ملغية',
+                      label: l10n.translate('cancelled'),
                       selected: selectedStatus == 'cancelled',
                       onTap: () => setState(() => selectedStatus = 'cancelled'),
                     ),
@@ -202,7 +205,7 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'فشل تحميل العمولات: ${snapshot.error}',
+                            '${l10n.translate('load_commissions_failed')}: ${snapshot.error}',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -231,12 +234,12 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                     }
 
                     if (commissions.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(24),
                           child: Text(
-                            'لا توجد سجلات عمولات ضمن هذه الحالة',
-                            style: TextStyle(
+                            l10n.translate('no_commission_records_in_status'),
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                             ),
@@ -253,23 +256,24 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                             children: [
                               Expanded(
                                 child: _TopStatCard(
-                                  label: 'عدد السجلات',
+                                  label: l10n.translate('records_count'),
                                   value: commissions.length.toString(),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _TopStatCard(
-                                  label: 'إجمالي البيع',
-                                  value: '${totalSales.toStringAsFixed(2)} ر.س',
+                                  label: l10n.translate('total_sales'),
+                                  value:
+                                      '${totalSales.toStringAsFixed(2)} ${l10n.translate('sar')}',
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _TopStatCard(
-                                  label: 'إجمالي العمولة',
+                                  label: l10n.translate('total_commission'),
                                   value:
-                                      '${totalCommission.toStringAsFixed(2)} ر.س',
+                                      '${totalCommission.toStringAsFixed(2)} ${l10n.translate('sar')}',
                                 ),
                               ),
                             ],
@@ -289,12 +293,13 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                               final workerId =
                                   (data['workerId'] ?? '').toString();
                               final scrapyardName =
-                                  (data['scrapyardName'] ?? 'غير محدد')
+                                  (data['scrapyardName'] ?? l10n.translate('not_specified'))
                                       .toString();
                               final city =
-                                  (data['city'] ?? 'غير محددة').toString();
+                                  (data['city'] ?? l10n.translate('not_specified'))
+                                      .toString();
                               final partName =
-                                  (data['partName'] ?? 'قطعة غير محددة')
+                                  (data['partName'] ?? l10n.translate('unnamed_part'))
                                       .toString();
                               final status =
                                   (data['commissionStatus'] ?? 'pending')
@@ -311,7 +316,7 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                               final createdAt = data['createdAt'];
                               final createdAtText = createdAt is Timestamp
                                   ? createdAt.toDate().toString()
-                                  : 'بدون تاريخ';
+                                  : l10n.translate('no_date');
 
                               final isUpdating =
                                   updatingCommissionId == commissionId;
@@ -328,10 +333,10 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                                           <String, dynamic>{};
 
                                   final workerName =
-                                      (workerData['name'] ?? 'عامل بدون اسم')
+                                      (workerData['name'] ?? l10n.translate('unnamed_worker'))
                                           .toString();
                                   final workerPhone =
-                                      (workerData['phone'] ?? 'بدون رقم')
+                                      (workerData['phone'] ?? l10n.translate('no_phone'))
                                           .toString();
 
                                   return Container(
@@ -354,38 +359,38 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                                         ),
                                         const SizedBox(height: 8),
                                         _InfoLine(
-                                          label: 'العامل',
+                                          label: l10n.translate('worker'),
                                           value: workerName,
                                         ),
                                         _InfoLine(
-                                          label: 'رقم العامل',
+                                          label: l10n.translate('worker_phone'),
                                           value: workerPhone,
                                         ),
                                         _InfoLine(
-                                          label: 'التشليح',
+                                          label: l10n.translate('scrapyard'),
                                           value: scrapyardName,
                                         ),
                                         _InfoLine(
-                                          label: 'المدينة',
+                                          label: l10n.translate('city'),
                                           value: city,
                                         ),
                                         _InfoLine(
-                                          label: 'قيمة البيع',
+                                          label: l10n.translate('sale_value'),
                                           value:
-                                              '${saleAmount.toStringAsFixed(2)} ريال',
+                                              '${saleAmount.toStringAsFixed(2)} ${l10n.translate('sar')}',
                                         ),
                                         _InfoLine(
-                                          label: 'العمولة',
+                                          label: l10n.translate('commission'),
                                           value:
-                                              '${commissionAmount.toStringAsFixed(2)} ريال',
+                                              '${commissionAmount.toStringAsFixed(2)} ${l10n.translate('sar')}',
                                         ),
                                         _InfoLine(
-                                          label: 'الحالة',
+                                          label: l10n.translate('status'),
                                           value: _statusText(status),
                                           valueColor: _statusColor(status),
                                         ),
                                         _InfoLine(
-                                          label: 'التاريخ',
+                                          label: l10n.translate('date'),
                                           value: createdAtText,
                                           isLast: true,
                                         ),
@@ -419,8 +424,8 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                                                             strokeWidth: 2,
                                                           ),
                                                         )
-                                                      : const Text(
-                                                          'تأكيد الدفع',
+                                                      : Text(
+                                                          l10n.translate('confirm_payment'),
                                                         ),
                                                 ),
                                               ),
@@ -442,8 +447,8 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
                                                                 commissionId,
                                                             status: 'cancelled',
                                                           ),
-                                                  child: const Text(
-                                                    'إلغاء العمولة',
+                                                  child: Text(
+                                                    l10n.translate('cancel_commission'),
                                                   ),
                                                 ),
                                               ),
@@ -484,11 +489,11 @@ class _AdminCommissionsScreenState extends State<AdminCommissionsScreen> {
   String _statusText(String status) {
     switch (status) {
       case 'paid':
-        return 'مدفوعة';
+        return l10n.translate('paid');
       case 'cancelled':
-        return 'ملغية';
+        return l10n.translate('cancelled');
       default:
-        return 'معلقة';
+        return l10n.translate('pending');
     }
   }
 }
