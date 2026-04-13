@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/app_item_card.dart';
 import '../../../core/widgets/empty_state_card.dart';
@@ -18,6 +19,8 @@ class AdminRequestsScreen extends StatefulWidget {
 
 class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   String selectedStatus = 'all';
+
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
@@ -54,24 +57,24 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'إدارة الطلبات',
-                        style: TextStyle(
+                        l10n.translate('requests_management'),
+                        style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
                           letterSpacing: .2,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
-                        'تابع الطلبات القادمة من العملاء واعرض عروض العمال والعمولات المستحقة',
-                        style: TextStyle(
+                        l10n.translate('requests_management_subtitle'),
+                        style: const TextStyle(
                           color: Colors.white70,
                           height: 1.5,
                         ),
@@ -80,7 +83,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
@@ -88,21 +90,21 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     children: [
                       Expanded(
                         child: StatCard(
-                          label: 'الكل',
+                          label: l10n.translate('all'),
                           value: allRequests.length.toString(),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: StatCard(
-                          label: 'عروض',
+                          label: l10n.translate('offers'),
                           value: offersCount.toString(),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: StatCard(
-                          label: 'عمولات',
+                          label: l10n.translate('commissions'),
                           value: commissionEligibleCount.toString(),
                         ),
                       ),
@@ -110,7 +112,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -118,10 +119,9 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     children: [
                       Expanded(
                         child: StatCard(
-                          label: 'جديد',
+                          label: l10n.translate('new'),
                           value: allRequests
-                              .where((r) =>
-                                  (r['status'] ?? '').toString() == 'newRequest')
+                              .where((r) => (r['status'] ?? '').toString() == 'newRequest')
                               .length
                               .toString(),
                         ),
@@ -129,18 +129,17 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: StatCard(
-                          label: 'تم التعيين',
+                          label: l10n.translate('assigned'),
                           value: assignedCount.toString(),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: StatCard(
-                          label: 'قيد التحقق',
+                          label: l10n.translate('checking_availability'),
                           value: allRequests
                               .where((r) =>
-                                  (r['status'] ?? '').toString() ==
-                                  'checkingAvailability')
+                                  (r['status'] ?? '').toString() == 'checkingAvailability')
                               .length
                               .toString(),
                         ),
@@ -149,7 +148,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: 52,
@@ -158,34 +156,32 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                     scrollDirection: Axis.horizontal,
                     children: [
                       StatusChipFilter(
-                        label: 'الكل',
+                        label: l10n.translate('all'),
                         selected: selectedStatus == 'all',
                         onTap: () => setState(() => selectedStatus = 'all'),
                       ),
                       StatusChipFilter(
-                        label: 'جديد',
+                        label: l10n.translate('new'),
                         selected: selectedStatus == 'newRequest',
                         onTap: () => setState(() => selectedStatus = 'newRequest'),
                       ),
                       StatusChipFilter(
-                        label: 'جاري التحقق',
+                        label: l10n.translate('checking_availability'),
                         selected: selectedStatus == 'checkingAvailability',
-                        onTap: () => setState(
-                          () => selectedStatus = 'checkingAvailability',
-                        ),
+                        onTap: () => setState(() => selectedStatus = 'checkingAvailability'),
                       ),
                       StatusChipFilter(
-                        label: 'عروض',
+                        label: l10n.translate('offers'),
                         selected: selectedStatus == 'available',
                         onTap: () => setState(() => selectedStatus = 'available'),
                       ),
                       StatusChipFilter(
-                        label: 'تم التعيين',
+                        label: l10n.translate('assigned'),
                         selected: selectedStatus == 'assigned',
                         onTap: () => setState(() => selectedStatus = 'assigned'),
                       ),
                       StatusChipFilter(
-                        label: 'غير متوفر',
+                        label: l10n.translate('status_unavailable'),
                         selected: selectedStatus == 'unavailable',
                         onTap: () => setState(() => selectedStatus = 'unavailable'),
                       ),
@@ -193,23 +189,22 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'الطلبات',
-                          style: TextStyle(
+                          l10n.translate('requests'),
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
                       Text(
-                        '${requests.length} طلب',
+                        '${requests.length} ${l10n.translate('request_count_suffix')}',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontWeight: FontWeight.w700,
@@ -219,17 +214,16 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                   ),
                 ),
               ),
-
               if (requests.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: EmptyStateCard(
                         icon: Icons.list_alt_outlined,
-                        title: 'لا توجد طلبات ضمن هذه الحالة',
-                        subtitle: 'ستظهر الطلبات هنا بمجرد أن يبدأ العملاء بإرسالها.',
+                        title: l10n.translate('no_requests_in_this_status'),
+                        subtitle: l10n.translate('admin_requests_empty_subtitle'),
                       ),
                     ),
                   ),
@@ -261,7 +255,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                           AppItemCard(
                             title: (request['partName'] ?? '').toString(),
                             subtitle:
-                                '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\nالمدينة: $city${scrapyardName.isNotEmpty ? '\nالتشليح: $scrapyardName' : ''}',
+                                '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\n${l10n.translate('city')}: $city${scrapyardName.isNotEmpty ? '\n${l10n.translate('scrapyard')}: $scrapyardName' : ''}',
                             imageUrl:
                                 (request['vehicleCoverImage'] ?? '').toString(),
                             statusText: _statusText(status),
@@ -270,8 +264,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      AdminRequestOffersScreen(request: request),
+                                  builder: (_) => AdminRequestOffersScreen(request: request),
                                 ),
                               );
                             },
@@ -314,19 +307,19 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
   String _statusText(String status) {
     switch (status) {
       case 'newRequest':
-        return 'طلب جديد';
+        return l10n.translate('status_new_request');
       case 'checkingAvailability':
-        return 'جاري التحقق';
+        return l10n.translate('status_checking');
       case 'available':
-        return 'وصلت عروض';
+        return l10n.translate('status_offer_submitted');
       case 'unavailable':
-        return 'غير متوفر';
+        return l10n.translate('status_unavailable');
       case 'assigned':
-        return 'تم اختيار العرض';
+        return l10n.translate('status_offer_selected');
       case 'cancelled':
-        return 'ملغي';
+        return l10n.translate('status_cancelled');
       default:
-        return 'غير معروف';
+        return l10n.translate('unknown');
     }
   }
 }
@@ -344,33 +337,35 @@ class _BadgesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         if (status == 'available')
-          const _InfoBadge(
-            label: 'يوجد عروض',
-            backgroundColor: Color(0xFF17301F),
+          _InfoBadge(
+            label: l10n.translate('offers_exist'),
+            backgroundColor: const Color(0xFF17301F),
             textColor: Colors.greenAccent,
           ),
         if (status == 'assigned')
-          const _InfoBadge(
-            label: 'تم تعيين عامل',
-            backgroundColor: Color(0xFF15323A),
+          _InfoBadge(
+            label: l10n.translate('worker_assigned'),
+            backgroundColor: const Color(0xFF15323A),
             textColor: Colors.cyanAccent,
           ),
         if (commissionEligible)
           _InfoBadge(
             label:
-                'عمولة مستحقة على ${commissionBaseAmount.toStringAsFixed(2)} ريال',
+                '${l10n.translate('commission_due_on')} ${commissionBaseAmount.toStringAsFixed(2)} ${l10n.translate('sar')}',
             backgroundColor: const Color(0xFF33280F),
             textColor: Colors.amberAccent,
           )
         else if (status == 'assigned')
-          const _InfoBadge(
-            label: 'لا توجد عمولة لهذا الطلب',
-            backgroundColor: Color(0xFF2B2B2B),
+          _InfoBadge(
+            label: l10n.translate('no_commission_for_this_request'),
+            backgroundColor: const Color(0xFF2B2B2B),
             textColor: Colors.white70,
           ),
       ],
