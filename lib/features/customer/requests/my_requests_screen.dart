@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_error_view.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/app_item_card.dart';
@@ -11,6 +10,7 @@ import '../../../core/widgets/empty_state_card.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_chip_filter.dart';
 import '../../../providers/request_provider.dart';
+import '../../../routes/app_routes.dart';
 import '../../shared/notifications/notification_bell_button.dart';
 import 'customer_request_offers_screen.dart';
 import 'customer_request_tracking_screen.dart';
@@ -112,20 +112,37 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     );
   }
 
+  void _openInvoiceIfExists(BuildContext context, Map<String, dynamic> request) {
+    final invoiceId = (request['invoiceId'] ?? '').toString().trim();
+
+    if (invoiceId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا توجد فاتورة مرتبطة بهذا الطلب حتى الآن'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.invoiceDetails,
+      arguments: invoiceId,
+    );
+  }
+
   void _openFirstRequestWithNewOffers(
     BuildContext context,
     List<Map<String, dynamic>> sortedRequests,
   ) {
-    final l10n = AppLocalizations.of(context);
-
     final target = sortedRequests.where((request) {
       return ((request['newOffersCount'] ?? 0) as num).toInt() > 0;
     }).toList();
 
     if (target.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.translate('no_requests_with_new_offers_now')),
+        const SnackBar(
+          content: Text('لا يوجد حاليًا أي طلب يحتوي على عروض جديدة'),
         ),
       );
       return;
@@ -144,16 +161,14 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     BuildContext context,
     List<Map<String, dynamic>> allRequests,
   ) {
-    final l10n = AppLocalizations.of(context);
-
     final candidates = allRequests.where((request) {
       return _bestOfferValue(request) > 0;
     }).toList();
 
     if (candidates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.translate('no_saved_highest_offer_now')),
+        const SnackBar(
+          content: Text('لا يوجد حاليًا أي طلب يحتوي على أعلى عرض محفوظ'),
         ),
       );
       return;
@@ -173,7 +188,6 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final provider = context.watch<RequestProvider>();
     final allRequests = _sortRequests(provider.requests);
 
@@ -223,22 +237,22 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: Row(
                       children: [
-                        Expanded(
+                        const Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                l10n.translate('my_requests'),
-                                style: const TextStyle(
+                                'طلباتي',
+                                style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: .2,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               Text(
-                                l10n.translate('my_requests_subtitle'),
-                                style: const TextStyle(
+                                'يمكنك الآن فتح أول طلب فيه عروض جديدة أو الانتقال مباشرة إلى أعلى عرض قيمة.',
+                                style: TextStyle(
                                   color: Colors.white70,
                                   height: 1.5,
                                 ),
@@ -258,14 +272,14 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                       children: [
                         Expanded(
                           child: StatCard(
-                            label: l10n.translate('all'),
+                            label: 'الكل',
                             value: allRequests.length.toString(),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: StatCard(
-                            label: l10n.translate('new'),
+                            label: 'جديد',
                             value: allRequests
                                 .where((r) => (r['status'] ?? '') == 'newRequest')
                                 .length
@@ -275,7 +289,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: StatCard(
-                            label: l10n.translate('new_offers'),
+                            label: 'عروض جديدة',
                             value: newOffersRequestsCount.toString(),
                           ),
                         ),
@@ -298,16 +312,14 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                           if (created == true && mounted) {
                             context.read<RequestProvider>().listenToMyRequests();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  l10n.translate('request_created_follow_here'),
-                                ),
+                              const SnackBar(
+                                content: Text('تم إنشاء الطلب ويمكنك متابعته هنا'),
                               ),
                             );
                           }
                         },
                         icon: const Icon(Icons.add_circle_outline),
-                        label: Text(l10n.translate('new_request')),
+                        label: const Text('طلب جديد'),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -338,8 +350,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             Expanded(
                               child: Text(
                                 selectedStatus == 'newOffersOnly'
-                                    ? l10n.translate('showing_new_offers_only')
-                                    : l10n.translate('quick_buttons_help'),
+                                    ? 'أنت الآن تعرض الطلبات التي وصلتها عروض جديدة فقط.'
+                                    : 'الزران السريعان بالأسفل يساعدانك على فتح أهم الطلبات مباشرة.',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   height: 1.5,
@@ -368,8 +380,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             icon: const Icon(Icons.flash_on_outlined),
                             label: Text(
                               newOffersRequestsCount > 0
-                                  ? l10n.translate('open_first_request_with_new_offers')
-                                  : l10n.translate('no_requests_with_new_offers'),
+                                  ? 'فتح أول طلب فيه عروض جديدة'
+                                  : 'لا توجد طلبات بعروض جديدة',
                             ),
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -391,8 +403,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                             icon: const Icon(Icons.trending_up),
                             label: Text(
                               highestOfferCount > 0
-                                  ? l10n.translate('open_highest_offer')
-                                  : l10n.translate('no_saved_offer'),
+                                  ? 'فتح أعلى عرض قيمة'
+                                  : 'لا يوجد عرض محفوظ',
                             ),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -414,49 +426,49 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                       scrollDirection: Axis.horizontal,
                       children: [
                         StatusChipFilter(
-                          label: l10n.translate('all'),
+                          label: 'الكل',
                           selected: selectedStatus == 'all',
                           onTap: () => setState(() => selectedStatus = 'all'),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('new_offers_only'),
+                          label: 'عروض جديدة فقط',
                           selected: selectedStatus == 'newOffersOnly',
                           onTap: () =>
                               setState(() => selectedStatus = 'newOffersOnly'),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('new'),
+                          label: 'جديد',
                           selected: selectedStatus == 'newRequest',
                           onTap: () =>
                               setState(() => selectedStatus = 'newRequest'),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('checking_availability'),
+                          label: 'جاري التحقق',
                           selected: selectedStatus == 'checkingAvailability',
                           onTap: () => setState(
                             () => selectedStatus = 'checkingAvailability',
                           ),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('offers'),
+                          label: 'عروض',
                           selected: selectedStatus == 'available',
                           onTap: () =>
                               setState(() => selectedStatus = 'available'),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('assigned'),
+                          label: 'تم التعيين',
                           selected: selectedStatus == 'assigned',
                           onTap: () =>
                               setState(() => selectedStatus = 'assigned'),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('shipped'),
+                          label: 'تم الشحن',
                           selected: selectedStatus == 'shipped',
                           onTap: () =>
                               setState(() => selectedStatus = 'shipped'),
                         ),
                         StatusChipFilter(
-                          label: l10n.translate('delivered'),
+                          label: 'تم التسليم',
                           selected: selectedStatus == 'delivered',
                           onTap: () =>
                               setState(() => selectedStatus = 'delivered'),
@@ -470,17 +482,17 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                     child: Row(
                       children: [
-                        Expanded(
+                        const Expanded(
                           child: Text(
-                            l10n.translate('requests'),
-                            style: const TextStyle(
+                            'الطلبات',
+                            style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
                         Text(
-                          '${requests.length} ${l10n.translate('request_count_suffix')}',
+                          '${requests.length} طلب',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w700,
@@ -501,11 +513,11 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                               ? Icons.local_offer_outlined
                               : Icons.inventory_2_outlined,
                           title: selectedStatus == 'newOffersOnly'
-                              ? l10n.translate('no_requests_with_new_offers')
-                              : l10n.translate('no_requests_in_this_status'),
+                              ? 'لا توجد طلبات بعروض جديدة الآن'
+                              : 'لا توجد طلبات ضمن هذه الحالة',
                           subtitle: selectedStatus == 'newOffersOnly'
-                              ? l10n.translate('new_offer_will_appear_here')
-                              : l10n.translate('new_request_will_appear_here'),
+                              ? 'عندما يرسل العامل عرضًا جديدًا سيظهر الطلب هنا مباشرة.'
+                              : 'بمجرد إرسال طلب جديد سيظهر هنا مع حالته الحالية.',
                         ),
                       ),
                     ),
@@ -522,70 +534,90 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                         final newOffersCount =
                             ((request['newOffersCount'] ?? 0) as num).toInt();
 
-                        return Stack(
+                        return Column(
                           children: [
-                            AppItemCard(
-                              title: (request['partName'] ?? '').toString(),
-                              subtitle:
-                                  '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\n${l10n.translate('city')}: ${request['city'] ?? '-'}${_extraSubtitle(request, l10n)}',
-                              imageUrl:
-                                  (request['vehicleCoverImage'] ?? '').toString(),
-                              statusText: _statusText(status, l10n),
-                              statusColor: _statusColor(status),
-                              onTap: () => _openRequest(context, request),
-                            ),
-                            if (newOffersCount > 0)
-                              Positioned(
-                                top: 10,
-                                left: 10,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange,
-                                    borderRadius: BorderRadius.circular(999),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 8,
-                                        offset: Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    newOffersCount == 1
-                                        ? l10n.translate('one_new_offer')
-                                        : '${newOffersCount} ${l10n.translate('multiple_new_offers')}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
+                            Stack(
+                              children: [
+                                AppItemCard(
+                                  title: (request['partName'] ?? '').toString(),
+                                  subtitle:
+                                      '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\nالمدينة: ${request['city'] ?? '-'}${_extraSubtitle(request)}',
+                                  imageUrl:
+                                      (request['vehicleCoverImage'] ?? '').toString(),
+                                  statusText: _statusText(status),
+                                  statusColor: _statusColor(status),
+                                  onTap: () => _openRequest(context, request),
                                 ),
-                              ),
-                            if (_bestOfferValue(request) > 0)
-                              Positioned(
-                                bottom: 10,
-                                left: 10,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF123B2E),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    '${l10n.translate('highest_offer')}: ${_bestOfferValue(request).toStringAsFixed(0)} ${l10n.translate('sar')}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
+                                if (newOffersCount > 0)
+                                  Positioned(
+                                    top: 10,
+                                    left: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange,
+                                        borderRadius: BorderRadius.circular(999),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Colors.black26,
+                                            blurRadius: 8,
+                                            offset: Offset(0, 3),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        newOffersCount == 1
+                                            ? 'عرض جديد'
+                                            : '$newOffersCount عروض جديدة',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
                                     ),
+                                  ),
+                                if (_bestOfferValue(request) > 0)
+                                  Positioned(
+                                    bottom: 10,
+                                    left: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF123B2E),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        'أعلى عرض: ${_bestOfferValue(request).toStringAsFixed(0)} ريال',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if ((request['invoiceId'] ?? '')
+                                .toString()
+                                .trim()
+                                .isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () =>
+                                        _openInvoiceIfExists(context, request),
+                                    icon: const Icon(Icons.receipt_long_outlined),
+                                    label: const Text('عرض الفاتورة'),
                                   ),
                                 ),
                               ),
@@ -602,15 +634,12 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     );
   }
 
-  String _extraSubtitle(
-    Map<String, dynamic> request,
-    AppLocalizations l10n,
-  ) {
+  String _extraSubtitle(Map<String, dynamic> request) {
     final status = (request['status'] ?? '').toString();
     if (status == 'assigned' || status == 'shipped' || status == 'delivered') {
       final rawPrice = request['acceptedOfferPrice'] ?? 0;
       final displayPrice = rawPrice.toString();
-      return '\n${l10n.translate('selected_price')}: $displayPrice ${l10n.translate('sar')}';
+      return '\nالسعر المختار: $displayPrice ريال';
     }
 
     final bestOffer = _bestOfferValue(request);
@@ -618,14 +647,10 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
 
     final lines = <String>[];
     if (newOffersCount > 0) {
-      lines.add(
-        '${l10n.translate('you_have')} $newOffersCount ${l10n.translate('new_offers_on_request')}',
-      );
+      lines.add('لديك $newOffersCount عروض جديدة على هذا الطلب');
     }
     if (bestOffer > 0) {
-      lines.add(
-        '${l10n.translate('current_highest_offer')}: ${bestOffer.toStringAsFixed(0)} ${l10n.translate('sar')}',
-      );
+      lines.add('أعلى عرض حالي: ${bestOffer.toStringAsFixed(0)} ريال');
     }
 
     if (lines.isEmpty) return '';
@@ -655,30 +680,30 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     }
   }
 
-  String _statusText(String status, AppLocalizations l10n) {
+  String _statusText(String status) {
     switch (status) {
       case 'newRequest':
-        return l10n.translate('status_new_request');
+        return 'طلب جديد';
       case 'checkingAvailability':
-        return l10n.translate('status_checking');
+        return 'جاري التحقق';
       case 'available':
-        return l10n.translate('status_offers_arrived');
+        return 'وصلت عروض';
       case 'unavailable':
-        return l10n.translate('status_unavailable');
+        return 'غير متوفر';
       case 'reserved':
-        return l10n.translate('status_reserved');
+        return 'محجوز';
       case 'confirmed':
-        return l10n.translate('status_confirmed');
+        return 'مؤكد';
       case 'shipped':
-        return l10n.translate('status_shipped');
+        return 'تم الشحن';
       case 'delivered':
-        return l10n.translate('status_delivered');
+        return 'تم التسليم';
       case 'cancelled':
-        return l10n.translate('status_cancelled');
+        return 'ملغي';
       case 'assigned':
-        return l10n.translate('status_offer_selected');
+        return 'تم اختيار العرض';
       default:
-        return l10n.translate('unknown');
+        return 'غير معروف';
     }
   }
 }

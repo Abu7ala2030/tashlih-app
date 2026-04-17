@@ -10,6 +10,7 @@ class AppRoutes {
   static const vehicleDetails = '/vehicle-details';
   static const partRequest = '/part-request';
   static const myRequests = '/my-requests';
+  static const invoiceDetails = '/invoice-details';
 
   static const workerShell = '/worker';
   static const addVehicle = '/add-vehicle';

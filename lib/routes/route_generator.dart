@@ -7,6 +7,7 @@ import '../features/customer/requests/my_requests_screen.dart';
 import '../features/customer/requests/part_request_screen.dart';
 import '../features/customer/search/search_screen.dart';
 import '../features/customer/vehicle/vehicle_details_screen.dart';
+import '../features/finance/invoice_details_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/worker/requests/worker_requests_screen.dart';
@@ -40,6 +41,11 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => const PartRequestScreen());
       case AppRoutes.myRequests:
         return MaterialPageRoute(builder: (_) => const MyRequestsScreen());
+      case AppRoutes.invoiceDetails:
+        final invoiceId = (settings.arguments ?? '').toString();
+        return MaterialPageRoute(
+          builder: (_) => InvoiceDetailsScreen(invoiceId: invoiceId),
+        );
       case AppRoutes.workerShell:
         return MaterialPageRoute(builder: (_) => const WorkerShell());
       case AppRoutes.addVehicle:
