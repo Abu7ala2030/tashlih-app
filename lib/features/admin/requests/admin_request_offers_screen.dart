@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
+import '../../../routes/app_routes.dart';
 import 'admin_request_timeline_screen.dart';
 
 class AdminRequestOffersScreen extends StatefulWidget {
@@ -40,6 +41,25 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _openInvoiceIfExists() {
+    final invoiceId = (widget.request['invoiceId'] ?? '').toString().trim();
+
+    if (invoiceId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا توجد فاتورة مرتبطة بهذا الطلب حتى الآن'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.invoiceDetails,
+      arguments: invoiceId,
+    );
   }
 
   Future<void> _updateRequestStatus(String status) async {
@@ -288,6 +308,20 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                           label: const Text('فتح السجل الزمني للطلب'),
                         ),
                       ),
+                      if ((widget.request['invoiceId'] ?? '')
+                          .toString()
+                          .trim()
+                          .isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _openInvoiceIfExists,
+                            icon: const Icon(Icons.receipt_long_outlined),
+                            label: const Text('عرض الفاتورة'),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
