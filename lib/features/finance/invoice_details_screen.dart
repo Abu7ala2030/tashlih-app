@@ -62,15 +62,20 @@ class InvoiceDetailsScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     try {
-      await FirebaseFirestore.instance
+      final db = FirebaseFirestore.instance;
+      final invoiceRef = db
           .collection(FirestorePaths.invoices)
-          .doc(invoiceId)
-          .update({
+          .doc(invoiceId);
+      final invoiceSnapshot = await invoiceRef.get();
+      final invoiceData = invoiceSnapshot.data() ?? <String, dynamic>{};
+      final requestId = (invoiceData['requestId'] ?? '').toString().trim();
+
+      await invoiceRef.update({
         'status': status,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      final txSnapshot = await FirebaseFirestore.instance
+      final txSnapshot = await db
           .collection(FirestorePaths.financialTransactions)
           .where('invoiceId', isEqualTo: invoiceId)
           .get();
@@ -80,6 +85,14 @@ class InvoiceDetailsScreen extends StatelessWidget {
           'status': status == 'paid' ? 'paid' : 'open',
           'updatedAt': FieldValue.serverTimestamp(),
         });
+      }
+
+      if (requestId.isNotEmpty) {
+        await db.collection(FirestorePaths.requests).doc(requestId).set({
+          'paymentStatus': status,
+          'financeStatus': status == 'paid' ? 'paid' : 'invoiced',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       }
 
       if (context.mounted) {
