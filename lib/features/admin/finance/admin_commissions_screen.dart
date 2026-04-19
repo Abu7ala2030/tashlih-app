@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
+import '../../../routes/app_routes.dart';
 
 class AdminCommissionsScreen extends StatelessWidget {
   const AdminCommissionsScreen({super.key});
@@ -12,8 +14,27 @@ class AdminCommissionsScreen extends StatelessWidget {
     return double.tryParse(value?.toString() ?? '') ?? 0.0;
   }
 
+  String _money(BuildContext context, dynamic value) {
+    final l10n = AppLocalizations.of(context);
+    return '${_asDouble(value).toStringAsFixed(2)} ${l10n.translate('sar')}';
+  }
+
+  String _invoiceStatusText(BuildContext context, String status) {
+    final l10n = AppLocalizations.of(context);
+    switch (status) {
+      case 'paid':
+        return l10n.translate('paid');
+      case 'cancelled':
+        return l10n.translate('cancelled');
+      default:
+        return l10n.translate('unpaid');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: AppGradientBackground(
         child: SafeArea(
@@ -32,7 +53,7 @@ class AdminCommissionsScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'فشل تحميل الفواتير: ${invoiceSnapshot.error}',
+                      '${l10n.translate('load_invoice_failed')}: ${invoiceSnapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -60,6 +81,7 @@ class AdminCommissionsScreen extends StatelessWidget {
                       double totalInvoices = 0;
                       double paidInvoices = 0;
                       double openInvoices = 0;
+
                       for (final doc in invoices) {
                         final data = doc.data();
                         final amount = _asDouble(data['totalAmount']);
@@ -88,23 +110,23 @@ class AdminCommissionsScreen extends StatelessWidget {
 
                       return CustomScrollView(
                         slivers: [
-                          const SliverToBoxAdapter(
+                          SliverToBoxAdapter(
                             child: Padding(
-                              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'التقارير المالية',
-                                    style: TextStyle(
+                                    l10n.translate('financial_reports'),
+                                    style: const TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
-                                  SizedBox(height: 8),
+                                  const SizedBox(height: 8),
                                   Text(
-                                    'ملخص الفواتير والحركات المالية والعمولات',
-                                    style: TextStyle(
+                                    l10n.translate('financial_reports_subtitle'),
+                                    style: const TextStyle(
                                       color: Colors.white70,
                                       height: 1.5,
                                     ),
@@ -120,25 +142,22 @@ class AdminCommissionsScreen extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: _TopStatCard(
-                                      label: 'إجمالي الفواتير',
-                                      value:
-                                          '${totalInvoices.toStringAsFixed(2)} ر.س',
+                                      label: l10n.translate('total_invoices'),
+                                      value: _money(context, totalInvoices),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _TopStatCard(
-                                      label: 'المدفوع',
-                                      value:
-                                          '${paidInvoices.toStringAsFixed(2)} ر.س',
+                                      label: l10n.translate('paid_total'),
+                                      value: _money(context, paidInvoices),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _TopStatCard(
-                                      label: 'غير المدفوع',
-                                      value:
-                                          '${openInvoices.toStringAsFixed(2)} ر.س',
+                                      label: l10n.translate('unpaid_total'),
+                                      value: _money(context, openInvoices),
                                     ),
                                   ),
                                 ],
@@ -152,35 +171,34 @@ class AdminCommissionsScreen extends StatelessWidget {
                                 children: [
                                   Expanded(
                                     child: _TopStatCard(
-                                      label: 'عدد الفواتير',
+                                      label: l10n.translate('invoice_count'),
                                       value: invoices.length.toString(),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _TopStatCard(
-                                      label: 'عدد الحركات',
+                                      label: l10n.translate('transactions_count'),
                                       value: transactions.length.toString(),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _TopStatCard(
-                                      label: 'العمولات المعلقة',
-                                      value:
-                                          '${pendingCommissions.toStringAsFixed(2)} ر.س',
+                                      label: l10n.translate('pending_commissions_total'),
+                                      value: _money(context, pendingCommissions),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          const SliverToBoxAdapter(
+                          SliverToBoxAdapter(
                             child: Padding(
-                              padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
                               child: Text(
-                                'آخر الفواتير',
-                                style: TextStyle(
+                                l10n.translate('latest_invoices'),
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -188,11 +206,11 @@ class AdminCommissionsScreen extends StatelessWidget {
                             ),
                           ),
                           if (invoices.isEmpty)
-                            const SliverToBoxAdapter(
+                            SliverToBoxAdapter(
                               child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: _EmptyCard(
-                                  text: 'لا توجد فواتير حتى الآن',
+                                  text: l10n.translate('no_invoices_yet'),
                                 ),
                               ),
                             )
@@ -204,11 +222,13 @@ class AdminCommissionsScreen extends StatelessWidget {
                                 separatorBuilder: (_, __) =>
                                     const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
-                                  final data = invoices[index].data();
+                                  final doc = invoices[index];
+                                  final data = doc.data();
+                                  final invoiceId = doc.id;
                                   final invoiceNumber =
                                       (data['invoiceNumber'] ?? '').toString();
                                   final partName =
-                                      (data['partName'] ?? 'قطعة غير محددة')
+                                      (data['partName'] ?? l10n.translate('unnamed_part'))
                                           .toString();
                                   final totalAmount =
                                       _asDouble(data['totalAmount']);
@@ -219,19 +239,27 @@ class AdminCommissionsScreen extends StatelessWidget {
                                     title: invoiceNumber,
                                     subtitle: partName,
                                     lines: [
-                                      'الإجمالي: ${totalAmount.toStringAsFixed(2)} ر.س',
-                                      'الحالة: ${status == 'paid' ? 'مدفوعة' : 'غير مدفوعة'}',
+                                      '${l10n.translate('total')}: ${_money(context, totalAmount)}',
+                                      '${l10n.translate('status')}: ${_invoiceStatusText(context, status)}',
                                     ],
+                                    actionLabel: l10n.translate('view_invoice'),
+                                    onAction: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.invoiceDetails,
+                                        arguments: invoiceId,
+                                      );
+                                    },
                                   );
                                 },
                               ),
                             ),
-                          const SliverToBoxAdapter(
+                          SliverToBoxAdapter(
                             child: Padding(
-                              padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
                               child: Text(
-                                'آخر الحركات المالية',
-                                style: TextStyle(
+                                l10n.translate('latest_transactions'),
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -239,11 +267,11 @@ class AdminCommissionsScreen extends StatelessWidget {
                             ),
                           ),
                           if (transactions.isEmpty)
-                            const SliverToBoxAdapter(
+                            SliverToBoxAdapter(
                               child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: _EmptyCard(
-                                  text: 'لا توجد حركات مالية حتى الآن',
+                                  text: l10n.translate('no_transactions_yet'),
                                 ),
                               ),
                             )
@@ -267,19 +295,19 @@ class AdminCommissionsScreen extends StatelessWidget {
                                     subtitle:
                                         (data['invoiceNumber'] ?? '-').toString(),
                                     lines: [
-                                      'القيمة: ${amount.toStringAsFixed(2)} ر.س',
-                                      'الحالة: $status',
+                                      '${l10n.translate('amount')}: ${_money(context, amount)}',
+                                      '${l10n.translate('status')}: $status',
                                     ],
                                   );
                                 },
                               ),
                             ),
-                          const SliverToBoxAdapter(
+                          SliverToBoxAdapter(
                             child: Padding(
-                              padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
                               child: Text(
-                                'آخر العمولات',
-                                style: TextStyle(
+                                l10n.translate('latest_commissions'),
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -287,11 +315,11 @@ class AdminCommissionsScreen extends StatelessWidget {
                             ),
                           ),
                           if (commissions.isEmpty)
-                            const SliverToBoxAdapter(
+                            SliverToBoxAdapter(
                               child: Padding(
-                                padding: EdgeInsets.fromLTRB(16, 0, 16, 120),
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                                 child: _EmptyCard(
-                                  text: 'لا توجد عمولات حتى الآن',
+                                  text: l10n.translate('no_commissions_yet'),
                                 ),
                               ),
                             )
@@ -307,7 +335,7 @@ class AdminCommissionsScreen extends StatelessWidget {
                                 itemBuilder: (context, index) {
                                   final data = commissions[index].data();
                                   final partName =
-                                      (data['partName'] ?? 'قطعة غير محددة')
+                                      (data['partName'] ?? l10n.translate('unnamed_part'))
                                           .toString();
                                   final amount = _asDouble(
                                     data['commissionAmount'] ??
@@ -316,15 +344,29 @@ class AdminCommissionsScreen extends StatelessWidget {
                                   final status =
                                       (data['commissionStatus'] ?? 'pending')
                                           .toString();
+                                  final invoiceId =
+                                      (data['invoiceId'] ?? '').toString().trim();
 
                                   return _FinanceCard(
                                     title: partName,
                                     subtitle:
                                         (data['invoiceNumber'] ?? '-').toString(),
                                     lines: [
-                                      'العمولة: ${amount.toStringAsFixed(2)} ر.س',
-                                      'الحالة: $status',
+                                      '${l10n.translate('commission')}: ${_money(context, amount)}',
+                                      '${l10n.translate('status')}: $status',
                                     ],
+                                    actionLabel: invoiceId.isEmpty
+                                        ? null
+                                        : l10n.translate('view_invoice'),
+                                    onAction: invoiceId.isEmpty
+                                        ? null
+                                        : () {
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.invoiceDetails,
+                                              arguments: invoiceId,
+                                            );
+                                          },
                                   );
                                 },
                               ),
@@ -391,11 +433,15 @@ class _FinanceCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<String> lines;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const _FinanceCard({
     required this.title,
     required this.subtitle,
     required this.lines,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
@@ -435,6 +481,17 @@ class _FinanceCard extends StatelessWidget {
               ),
             ),
           ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: Text(actionLabel!),
+              ),
+            ),
+          ],
         ],
       ),
     );
