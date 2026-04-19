@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../../routes/app_routes.dart';
@@ -33,6 +34,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
   }
 
   Future<void> _openMap(String url) async {
+    final l10n = AppLocalizations.of(context);
     if (url.trim().isEmpty) return;
 
     final uri = Uri.tryParse(url);
@@ -40,16 +42,23 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
     }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.translate('unable_to_open_location'))),
+    );
   }
 
   void _openInvoiceIfExists() {
+    final l10n = AppLocalizations.of(context);
     final invoiceId = (widget.request['invoiceId'] ?? '').toString().trim();
 
     if (invoiceId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('لا توجد فاتورة مرتبطة بهذا الطلب حتى الآن'),
+        SnackBar(
+          content: Text(l10n.translate('invoice_not_available_for_request')),
         ),
       );
       return;
@@ -63,6 +72,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
   }
 
   Future<void> _updateRequestStatus(String status) async {
+    final l10n = AppLocalizations.of(context);
     final requestId = (widget.request['id'] ?? '').toString();
     if (requestId.isEmpty) return;
 
@@ -89,13 +99,15 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_statusSuccessMessage(status))),
+        SnackBar(content: Text(_statusSuccessMessage(status, l10n))),
       );
       setState(() {});
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل تحديث حالة الطلب: $e')),
+        SnackBar(
+          content: Text('${l10n.translate('request_status_update_failed')}: $e'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -104,28 +116,31 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
     }
   }
 
-  String _statusSuccessMessage(String status) {
+  String _statusSuccessMessage(String status, AppLocalizations l10n) {
     switch (status) {
       case 'assigned':
-        return 'تم تحديث الطلب إلى تم اختيار العرض';
+        return l10n.translate('request_updated_to_assigned');
       case 'shipped':
-        return 'تم تحديث الطلب إلى تم الشحن';
+        return l10n.translate('request_updated_to_shipped');
       case 'delivered':
-        return 'تم تحديث الطلب إلى تم التسليم';
+        return l10n.translate('request_updated_to_delivered');
       default:
-        return 'تم تحديث حالة الطلب';
+        return l10n.translate('request_status_updated');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final requestId = (widget.request['id'] ?? '').toString();
 
     final scrapyardName =
-        (widget.request['scrapyardName'] ?? 'غير محدد').toString();
+        (widget.request['scrapyardName'] ?? l10n.translate('not_specified'))
+            .toString();
     final scrapyardLocation =
         (widget.request['scrapyardLocation'] ?? '').toString();
-    final city = (widget.request['city'] ?? 'غير محددة').toString();
+    final city = (widget.request['city'] ?? l10n.translate('not_specified'))
+        .toString();
     final listedByWorkerId =
         (widget.request['listedByWorkerId'] ?? '').toString();
     final currentStatus = (widget.request['status'] ?? '').toString();
@@ -144,21 +159,21 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                       icon: const Icon(Icons.arrow_back),
                     ),
                     const SizedBox(width: 4),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'عروض الطلب للإدارة',
-                            style: TextStyle(
+                            l10n.translate('admin_request_offers'),
+                            style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'مراجعة العامل والتشليح والعمولة',
-                            style: TextStyle(
+                            l10n.translate('admin_request_offers_subtitle'),
+                            style: const TextStyle(
                               color: Colors.white70,
                             ),
                           ),
@@ -180,20 +195,26 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'معلومات المصدر',
-                        style: TextStyle(
+                      Text(
+                        l10n.translate('source_information'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _InfoRow(label: 'اسم التشليح', value: scrapyardName),
-                      _InfoRow(label: 'المدينة', value: city),
                       _InfoRow(
-                        label: 'العامل الرافع للمركبة',
+                        label: l10n.translate('scrapyard_name'),
+                        value: scrapyardName,
+                      ),
+                      _InfoRow(
+                        label: l10n.translate('city'),
+                        value: city,
+                      ),
+                      _InfoRow(
+                        label: l10n.translate('vehicle_uploader_worker'),
                         value: listedByWorkerId.isEmpty
-                            ? 'غير محدد'
+                            ? l10n.translate('not_specified')
                             : listedByWorkerId,
                         isLast: true,
                       ),
@@ -204,7 +225,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                           child: OutlinedButton.icon(
                             onPressed: () => _openMap(scrapyardLocation),
                             icon: const Icon(Icons.location_on_outlined),
-                            label: const Text('فتح موقع التشليح'),
+                            label: Text(l10n.translate('open_scrapyard_location')),
                           ),
                         ),
                       ],
@@ -224,16 +245,16 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'التحكم اليدوي في التتبع',
-                        style: TextStyle(
+                      Text(
+                        l10n.translate('manual_tracking_control'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'الحالة الحالية: ${_requestStatusText(currentStatus)}',
+                        '${l10n.translate('current_status')}: ${_requestStatusText(currentStatus, l10n)}',
                         style: TextStyle(
                           color: _requestStatusColor(currentStatus),
                           fontWeight: FontWeight.w800,
@@ -251,7 +272,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                               onPressed: isUpdatingStatus
                                   ? null
                                   : () => _updateRequestStatus('assigned'),
-                              child: const Text('تم اختيار العرض'),
+                              child: Text(l10n.translate('status_offer_selected')),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -264,7 +285,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                               onPressed: isUpdatingStatus
                                   ? null
                                   : () => _updateRequestStatus('shipped'),
-                              child: const Text('تم الشحن'),
+                              child: Text(l10n.translate('status_shipped')),
                             ),
                           ),
                         ],
@@ -288,7 +309,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('تم التسليم'),
+                              : Text(l10n.translate('status_delivered')),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -299,13 +320,14 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    AdminRequestTimelineScreen(request: widget.request),
+                                builder: (_) => AdminRequestTimelineScreen(
+                                  request: widget.request,
+                                ),
                               ),
                             );
                           },
                           icon: const Icon(Icons.history),
-                          label: const Text('فتح السجل الزمني للطلب'),
+                          label: Text(l10n.translate('open_request_timeline')),
                         ),
                       ),
                       if ((widget.request['invoiceId'] ?? '')
@@ -318,7 +340,9 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _openInvoiceIfExists,
                             icon: const Icon(Icons.receipt_long_outlined),
-                            label: const Text('عرض الفاتورة'),
+                            label: Text(
+                              l10n.translate('view_invoice'),
+                            ),
                           ),
                         ),
                       ],
@@ -337,10 +361,10 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'نسبة العمولة %',
-                          style: TextStyle(
+                          l10n.translate('commission_percent'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 16,
                           ),
@@ -398,7 +422,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'فشل تحميل العروض: ${offersSnapshot.error}',
+                            '${l10n.translate('load_offers_failed')}: ${offersSnapshot.error}',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -408,12 +432,12 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                     final offers = offersSnapshot.data?.docs ?? [];
 
                     if (offers.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(24),
                           child: Text(
-                            'لا توجد عروض على هذا الطلب',
-                            style: TextStyle(
+                            l10n.translate('no_offers_for_request'),
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                             ),
@@ -450,10 +474,11 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                     <String, dynamic>{};
 
                             final workerName =
-                                (workerData['name'] ?? 'عامل بدون اسم')
+                                (workerData['name'] ?? l10n.translate('unnamed_worker'))
                                     .toString();
                             final workerPhone =
-                                (workerData['phone'] ?? 'بدون رقم').toString();
+                                (workerData['phone'] ?? l10n.translate('no_phone'))
+                                    .toString();
                             final workerScrapyardName =
                                 (workerData['scrapyardName'] ?? scrapyardName)
                                     .toString();
@@ -492,28 +517,28 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'رقم العامل: $workerPhone',
+                                    '${l10n.translate('worker_phone')}: $workerPhone',
                                     style: const TextStyle(
                                       color: Colors.white70,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'اسم التشليح: $workerScrapyardName',
+                                    '${l10n.translate('scrapyard_name')}: $workerScrapyardName',
                                     style: const TextStyle(
                                       color: Colors.white70,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'المدينة: $city',
+                                    '${l10n.translate('city')}: $city',
                                     style: const TextStyle(
                                       color: Colors.white70,
                                     ),
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    'سعر العرض: ${price.toStringAsFixed(2)} ريال',
+                                    '${l10n.translate('offer_price')}: ${price.toStringAsFixed(2)} ${l10n.translate('sar')}',
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w900,
@@ -521,7 +546,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'حالة العرض: ${_offerStatusText(status)}',
+                                    '${l10n.translate('offer_status')}: ${_offerStatusText(status, l10n)}',
                                     style: TextStyle(
                                       color: _offerStatusColor(status),
                                       fontWeight: FontWeight.w800,
@@ -540,14 +565,16 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'العامل الرافع للمركبة: ${listedByWorkerId.isEmpty ? 'غير محدد' : listedByWorkerId}',
+                                          '${l10n.translate('vehicle_uploader_worker')}: ${listedByWorkerId.isEmpty ? l10n.translate('not_specified') : listedByWorkerId}',
                                           style: const TextStyle(
                                             color: Colors.white70,
                                           ),
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          'نفس العامل الذي عرض المركبة؟ ${eligible ? 'نعم' : 'لا'}',
+                                          eligible
+                                              ? l10n.translate('same_worker_yes')
+                                              : l10n.translate('same_worker_no'),
                                           style: TextStyle(
                                             color: eligible
                                                 ? Colors.green
@@ -557,7 +584,7 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          'العمولة المستحقة: ${commissionAmount.toStringAsFixed(2)} ريال',
+                                          '${l10n.translate('due_commission')}: ${commissionAmount.toStringAsFixed(2)} ${l10n.translate('sar')}',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w900,
                                             fontSize: 16,
@@ -576,7 +603,9 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
                                         icon: const Icon(
                                           Icons.location_on_outlined,
                                         ),
-                                        label: const Text('فتح موقع التشليح'),
+                                        label: Text(
+                                          l10n.translate('open_scrapyard_location'),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -608,14 +637,14 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
     }
   }
 
-  String _offerStatusText(String status) {
+  String _offerStatusText(String status, AppLocalizations l10n) {
     switch (status) {
       case 'accepted':
-        return 'مقبول';
+        return l10n.translate('accepted');
       case 'rejected':
-        return 'مرفوض';
+        return l10n.translate('rejected');
       default:
-        return 'بانتظار الرد';
+        return l10n.translate('waiting_response');
     }
   }
 
@@ -632,16 +661,16 @@ class _AdminRequestOffersScreenState extends State<AdminRequestOffersScreen> {
     }
   }
 
-  String _requestStatusText(String status) {
+  String _requestStatusText(String status, AppLocalizations l10n) {
     switch (status) {
       case 'assigned':
-        return 'تم اختيار العرض';
+        return l10n.translate('status_offer_selected');
       case 'shipped':
-        return 'تم الشحن';
+        return l10n.translate('status_shipped');
       case 'delivered':
-        return 'تم التسليم';
+        return l10n.translate('status_delivered');
       default:
-        return 'قيد المعالجة';
+        return l10n.translate('in_progress');
     }
   }
 }
