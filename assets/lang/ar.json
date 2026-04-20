@@ -674,5 +674,15 @@
   "payment_method_card": "بطاقة",
   "payment_method_cod": "الدفع عند الاستلام",
   "payment_method_tabby": "تابي",
-  "payment_method_tamara": "تمارا"
+  "payment_method_tamara": "تمارا",
+  "secure_payment_page": "صفحة دفع آمنة",
+  "payment_checkout": "إتمام الدفع",
+  "continue_to_payment": "متابعة الدفع",
+  "payment_session_status": "حالة جلسة الدفع",
+  "checkout_ready": "رابط الدفع جاهز",
+  "provider": "مزود الدفع",
+  "yes": "نعم",
+  "payment_failed": "فشل الدفع",
+  "payment_session_ready": "جلسة الدفع جاهزة",
+  "pending_manual_payment": "بانتظار دفع يدوي"
 }

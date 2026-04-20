@@ -8,6 +8,7 @@ import '../features/customer/requests/part_request_screen.dart';
 import '../features/customer/search/search_screen.dart';
 import '../features/customer/vehicle/vehicle_details_screen.dart';
 import '../features/finance/invoice_details_screen.dart';
+import '../features/finance/payment_checkout_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/worker/requests/worker_requests_screen.dart';
@@ -45,6 +46,14 @@ class RouteGenerator {
         final invoiceId = (settings.arguments ?? '').toString();
         return MaterialPageRoute(
           builder: (_) => InvoiceDetailsScreen(invoiceId: invoiceId),
+        );
+      case AppRoutes.paymentCheckout:
+        final args = settings.arguments as Map<String, dynamic>? ?? {};
+        return MaterialPageRoute(
+          builder: (_) => PaymentCheckoutScreen(
+            url: (args['url'] ?? '').toString(),
+            title: (args['title'] ?? 'Payment').toString(),
+          ),
         );
       case AppRoutes.workerShell:
         return MaterialPageRoute(builder: (_) => const WorkerShell());

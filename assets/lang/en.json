@@ -674,5 +674,15 @@
   "payment_method_card": "Card",
   "payment_method_cod": "Cash on Delivery",
   "payment_method_tabby": "Tabby",
-  "payment_method_tamara": "Tamara"
+  "payment_method_tamara": "Tamara",
+  "secure_payment_page": "Secure payment page",
+  "payment_checkout": "Payment Checkout",
+  "continue_to_payment": "Continue to payment",
+  "payment_session_status": "Payment session status",
+  "checkout_ready": "Checkout is ready",
+  "provider": "Provider",
+  "yes": "Yes",
+  "payment_failed": "Payment failed",
+  "payment_session_ready": "Payment session is ready",
+  "pending_manual_payment": "Pending manual payment"
 }

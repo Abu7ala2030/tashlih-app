@@ -11,6 +11,7 @@ class AppRoutes {
   static const partRequest = '/part-request';
   static const myRequests = '/my-requests';
   static const invoiceDetails = '/invoice-details';
+  static const paymentCheckout = '/payment-checkout';
 
   static const workerShell = '/worker';
   static const addVehicle = '/add-vehicle';

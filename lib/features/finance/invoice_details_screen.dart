@@ -6,6 +6,7 @@ import '../../core/widgets/app_gradient_background.dart';
 import '../../data/models/payment_method_option.dart';
 import '../../data/services/firestore_paths.dart';
 import '../../data/services/payment_session_service.dart';
+import '../../routes/app_routes.dart';
 
 class InvoiceDetailsScreen extends StatefulWidget {
   final String invoiceId;
@@ -46,6 +47,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         return l10n.translate('cancelled');
       case 'initiated':
         return l10n.translate('payment_initiated');
+      case 'failed':
+        return l10n.translate('payment_failed');
       default:
         return l10n.translate('unpaid');
     }
@@ -59,6 +62,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         return Colors.red;
       case 'initiated':
         return Colors.blue;
+      case 'failed':
+        return Colors.redAccent;
       default:
         return Colors.orange;
     }
@@ -157,6 +162,22 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     }
   }
 
+  void _openCheckoutUrl({
+    required String url,
+    required String title,
+  }) {
+    if (url.trim().isEmpty) return;
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.paymentCheckout,
+      arguments: {
+        'url': url,
+        'title': title,
+      },
+    );
+  }
+
   String _paymentMethodLabel(AppLocalizations l10n, PaymentMethodOption option) {
     switch (option.provider) {
       case PaymentProviderType.card:
@@ -191,6 +212,22 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     ];
   }
 
+  String _sessionStatusText(BuildContext context, String status) {
+    final l10n = AppLocalizations.of(context);
+    switch (status) {
+      case 'created':
+        return l10n.translate('payment_session_ready');
+      case 'initiated':
+        return l10n.translate('payment_initiated');
+      case 'failed':
+        return l10n.translate('payment_failed');
+      case 'pending_manual_payment':
+        return l10n.translate('pending_manual_payment');
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -203,24 +240,24 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                 .collection(FirestorePaths.invoices)
                 .doc(widget.invoiceId)
                 .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+            builder: (context, invoiceSnapshot) {
+              if (invoiceSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.hasError) {
+              if (invoiceSnapshot.hasError) {
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      '${l10n.translate('load_invoice_failed')}: ${snapshot.error}',
+                      '${l10n.translate('load_invoice_failed')}: ${invoiceSnapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                   ),
                 );
               }
 
-              final data = snapshot.data?.data();
+              final data = invoiceSnapshot.data?.data();
               if (data == null) {
                 return Center(
                   child: Text(
@@ -504,6 +541,81 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                       ),
                     ),
                   ),
+                  if (paymentSessionId.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                          stream: FirebaseFirestore.instance
+                              .collection(FirestorePaths.paymentSessions)
+                              .doc(paymentSessionId)
+                              .snapshots(),
+                          builder: (context, sessionSnapshot) {
+                            final sessionData = sessionSnapshot.data?.data();
+                            final sessionStatus =
+                                (sessionData?['status'] ?? '').toString();
+                            final checkoutUrl =
+                                (sessionData?['checkoutUrl'] ?? '').toString();
+                            final provider =
+                                (sessionData?['provider'] ?? '').toString();
+
+                            return Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1D21),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.translate('payment_session_status'),
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _InfoRow(
+                                    label: l10n.translate('provider'),
+                                    value: provider.isEmpty ? '-' : provider,
+                                  ),
+                                  _InfoRow(
+                                    label: l10n.translate('status'),
+                                    value: sessionStatus.isEmpty
+                                        ? '-'
+                                        : _sessionStatusText(context, sessionStatus),
+                                    isLast: checkoutUrl.isEmpty,
+                                  ),
+                                  if (checkoutUrl.isNotEmpty) ...[
+                                    _InfoRow(
+                                      label: l10n.translate('checkout_ready'),
+                                      value: l10n.translate('yes'),
+                                      isLast: true,
+                                    ),
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: FilledButton.icon(
+                                        onPressed: () => _openCheckoutUrl(
+                                          url: checkoutUrl,
+                                          title: l10n.translate('payment_checkout'),
+                                        ),
+                                        icon: const Icon(Icons.open_in_new),
+                                        label: Text(
+                                          l10n.translate('continue_to_payment'),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
