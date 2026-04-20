@@ -664,5 +664,15 @@
   "no_transactions_yet": "No financial transactions yet",
   "no_commissions_yet": "No commissions yet",
   "total": "Total",
-  "amount": "Amount"
+  "amount": "Amount",
+  "payment_initiated": "Payment initiated",
+  "choose_payment_method": "Choose payment method",
+  "payment_session": "Payment session",
+  "start_payment_session": "Start payment session",
+  "payment_session_created_successfully": "Payment session created successfully",
+  "create_payment_session_failed": "Failed to create payment session",
+  "payment_method_card": "Card",
+  "payment_method_cod": "Cash on Delivery",
+  "payment_method_tabby": "Tabby",
+  "payment_method_tamara": "Tamara"
 }

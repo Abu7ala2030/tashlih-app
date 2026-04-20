@@ -664,5 +664,15 @@
   "no_transactions_yet": "لا توجد حركات مالية حتى الآن",
   "no_commissions_yet": "لا توجد عمولات حتى الآن",
   "total": "الإجمالي",
-  "amount": "القيمة"
+  "amount": "القيمة",
+  "payment_initiated": "تم بدء الدفع",
+  "choose_payment_method": "اختر وسيلة الدفع",
+  "payment_session": "جلسة الدفع",
+  "start_payment_session": "ابدأ جلسة الدفع",
+  "payment_session_created_successfully": "تم إنشاء جلسة الدفع بنجاح",
+  "create_payment_session_failed": "فشل إنشاء جلسة الدفع",
+  "payment_method_card": "بطاقة",
+  "payment_method_cod": "الدفع عند الاستلام",
+  "payment_method_tabby": "تابي",
+  "payment_method_tamara": "تمارا"
 }
