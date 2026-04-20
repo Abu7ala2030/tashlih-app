@@ -51,18 +51,18 @@ class PaymentSessionService {
     final requestId = (invoice['requestId'] ?? '').toString().trim();
     final customerId = (invoice['customerId'] ?? '').toString().trim();
     final workerId = (invoice['workerId'] ?? '').toString().trim();
+    final driverId = (invoice['driverId'] ?? '').toString().trim();
     final currency = (invoice['currency'] ?? 'SAR').toString().trim();
 
     final sessionRef = _db.collection(FirestorePaths.paymentSessions).doc();
     final sessionReference = _buildReference('PAY');
 
-    final batch = _db.batch();
-
-    batch.set(sessionRef, {
+    await sessionRef.set({
       'invoiceId': invoiceId,
       'requestId': requestId,
       'customerId': customerId,
       'workerId': workerId,
+      'driverId': driverId,
       'provider': method.providerCode(),
       'method': method.methodCode,
       'amount': amount,
@@ -70,31 +70,14 @@ class PaymentSessionService {
       'status': 'initiated',
       'checkoutUrl': '',
       'providerReference': sessionReference,
+      'providerSessionId': '',
+      'providerOrderId': '',
+      'errorMessage': '',
       'createdBy': currentUser.uid,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    batch.set(invoiceRef, {
-      'paymentProvider': method.providerCode(),
-      'paymentMethod': method.methodCode,
-      'paymentSessionId': sessionRef.id,
-      'paymentStatus': 'initiated',
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    if (requestId.isNotEmpty) {
-      final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
-      batch.set(requestRef, {
-        'paymentProvider': method.providerCode(),
-        'paymentMethod': method.methodCode,
-        'paymentSessionId': sessionRef.id,
-        'paymentStatus': 'initiated',
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
-
-    await batch.commit();
     return sessionRef.id;
   }
 }
