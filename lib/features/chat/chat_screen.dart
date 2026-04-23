@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -22,12 +24,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool isSending = false;
   String senderRole = 'customer';
+  Timer? _typingTimer;
+  bool _typingActive = false;
 
   AppLocalizations get l10n => AppLocalizations.of(context);
 
   @override
   void initState() {
     super.initState();
+
+    messageController.addListener(_onTypingChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -46,9 +52,50 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    messageController.removeListener(_onTypingChanged);
+    _typingTimer?.cancel();
+    _stopTyping();
     messageController.dispose();
     scrollController.dispose();
     super.dispose();
+  }
+
+  void _onTypingChanged() {
+    final text = messageController.text.trim();
+
+    if (text.isEmpty) {
+      _stopTyping();
+      return;
+    }
+
+    _startTyping();
+  }
+
+  void _startTyping() {
+    if (!_typingActive) {
+      _typingActive = true;
+      ChatService.instance.setTyping(
+        chatId: widget.chatId,
+        isTyping: true,
+      );
+    }
+
+    _typingTimer?.cancel();
+    _typingTimer = Timer(const Duration(seconds: 4), () {
+      _stopTyping();
+    });
+  }
+
+  void _stopTyping() {
+    _typingTimer?.cancel();
+
+    if (_typingActive) {
+      _typingActive = false;
+      ChatService.instance.setTyping(
+        chatId: widget.chatId,
+        isTyping: false,
+      );
+    }
   }
 
   Future<void> _send() async {
@@ -66,6 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
         senderRole: auth.safeRole,
       );
 
+      _stopTyping();
       messageController.clear();
 
       if (scrollController.hasClients) {
@@ -308,7 +356,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildChatAppBarTitle(Map<String, dynamic>? chatData, String myUid) {
+  Widget _buildChatAppBarTitle(
+    Map<String, dynamic>? chatData,
+    String myUid, {
+    bool isOtherTyping = false,
+  }) {
     final customerId = (chatData?['customerId'] ?? '').toString().trim();
     final workerId = (chatData?['workerId'] ?? '').toString().trim();
 
@@ -331,10 +383,16 @@ class _ChatScreenState extends State<ChatScreen> {
         final name = (user?['name'] ?? widget.title).toString().trim();
         final role = (user?['role'] ?? '').toString().trim().toLowerCase();
 
-        String roleText = '';
-        if (role == 'customer') roleText = l10n.translate('customer');
-        if (role == 'worker') roleText = l10n.translate('worker');
-        if (role == 'driver') roleText = l10n.translate('driver');
+        String subtitle = '';
+        if (isOtherTyping) {
+          subtitle = l10n.translate('typing_now');
+        } else if (role == 'customer') {
+          subtitle = l10n.translate('customer');
+        } else if (role == 'worker') {
+          subtitle = l10n.translate('worker');
+        } else if (role == 'driver') {
+          subtitle = l10n.translate('driver');
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,10 +405,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            if (roleText.isNotEmpty)
+            if (subtitle.isNotEmpty)
               Text(
-                roleText,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
+                subtitle,
+                style: TextStyle(
+                  color: isOtherTyping ? Colors.lightGreenAccent : Colors.white60,
+                  fontSize: 12,
+                  fontWeight: isOtherTyping ? FontWeight.w700 : FontWeight.normal,
+                ),
               ),
           ],
         );
@@ -372,11 +434,15 @@ class _ChatScreenState extends State<ChatScreen> {
         final requestId = (chatData?['requestId'] ?? '').toString().trim();
 
         final customerId = (chatData?['customerId'] ?? '').toString().trim();
-        final workerId = (chatData?['workerId'] ?? '').toString().trim();
 
         final otherLastSeenAt = currentUserId == customerId
             ? _readTimestamp(chatData?['workerLastSeenAt'])
             : _readTimestamp(chatData?['customerLastSeenAt']);
+
+        final isOtherTyping = ChatService.instance.isOtherUserTyping(
+          chatData: chatData,
+          currentUserId: currentUserId,
+        );
 
         return Scaffold(
           backgroundColor: const Color(0xFF0F1115),
@@ -384,7 +450,11 @@ class _ChatScreenState extends State<ChatScreen> {
             backgroundColor: const Color(0xFF0F1115),
             elevation: 0,
             titleSpacing: 0,
-            title: _buildChatAppBarTitle(chatData, currentUserId),
+            title: _buildChatAppBarTitle(
+              chatData,
+              currentUserId,
+              isOtherTyping: isOtherTyping,
+            ),
           ),
           body: SafeArea(
             child: Column(

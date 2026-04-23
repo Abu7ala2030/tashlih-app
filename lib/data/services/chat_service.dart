@@ -104,6 +104,8 @@ class ChatService {
           },
           'customerLastSeenAt': existingData['customerLastSeenAt'],
           'workerLastSeenAt': existingData['workerLastSeenAt'],
+          'typingBy': existingData['typingBy'],
+          'typingUpdatedAt': existingData['typingUpdatedAt'],
           'updatedAt': FieldValue.serverTimestamp(),
           'isActive': true,
         }, SetOptions(merge: true));
@@ -138,6 +140,8 @@ class ChatService {
       },
       'customerLastSeenAt': null,
       'workerLastSeenAt': null,
+      'typingBy': null,
+      'typingUpdatedAt': null,
     });
 
     return doc.id;
@@ -229,6 +233,8 @@ class ChatService {
       'lastSenderId': uid,
       'updatedAt': FieldValue.serverTimestamp(),
       'isActive': true,
+      'typingBy': FieldValue.delete(),
+      'typingUpdatedAt': FieldValue.delete(),
       'customerUnreadCount': nextCustomerUnread,
       'workerUnreadCount': nextWorkerUnread,
       'unreadCount': {
@@ -325,6 +331,8 @@ class ChatService {
         },
         'customerLastSeenAt': null,
         'workerLastSeenAt': null,
+        'typingBy': null,
+        'typingUpdatedAt': null,
       }, SetOptions(merge: true));
       return;
     }
@@ -353,6 +361,8 @@ class ChatService {
         },
         'customerLastSeenAt': data['customerLastSeenAt'],
         'workerLastSeenAt': data['workerLastSeenAt'],
+        'typingBy': data['typingBy'],
+        'typingUpdatedAt': data['typingUpdatedAt'],
       }, SetOptions(merge: true));
     }
 
@@ -360,5 +370,52 @@ class ChatService {
       chatRef: doc,
       chatData: data,
     );
+  }
+
+  Future<void> setTyping({
+    required String chatId,
+    required bool isTyping,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null || uid.isEmpty) return;
+
+    final chatRef = _chatsRef.doc(chatId);
+
+    if (isTyping) {
+      await chatRef.set({
+        'typingBy': uid,
+        'typingUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return;
+    }
+
+    final snap = await chatRef.get();
+    final data = snap.data();
+    final typingBy = (data?['typingBy'] ?? '').toString();
+
+    if (typingBy == uid) {
+      await chatRef.set({
+        'typingBy': FieldValue.delete(),
+        'typingUpdatedAt': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+  }
+
+  bool isOtherUserTyping({
+    required Map<String, dynamic>? chatData,
+    required String currentUserId,
+  }) {
+    if (chatData == null) return false;
+
+    final typingBy = (chatData['typingBy'] ?? '').toString().trim();
+    if (typingBy.isEmpty || typingBy == currentUserId) return false;
+
+    final updatedAt = chatData['typingUpdatedAt'];
+    if (updatedAt is! Timestamp) return false;
+
+    final age = DateTime.now().difference(updatedAt.toDate());
+    return age.inSeconds <= 6;
   }
 }
