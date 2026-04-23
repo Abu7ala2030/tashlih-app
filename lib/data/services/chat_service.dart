@@ -102,6 +102,8 @@ class ChatService {
             'customer': _readNestedCount(existingData, 'customer'),
             'worker': _readNestedCount(existingData, 'worker'),
           },
+          'customerLastSeenAt': existingData['customerLastSeenAt'],
+          'workerLastSeenAt': existingData['workerLastSeenAt'],
           'updatedAt': FieldValue.serverTimestamp(),
           'isActive': true,
         }, SetOptions(merge: true));
@@ -134,6 +136,8 @@ class ChatService {
         'customer': 0,
         'worker': 0,
       },
+      'customerLastSeenAt': null,
+      'workerLastSeenAt': null,
     });
 
     return doc.id;
@@ -145,7 +149,10 @@ class ChatService {
       return const Stream.empty();
     }
 
-    return _chatsRef.where('participants', arrayContains: uid).snapshots();
+    return _chatsRef
+        .where('participants', arrayContains: uid)
+        .orderBy('lastMessageAt', descending: true)
+        .snapshots();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> streamMessages(String chatId) {
@@ -163,12 +170,12 @@ class ChatService {
   }) async {
     final uid = currentUserId;
     if (uid == null || uid.isEmpty) {
-      throw Exception('No authenticated user');
+      throw Exception('لا يوجد مستخدم مسجل');
     }
 
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
-      throw Exception('Message is empty');
+      throw Exception('الرسالة فارغة');
     }
 
     final chatRef = _chatsRef.doc(chatId);
@@ -176,7 +183,7 @@ class ChatService {
 
     final chatSnap = await chatRef.get();
     if (!chatSnap.exists) {
-      throw Exception('Chat not found');
+      throw Exception('المحادثة غير موجودة');
     }
 
     final chatData = chatSnap.data() ?? <String, dynamic>{};
@@ -187,7 +194,7 @@ class ChatService {
             : <String>[];
 
     if (!participants.contains(uid)) {
-      throw Exception('You are not allowed to send messages in this chat');
+      throw Exception('غير مصرح لك بإرسال رسالة في هذه المحادثة');
     }
 
     final receiverRole = senderRole == 'customer' ? 'worker' : 'customer';
@@ -272,7 +279,7 @@ class ChatService {
     final workerUnread =
         role == 'worker' ? 0 : _readFlatCount(chatData['workerUnreadCount']);
 
-    batch.set(chatRef, {
+    final updates = <String, dynamic>{
       'customerUnreadCount': customerUnread,
       'workerUnreadCount': workerUnread,
       'unreadCount': {
@@ -280,7 +287,15 @@ class ChatService {
         'worker': workerUnread,
       },
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    if (role == 'customer') {
+      updates['customerLastSeenAt'] = FieldValue.serverTimestamp();
+    } else if (role == 'worker') {
+      updates['workerLastSeenAt'] = FieldValue.serverTimestamp();
+    }
+
+    batch.set(chatRef, updates, SetOptions(merge: true));
 
     await batch.commit();
   }
@@ -308,6 +323,8 @@ class ChatService {
           'customer': 0,
           'worker': 0,
         },
+        'customerLastSeenAt': null,
+        'workerLastSeenAt': null,
       }, SetOptions(merge: true));
       return;
     }
@@ -334,6 +351,8 @@ class ChatService {
           'customer': _readNestedCount(data, 'customer'),
           'worker': _readNestedCount(data, 'worker'),
         },
+        'customerLastSeenAt': data['customerLastSeenAt'],
+        'workerLastSeenAt': data['workerLastSeenAt'],
       }, SetOptions(merge: true));
     }
 

@@ -146,6 +146,28 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Timestamp? _readTimestamp(dynamic value) {
+    if (value is Timestamp) return value;
+    return null;
+  }
+
+  String _messageStateText({
+    required bool isMe,
+    required Timestamp? messageCreatedAt,
+    required Timestamp? otherLastSeenAt,
+  }) {
+    if (!isMe || messageCreatedAt == null) return '';
+
+    if (otherLastSeenAt != null &&
+        otherLastSeenAt.toDate().isAfter(
+              messageCreatedAt.toDate().subtract(const Duration(seconds: 1)),
+            )) {
+      return l10n.translate('seen');
+    }
+
+    return l10n.translate('sent');
+  }
+
   Widget _buildRequestHeaderCard(String requestId) {
     if (requestId.trim().isEmpty) {
       return const SizedBox.shrink();
@@ -349,6 +371,13 @@ class _ChatScreenState extends State<ChatScreen> {
         final chatData = chatSnapshot.data?.data();
         final requestId = (chatData?['requestId'] ?? '').toString().trim();
 
+        final customerId = (chatData?['customerId'] ?? '').toString().trim();
+        final workerId = (chatData?['workerId'] ?? '').toString().trim();
+
+        final otherLastSeenAt = currentUserId == customerId
+            ? _readTimestamp(chatData?['workerLastSeenAt'])
+            : _readTimestamp(chatData?['customerLastSeenAt']);
+
         return Scaffold(
           backgroundColor: const Color(0xFF0F1115),
           appBar: AppBar(
@@ -421,6 +450,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             final senderId = (data['senderId'] ?? '').toString();
                             final type = (data['type'] ?? 'text').toString();
                             final text = (data['text'] ?? '').toString();
+                            final createdAt = _readTimestamp(data['createdAt']);
                             final isMe = senderId == currentUserId;
 
                             if (type == 'system') {
@@ -473,6 +503,12 @@ class _ChatScreenState extends State<ChatScreen> {
                               );
                             }
 
+                            final stateText = _messageStateText(
+                              isMe: isMe,
+                              messageCreatedAt: createdAt,
+                              otherLastSeenAt: otherLastSeenAt,
+                            );
+
                             return Align(
                               alignment: isMe
                                   ? Alignment.centerRight
@@ -509,12 +545,31 @@ class _ChatScreenState extends State<ChatScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 6),
-                                    Text(
-                                      _formatTime(data['createdAt']),
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 11,
-                                      ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _formatTime(data['createdAt']),
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        if (isMe && stateText.isNotEmpty) ...[
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            stateText,
+                                            style: TextStyle(
+                                              color: stateText ==
+                                                      l10n.translate('seen')
+                                                  ? Colors.lightGreenAccent
+                                                  : Colors.white54,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ],
                                 ),
