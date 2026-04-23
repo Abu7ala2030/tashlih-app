@@ -1,22 +1,65 @@
-# Firebase / Secrets
-serviceAccountKey.json
-*.json
-
-# BUT allow config json if needed
-!firebase.json
-!firestore.indexes.json
-!firestore.rules
-
-# Flutter
+# ----------------------------
+# Flutter / Dart
+# ----------------------------
 .dart_tool/
+.packages
+.pub/
 build/
-ios/Pods/
+coverage/
+
+# Flutter generated
+**/generated_plugin_registrant.dart
+
+# Android / iOS build caches
 android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
 
 # IDE
-.vscode/
 .idea/
+.vscode/
+*.iml
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# ----------------------------
+# Secrets / Env
+# ----------------------------
+.env
+.env.*
+*.pem
+*.p12
+*.jks
+*.keystore
+
+serviceAccountKey.json
+*serviceAccount*.json
+firebase-adminsdk*.json
+
+# Optional: keep Firebase config out of git
+# Uncomment these only if you do NOT want them in repo
+# android/app/google-services.json
+# ios/Runner/GoogleService-Info.plist
+
+# ----------------------------
+# Firebase local tools
+# ----------------------------
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# ----------------------------
+# Misc backups
+# ----------------------------
+*.bak
+*.tmp
+*.old
