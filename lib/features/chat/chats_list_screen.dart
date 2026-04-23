@@ -77,40 +77,35 @@ class ChatsListScreen extends StatelessWidget {
     return '${date.day}/${date.month}';
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _chatsStream(
-    String uid,
-    String role,
-  ) {
-    final chats = FirebaseFirestore.instance.collection('chats');
-
-    if (role == 'worker') {
-      return chats.where('workerId', isEqualTo: uid).snapshots();
-    }
-
-    if (role == 'customer') {
-      return chats.where('customerId', isEqualTo: uid).snapshots();
-    }
-
-    return chats.snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> _chatsStream(String uid) {
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .where('participants', arrayContains: uid)
+        .orderBy('lastMessageAt', descending: true)
+        .snapshots();
   }
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _sortedChats(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) {
-    final items = [...docs];
-
-    DateTime readDate(dynamic value) {
-      if (value is Timestamp) return value.toDate();
-      return DateTime.fromMillisecondsSinceEpoch(0);
+  int _resolveUnreadCount(Map<String, dynamic> chat, String uid, String customerId) {
+    final unreadCountMap = chat['unreadCount'];
+    if (unreadCountMap is Map) {
+      if (uid == customerId) {
+        final value = unreadCountMap['customer'];
+        if (value is num) return value.toInt();
+      } else {
+        final value = unreadCountMap['worker'];
+        if (value is num) return value.toInt();
+      }
     }
 
-    items.sort((a, b) {
-      final aDate = readDate(a.data()['lastMessageAt']);
-      final bDate = readDate(b.data()['lastMessageAt']);
-      return bDate.compareTo(aDate);
-    });
+    if (uid == customerId) {
+      final legacy = chat['customerUnreadCount'];
+      if (legacy is num) return legacy.toInt();
+    } else {
+      final legacy = chat['workerUnreadCount'];
+      if (legacy is num) return legacy.toInt();
+    }
 
-    return items;
+    return 0;
   }
 
   @override
@@ -118,7 +113,6 @@ class ChatsListScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final auth = context.watch<AuthProvider>();
     final uid = auth.uid ?? '';
-    final role = auth.safeRole;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1115),
@@ -138,7 +132,7 @@ class ChatsListScreen extends StatelessWidget {
               ),
             )
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _chatsStream(uid, role),
+              stream: _chatsStream(uid),
               builder: (context, chatSnapshot) {
                 if (chatSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -160,8 +154,7 @@ class ChatsListScreen extends StatelessWidget {
                   );
                 }
 
-                final rawDocs = chatSnapshot.data?.docs ?? [];
-                final chatDocs = _sortedChats(rawDocs);
+                final chatDocs = chatSnapshot.data?.docs ?? [];
 
                 if (chatDocs.isEmpty) {
                   return Center(
@@ -200,10 +193,9 @@ class ChatsListScreen extends StatelessWidget {
                           .snapshots(),
                       builder: (context, userSnapshot) {
                         final user = userSnapshot.data?.data() ?? {};
-                        final otherName =
-                            (user['name'] ?? l10n.translate('user'))
-                                .toString()
-                                .trim();
+                        final otherName = (user['name'] ?? l10n.translate('user'))
+                            .toString()
+                            .trim();
 
                         return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                           stream: FirebaseFirestore.instance
@@ -212,10 +204,10 @@ class ChatsListScreen extends StatelessWidget {
                               .snapshots(),
                           builder: (context, requestSnapshot) {
                             final request = requestSnapshot.data?.data() ?? {};
-                            final partName =
-                                (request['partName'] ?? l10n.translate('unnamed_request'))
-                                    .toString()
-                                    .trim();
+                            final partName = (request['partName'] ??
+                                    l10n.translate('unnamed_request'))
+                                .toString()
+                                .trim();
                             final vehicleMake =
                                 (request['vehicleMake'] ?? '').toString().trim();
                             final vehicleModel =
@@ -228,10 +220,8 @@ class ChatsListScreen extends StatelessWidget {
                             final vehicle =
                                 '$vehicleMake $vehicleModel $vehicleYear'.trim();
                             final statusColor = _statusColor(status);
-
-                            final unreadCount = uid == customerId
-                                ? (chat['customerUnreadCount'] ?? 0)
-                                : (chat['workerUnreadCount'] ?? 0);
+                            final unreadCount =
+                                _resolveUnreadCount(chat, uid, customerId);
 
                             final title = '$otherName • $partName';
 
@@ -314,8 +304,7 @@ class ChatsListScreen extends StatelessWidget {
                                                   fontSize: 11,
                                                 ),
                                               ),
-                                              if ((unreadCount is num) &&
-                                                  unreadCount > 0) ...[
+                                              if (unreadCount > 0) ...[
                                                 const SizedBox(height: 6),
                                                 Container(
                                                   padding:
