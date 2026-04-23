@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import fetch from "node-fetch";
 
 if (!admin.apps.length) {
   admin.initializeApp();

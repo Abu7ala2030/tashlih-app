@@ -22,9 +22,28 @@
       }
     }
   },
-  "functions": {
-    "source": "lib/firebase/functions"
-  },
+  "functions": [
+    {
+      "codebase": "default",
+      "source": "lib/firebase/functions"
+    },
+    {
+      "source": "functions",
+      "codebase": "functions",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
   "firestore": {
     "database": "(default)",
     "location": "nam5",
