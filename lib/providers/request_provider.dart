@@ -363,40 +363,32 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
-  void listenToWorkerRequests({
-  bool includeOpenRequests = false,
-}) {
-  final uid = currentUserId;
-  if (uid == null) {
-    requests = [];
-    _setError('لا يوجد مستخدم مسجل');
-    notifyListeners();
-    return;
-  }
+  void listenToWorkerRequests({bool includeOpenRequests = false}) {
+    final uid = currentUserId;
+    if (uid == null) {
+      requests = [];
+      _setError('لا يوجد مستخدم مسجل');
+      notifyListeners();
+      return;
+    }
 
-  if (!includeOpenRequests) {
+    if (!includeOpenRequests) {
+      final query = _db
+          .collection(FirestorePaths.requests)
+          .where('workerId', isEqualTo: uid)
+          .orderBy('updatedAt', descending: true);
+
+      _bindQuery(query, listenerName: 'worker_requests_assigned_only');
+      return;
+    }
+
     final query = _db
         .collection(FirestorePaths.requests)
-        .where('workerId', isEqualTo: uid)
+        .where('listedByWorkerId', isEqualTo: uid)
         .orderBy('updatedAt', descending: true);
 
-    _bindQuery(
-      query,
-      listenerName: 'worker_requests_assigned_only',
-    );
-    return;
+    _bindQuery(query, listenerName: 'worker_requests_listed_vehicle');
   }
-
-  final query = _db
-      .collection(FirestorePaths.requests)
-      .where('listedByWorkerId', isEqualTo: uid)
-      .orderBy('updatedAt', descending: true);
-
-  _bindQuery(
-    query,
-    listenerName: 'worker_requests_listed_vehicle',
-  );
-}
 
   void listenToDriverRequests() {
     final uid = currentUserId;
@@ -457,7 +449,13 @@ class RequestProvider extends ChangeNotifier {
     if (uid == null) {
       throw Exception('No authenticated user');
     }
-
+    final listedByWorkerId = (vehicle['listedByWorkerId'] ?? '')
+        .toString()
+        .trim();
+    final vehicleWorkerId = (vehicle['workerId'] ?? '').toString().trim();
+    final resolvedWorkerId = listedByWorkerId.isNotEmpty
+        ? listedByWorkerId
+        : vehicleWorkerId;
     final ref = await _db.collection(FirestorePaths.requests).add({
       'customerId': uid,
       'vehicleId': (vehicle['id'] ?? '').toString(),
@@ -474,7 +472,7 @@ class RequestProvider extends ChangeNotifier {
       'deliveryLat': deliveryLat,
       'deliveryLng': deliveryLng,
       'deliveryPlaceId': deliveryPlaceId ?? '',
-      'listedByWorkerId': (vehicle['listedByWorkerId'] ?? '').toString(),
+      'listedByWorkerId': resolvedWorkerId,
       'scrapyardName': (vehicle['scrapyardName'] ?? '').toString(),
       'scrapyardLocation': (vehicle['scrapyardLocation'] ?? '').toString(),
       'status': 'newRequest',
