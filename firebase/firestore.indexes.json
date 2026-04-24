@@ -65,6 +65,20 @@
       "order": "DESCENDING"
     }
   ]
+},
+{
+  "collectionGroup": "requests",
+  "queryScope": "COLLECTION",
+  "fields": [
+    {
+      "fieldPath": "assignedDriverId",
+      "order": "ASCENDING"
+    },
+    {
+      "fieldPath": "updatedAt",
+      "order": "DESCENDING"
+    }
+  ]
 }
   ],
   "fieldOverrides": []
