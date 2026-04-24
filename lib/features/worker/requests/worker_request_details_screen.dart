@@ -213,11 +213,6 @@ class _WorkerRequestDetailsScreenState
         price: price,
       );
 
-      await provider.updateRequestStatus(
-        requestId: _requestId,
-        status: 'available',
-      );
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.translate('offer_sent_successfully'))),

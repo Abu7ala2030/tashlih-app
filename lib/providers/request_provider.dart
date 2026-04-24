@@ -178,17 +178,18 @@ class RequestProvider extends ChangeNotifier {
   }
 
   Future<void> _sendUserNotification({
-    required String userId,
-    required String title,
-    required String body,
-    required String type,
-    required String requestId,
-    String? secondaryId,
-    Duration dedupWithin = const Duration(minutes: 10),
-    Map<String, dynamic>? extra,
-  }) async {
-    if (userId.trim().isEmpty) return;
+  required String userId,
+  required String title,
+  required String body,
+  required String type,
+  required String requestId,
+  String? secondaryId,
+  Duration dedupWithin = const Duration(minutes: 10),
+  Map<String, dynamic>? extra,
+}) async {
+  if (userId.trim().isEmpty) return;
 
+  try {
     final dedupKey = _notificationDedupKey(
       type: type,
       requestId: requestId,
@@ -208,16 +209,19 @@ class RequestProvider extends ChangeNotifier {
         .doc(userId)
         .collection('notifications')
         .add({
-          'title': title,
-          'body': body,
-          'type': type,
-          'requestId': requestId,
-          'dedupKey': dedupKey,
-          'isRead': false,
-          'createdAt': FieldValue.serverTimestamp(),
-          ...?extra,
-        });
+      'title': title,
+      'body': body,
+      'type': type,
+      'requestId': requestId,
+      'dedupKey': dedupKey,
+      'isRead': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      ...?extra,
+    });
+  } catch (e) {
+    debugPrint('Notification skipped: $e');
   }
+}
 
   Future<void> _incrementRequestNewOffersCounter({
     required String requestId,
