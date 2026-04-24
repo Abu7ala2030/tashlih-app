@@ -17,7 +17,7 @@ class RequestProvider extends ChangeNotifier {
   String? errorMessage;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
-  _requestsSubscription;
+      _requestsSubscription;
   String _activeListener = 'none';
 
   RequestProvider();
@@ -129,7 +129,7 @@ class RequestProvider extends ChangeNotifier {
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final isActive = data['isActive'];
-      if (isActive == true) {
+      if (isActive == true || isActive == null) {
         return doc.id;
       }
     }
@@ -178,50 +178,50 @@ class RequestProvider extends ChangeNotifier {
   }
 
   Future<void> _sendUserNotification({
-  required String userId,
-  required String title,
-  required String body,
-  required String type,
-  required String requestId,
-  String? secondaryId,
-  Duration dedupWithin = const Duration(minutes: 10),
-  Map<String, dynamic>? extra,
-}) async {
-  if (userId.trim().isEmpty) return;
+    required String userId,
+    required String title,
+    required String body,
+    required String type,
+    required String requestId,
+    String? secondaryId,
+    Duration dedupWithin = const Duration(minutes: 10),
+    Map<String, dynamic>? extra,
+  }) async {
+    if (userId.trim().isEmpty) return;
 
-  try {
-    final dedupKey = _notificationDedupKey(
-      type: type,
-      requestId: requestId,
-      secondaryId: secondaryId,
-    );
+    try {
+      final dedupKey = _notificationDedupKey(
+        type: type,
+        requestId: requestId,
+        secondaryId: secondaryId,
+      );
 
-    final isDuplicate = await _hasRecentDuplicateNotification(
-      userId: userId,
-      dedupKey: dedupKey,
-      within: dedupWithin,
-    );
+      final isDuplicate = await _hasRecentDuplicateNotification(
+        userId: userId,
+        dedupKey: dedupKey,
+        within: dedupWithin,
+      );
 
-    if (isDuplicate) return;
+      if (isDuplicate) return;
 
-    await _db
-        .collection(FirestorePaths.users)
-        .doc(userId)
-        .collection('notifications')
-        .add({
-      'title': title,
-      'body': body,
-      'type': type,
-      'requestId': requestId,
-      'dedupKey': dedupKey,
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-      ...?extra,
-    });
-  } catch (e) {
-    debugPrint('Notification skipped: $e');
+      await _db
+          .collection(FirestorePaths.users)
+          .doc(userId)
+          .collection('notifications')
+          .add({
+        'title': title,
+        'body': body,
+        'type': type,
+        'requestId': requestId,
+        'dedupKey': dedupKey,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        ...?extra,
+      });
+    } catch (e) {
+      debugPrint('Notification skipped: $e');
+    }
   }
-}
 
   Future<void> _incrementRequestNewOffersCounter({
     required String requestId,
@@ -281,15 +281,15 @@ class RequestProvider extends ChangeNotifier {
         .doc(requestId)
         .collection('timeline')
         .add({
-          'type': type,
-          'title': title,
-          'description': description,
-          'actorId': resolvedActorId,
-          'actorRole': resolvedActorRole,
-          'actorName': actorName,
-          'createdAt': FieldValue.serverTimestamp(),
-          ...?extra,
-        });
+      'type': type,
+      'title': title,
+      'description': description,
+      'actorId': resolvedActorId,
+      'actorRole': resolvedActorRole,
+      'actorName': actorName,
+      'createdAt': FieldValue.serverTimestamp(),
+      ...?extra,
+    });
   }
 
   void listenToAllRequests() {
@@ -453,13 +453,13 @@ class RequestProvider extends ChangeNotifier {
     if (uid == null) {
       throw Exception('No authenticated user');
     }
-    final listedByWorkerId = (vehicle['listedByWorkerId'] ?? '')
-        .toString()
-        .trim();
+
+    final listedByWorkerId =
+        (vehicle['listedByWorkerId'] ?? '').toString().trim();
     final vehicleWorkerId = (vehicle['workerId'] ?? '').toString().trim();
-    final resolvedWorkerId = listedByWorkerId.isNotEmpty
-        ? listedByWorkerId
-        : vehicleWorkerId;
+    final resolvedWorkerId =
+        listedByWorkerId.isNotEmpty ? listedByWorkerId : vehicleWorkerId;
+
     final ref = await _db.collection(FirestorePaths.requests).add({
       'customerId': uid,
       'vehicleId': (vehicle['id'] ?? '').toString(),
@@ -829,179 +829,216 @@ class RequestProvider extends ChangeNotifier {
   }
 
   Future<void> acceptOffer({
-  required String requestId,
-  required String offerId,
-  required String workerId,
-}) async {
-  final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
-  final offerRef = requestRef.collection('offers').doc(offerId);
+    required String requestId,
+    required String offerId,
+    required String workerId,
+  }) async {
+    final requestRef = _db.collection(FirestorePaths.requests).doc(requestId);
+    final offerRef = requestRef.collection('offers').doc(offerId);
 
-  await _db.runTransaction((transaction) async {
-    final requestSnap = await transaction.get(requestRef);
-    final offerSnap = await transaction.get(offerRef);
+    final driverId = await _findPrimaryDriverId();
 
-    if (!requestSnap.exists) {
-      throw Exception('Request not found');
-    }
+    await _db.runTransaction((transaction) async {
+      final requestSnap = await transaction.get(requestRef);
+      final offerSnap = await transaction.get(offerRef);
 
-    if (!offerSnap.exists) {
-      throw Exception('Offer not found');
-    }
+      if (!requestSnap.exists) {
+        throw Exception('Request not found');
+      }
 
+      if (!offerSnap.exists) {
+        throw Exception('Offer not found');
+      }
+
+      final requestData = requestSnap.data() ?? {};
+      final offerData = offerSnap.data() ?? {};
+
+      final status = (requestData['status'] ?? '').toString();
+
+      if (status == 'assigned' ||
+          status == 'shipped' ||
+          status == 'delivered' ||
+          status == 'cancelled') {
+        throw Exception('An offer has already been selected');
+      }
+
+      final acceptedOfferPrice = (offerData['price'] is num)
+          ? (offerData['price'] as num).toDouble()
+          : 0.0;
+
+      final listedByWorkerId =
+          (requestData['listedByWorkerId'] ?? '').toString();
+
+      final commissionEligible =
+          listedByWorkerId.isNotEmpty && listedByWorkerId == workerId;
+
+      final updateData = <String, dynamic>{
+        'workerId': workerId,
+        'acceptedOfferId': offerId,
+        'acceptedOfferPrice': acceptedOfferPrice,
+        'commissionEligible': commissionEligible,
+        'commissionBaseAmount': acceptedOfferPrice,
+        'newOffersCount': 0,
+        'bestOfferPrice': acceptedOfferPrice,
+        'status': 'assigned',
+        'deliveryStatus':
+            driverId != null && driverId.isNotEmpty
+                ? 'pending_pickup'
+                : 'awaiting_driver_assignment',
+        'assignedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (driverId != null && driverId.isNotEmpty) {
+        updateData['assignedDriverId'] = driverId;
+        updateData['driverAssignedAt'] = FieldValue.serverTimestamp();
+      }
+
+      transaction.update(requestRef, updateData);
+
+      transaction.update(offerRef, {
+        'status': 'accepted',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      final offersSnap = await requestRef.collection('offers').get();
+
+      for (final doc in offersSnap.docs) {
+        if (doc.id != offerId) {
+          transaction.update(doc.reference, {
+            'status': 'rejected',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    });
+
+    final requestSnap = await requestRef.get();
     final requestData = requestSnap.data() ?? {};
-    final offerData = offerSnap.data() ?? {};
 
-    final status = (requestData['status'] ?? '').toString();
-
-    if (status == 'assigned' ||
-        status == 'shipped' ||
-        status == 'delivered' ||
-        status == 'cancelled') {
-      throw Exception('An offer has already been selected');
-    }
-
-    final acceptedOfferPrice = (offerData['price'] is num)
-        ? (offerData['price'] as num).toDouble()
+    final acceptedOfferPrice = (requestData['acceptedOfferPrice'] is num)
+        ? (requestData['acceptedOfferPrice'] as num).toDouble()
         : 0.0;
 
-    final listedByWorkerId =
-        (requestData['listedByWorkerId'] ?? '').toString();
+    final customerId = (requestData['customerId'] ?? '').toString();
+    final assignedDriverId = (requestData['assignedDriverId'] ?? '').toString();
 
-    final commissionEligible =
-        listedByWorkerId.isNotEmpty && listedByWorkerId == workerId;
+    try {
+      await _addTimelineEvent(
+        requestId: requestId,
+        type: 'offer_accepted',
+        title: 'Offer selected',
+        description:
+            'A price offer was accepted and the worker was assigned to the request.',
+        actorId: currentUserId ?? '',
+        actorRole: 'customer',
+        extra: {
+          'offerId': offerId,
+          'workerId': workerId,
+          'price': acceptedOfferPrice,
+        },
+      );
+    } catch (e) {
+      debugPrint('Offer accepted timeline skipped: $e');
+    }
 
-    transaction.update(requestRef, {
-      'workerId': workerId,
-      'acceptedOfferId': offerId,
-      'acceptedOfferPrice': acceptedOfferPrice,
-      'commissionEligible': commissionEligible,
-      'commissionBaseAmount': acceptedOfferPrice,
-      'newOffersCount': 0,
-      'bestOfferPrice': acceptedOfferPrice,
-      'status': 'assigned',
-      'deliveryStatus': 'awaiting_driver_assignment',
-      'assignedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await _sendUserNotification(
+        userId: workerId,
+        title: 'تم قبول عرضك',
+        body: 'تم قبول عرضك على الطلب وبدء التنفيذ.',
+        type: 'offer_accepted',
+        requestId: requestId,
+        secondaryId: offerId,
+      );
+    } catch (e) {
+      debugPrint('Offer accepted notification skipped: $e');
+    }
 
-    transaction.update(offerRef, {
-      'status': 'accepted',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await ChatService.instance.createOrGetChat(
+        requestId: requestId,
+        customerId: customerId,
+        workerId: workerId,
+      );
+    } catch (e) {
+      debugPrint('Create chat skipped after offer accepted: $e');
+    }
 
-    final offersSnap = await requestRef.collection('offers').get();
+    try {
+      if (assignedDriverId.isNotEmpty) {
+        await _addTimelineEvent(
+          requestId: requestId,
+          type: 'driver_assigned',
+          title: 'Driver assigned',
+          description: 'The request was assigned to the driver for delivery.',
+          actorId: currentUserId ?? '',
+          actorRole: 'system',
+          extra: {'driverId': assignedDriverId},
+        );
 
-    for (final doc in offersSnap.docs) {
-      if (doc.id != offerId) {
-        transaction.update(doc.reference, {
-          'status': 'rejected',
+        await _sendUserNotification(
+          userId: assignedDriverId,
+          title: 'تم إسناد طلب جديد لك',
+          body: 'يوجد طلب جديد بانتظار الاستلام والتوصيل.',
+          type: 'driver_assigned',
+          requestId: requestId,
+          dedupWithin: const Duration(hours: 12),
+          extra: {'deliveryStatus': 'pending_pickup'},
+        );
+
+        if (customerId.isNotEmpty) {
+          await _sendUserNotification(
+            userId: customerId,
+            title: 'تم تعيين سائق للطلب',
+            body: 'تم تعيين سائق لطلبك وسيبدأ الاستلام قريبًا.',
+            type: 'driver_assigned_customer',
+            requestId: requestId,
+            dedupWithin: const Duration(hours: 12),
+          );
+        }
+      } else {
+        await _addTimelineEvent(
+          requestId: requestId,
+          type: 'driver_assignment_pending',
+          title: 'Waiting for driver assignment',
+          description:
+              'The offer was accepted, but there is no active driver account ready yet.',
+          actorId: currentUserId ?? '',
+          actorRole: 'system',
+        );
+      }
+    } catch (e) {
+      debugPrint('Driver post-accept steps skipped: $e');
+    }
+
+    try {
+      if ((requestData['commissionEligible'] ?? false) == true) {
+        const commissionPercent = 10.0;
+        final commissionAmount = acceptedOfferPrice * commissionPercent / 100;
+
+        await _db.collection(FirestorePaths.commissions).add({
+          'requestId': requestId,
+          'offerId': offerId,
+          'workerId': workerId,
+          'saleAmount': acceptedOfferPrice,
+          'commissionBaseAmount': acceptedOfferPrice,
+          'commissionPercent': commissionPercent,
+          'commissionAmount': commissionAmount,
+          'commissionStatus': 'pending',
+          'partName': (requestData['partName'] ?? '').toString(),
+          'city': (requestData['city'] ?? '').toString(),
+          'scrapyardName': (requestData['scrapyardName'] ?? '').toString(),
+          'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
+    } catch (e) {
+      debugPrint('Commission creation skipped after offer accepted: $e');
     }
-  });
 
-  final requestSnap = await requestRef.get();
-  final requestData = requestSnap.data() ?? {};
-
-  final acceptedOfferPrice = (requestData['acceptedOfferPrice'] is num)
-      ? (requestData['acceptedOfferPrice'] as num).toDouble()
-      : 0.0;
-
-  final customerId = (requestData['customerId'] ?? '').toString();
-
-  try {
-    await _addTimelineEvent(
-      requestId: requestId,
-      type: 'offer_accepted',
-      title: 'Offer selected',
-      description:
-          'A price offer was accepted and the worker was assigned to the request.',
-      actorId: currentUserId ?? '',
-      actorRole: 'customer',
-      extra: {
-        'offerId': offerId,
-        'workerId': workerId,
-        'price': acceptedOfferPrice,
-      },
-    );
-  } catch (e) {
-    debugPrint('Offer accepted timeline skipped: $e');
+    notifyListeners();
   }
-
-  try {
-    await _sendUserNotification(
-      userId: workerId,
-      title: 'تم قبول عرضك',
-      body: 'تم قبول عرضك على الطلب وبدء التنفيذ.',
-      type: 'offer_accepted',
-      requestId: requestId,
-      secondaryId: offerId,
-    );
-  } catch (e) {
-    debugPrint('Offer accepted notification skipped: $e');
-  }
-
-  try {
-    await ChatService.instance.createOrGetChat(
-      requestId: requestId,
-      customerId: customerId,
-      workerId: workerId,
-    );
-  } catch (e) {
-    debugPrint('Create chat skipped after offer accepted: $e');
-  }
-
-  try {
-    final driverId = await _findPrimaryDriverId();
-
-    if (driverId != null && driverId.isNotEmpty) {
-      await assignRequestToDriver(
-        requestId: requestId,
-        driverId: driverId,
-      );
-    } else {
-      await _addTimelineEvent(
-        requestId: requestId,
-        type: 'driver_assignment_pending',
-        title: 'Waiting for driver assignment',
-        description:
-            'The offer was accepted, but there is no active driver account ready yet.',
-        actorId: currentUserId ?? '',
-        actorRole: 'system',
-      );
-    }
-  } catch (e) {
-    debugPrint('Driver assignment skipped after offer accepted: $e');
-  }
-
-  try {
-    if ((requestData['commissionEligible'] ?? false) == true) {
-      const commissionPercent = 10.0;
-      final commissionAmount = acceptedOfferPrice * commissionPercent / 100;
-
-      await _db.collection(FirestorePaths.commissions).add({
-        'requestId': requestId,
-        'offerId': offerId,
-        'workerId': workerId,
-        'saleAmount': acceptedOfferPrice,
-        'commissionBaseAmount': acceptedOfferPrice,
-        'commissionPercent': commissionPercent,
-        'commissionAmount': commissionAmount,
-        'commissionStatus': 'pending',
-        'partName': (requestData['partName'] ?? '').toString(),
-        'city': (requestData['city'] ?? '').toString(),
-        'scrapyardName': (requestData['scrapyardName'] ?? '').toString(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
-  } catch (e) {
-    debugPrint('Commission creation skipped after offer accepted: $e');
-  }
-
-  notifyListeners();
-}
 
   Future<void> rejectOffer({
     required String requestId,
