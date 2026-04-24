@@ -35,11 +35,6 @@ class AddressSearchService {
 
   static final AddressSearchService instance = AddressSearchService._();
 
-  /// أولوية المفتاح:
-  /// 1) --dart-define=GOOGLE_MAPS_API_KEY
-  /// 2) fallback ثابت مؤقتًا حتى لا يتعطل البحث أثناء الاختبار
-  ///
-  /// بعد اكتمال الاختبارات يمكنك إبقاء dart-define فقط وحذف fallback.
   static const String _fallbackApiKey =
       'AIzaSyCADmgFQlwAywKfu5JmXKLeuhnCRlVhcDY';
 
@@ -58,15 +53,101 @@ class AddressSearchService {
     double? latitude,
     double? longitude,
   }) async {
-    if (_apiKey.isEmpty) {
-      throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define أو أضف fallback key',
-      );
-    }
-
     final query = input.trim();
     if (query.isEmpty) return const [];
 
+    print('ADDRESS_SEARCH_QUERY: $query');
+
+    try {
+      final legacy = await _autocompleteLegacy(
+        query,
+        sessionToken: sessionToken,
+      );
+
+      print('LEGACY_RESULTS_COUNT: ${legacy.length}');
+
+      if (legacy.isNotEmpty) return legacy;
+    } catch (e) {
+      print('LEGACY_AUTOCOMPLETE_ERROR: $e');
+    }
+
+    try {
+      final newer = await _autocompleteNew(
+        query,
+        sessionToken: sessionToken,
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      print('NEW_RESULTS_COUNT: ${newer.length}');
+
+      return newer;
+    } catch (e) {
+      print('NEW_AUTOCOMPLETE_ERROR: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<AddressSuggestion>> _autocompleteLegacy(
+    String query, {
+    String? sessionToken,
+  }) async {
+    final uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/place/autocomplete/json',
+      {
+        'input': query,
+        'key': _apiKey,
+        'language': 'ar',
+        'components': 'country:sa',
+        'sessiontoken':
+            sessionToken ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      },
+    );
+
+    print('LEGACY_AUTOCOMPLETE_URL: $uri');
+
+    final response = await http.get(uri).timeout(const Duration(seconds: 12));
+
+    print('LEGACY_AUTOCOMPLETE: ${response.statusCode} ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Legacy autocomplete HTTP ${response.statusCode}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final status = (json['status'] ?? '').toString();
+
+    if (status == 'ZERO_RESULTS') return const [];
+
+    if (status != 'OK') {
+      throw Exception(
+        'Legacy autocomplete failed: $status - ${(json['error_message'] ?? '').toString()}',
+      );
+    }
+
+    final predictions = json['predictions'] as List<dynamic>? ?? [];
+
+    return predictions.map((item) {
+      final data = item as Map<String, dynamic>;
+      final formatting =
+          data['structured_formatting'] as Map<String, dynamic>? ?? {};
+
+      return AddressSuggestion(
+        placeId: (data['place_id'] ?? '').toString(),
+        primaryText: (formatting['main_text'] ?? '').toString(),
+        secondaryText: (formatting['secondary_text'] ?? '').toString(),
+        fullText: (data['description'] ?? '').toString(),
+      );
+    }).where((s) => s.placeId.isNotEmpty).toList();
+  }
+
+  Future<List<AddressSuggestion>> _autocompleteNew(
+    String query, {
+    String? sessionToken,
+    double? latitude,
+    double? longitude,
+  }) async {
     final body = <String, dynamic>{
       'input': query,
       'languageCode': 'ar',
@@ -87,19 +168,25 @@ class AddressSearchService {
       };
     }
 
-    final response = await http.post(
-      Uri.parse('https://places.googleapis.com/v1/places:autocomplete'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': _apiKey,
-        'X-Goog-FieldMask':
-            'suggestions.placePrediction.placeId,'
-            'suggestions.placePrediction.text.text,'
-            'suggestions.placePrediction.structuredFormat.mainText.text,'
-            'suggestions.placePrediction.structuredFormat.secondaryText.text',
-      },
-      body: jsonEncode(body),
-    );
+    print('NEW_AUTOCOMPLETE_BODY: ${jsonEncode(body)}');
+
+    final response = await http
+        .post(
+          Uri.parse('https://places.googleapis.com/v1/places:autocomplete'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': _apiKey,
+            'X-Goog-FieldMask':
+                'suggestions.placePrediction.placeId,'
+                'suggestions.placePrediction.text.text,'
+                'suggestions.placePrediction.structuredFormat.mainText.text,'
+                'suggestions.placePrediction.structuredFormat.secondaryText.text',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 12));
+
+    print('NEW_AUTOCOMPLETE: ${response.statusCode} ${response.body}');
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
@@ -108,7 +195,7 @@ class AddressSearchService {
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final suggestions = (json['suggestions'] as List<dynamic>? ?? []);
+    final suggestions = json['suggestions'] as List<dynamic>? ?? [];
 
     return suggestions
         .map((item) => item as Map<String, dynamic>)
@@ -116,18 +203,22 @@ class AddressSearchService {
         .whereType<Map<String, dynamic>>()
         .map((prediction) {
       final structured =
-          (prediction['structuredFormat'] as Map<String, dynamic>? ?? {});
+          prediction['structuredFormat'] as Map<String, dynamic>? ?? {};
+
       final mainText =
-          ((structured['mainText'] as Map<String, dynamic>? ?? {})['text'] ?? '')
-              .toString();
-      final secondaryText = ((structured['secondaryText']
-                  as Map<String, dynamic>? ??
-              {})['text'] ??
-          '')
-          .toString();
+          (structured['mainText'] as Map<String, dynamic>? ?? {})['text']
+                  ?.toString() ??
+              '';
+
+      final secondaryText =
+          (structured['secondaryText'] as Map<String, dynamic>? ?? {})['text']
+                  ?.toString() ??
+              '';
+
       final fullText =
-          ((prediction['text'] as Map<String, dynamic>? ?? {})['text'] ?? '')
-              .toString();
+          (prediction['text'] as Map<String, dynamic>? ?? {})['text']
+                  ?.toString() ??
+              '';
 
       return AddressSuggestion(
         placeId: (prediction['placeId'] ?? '').toString(),
@@ -139,20 +230,77 @@ class AddressSearchService {
   }
 
   Future<AddressDetails> getPlaceDetails(String placeId) async {
-    if (_apiKey.isEmpty) {
+    try {
+      return await _getPlaceDetailsLegacy(placeId);
+    } catch (e) {
+      print('LEGACY_PLACE_DETAILS_ERROR: $e');
+      return _getPlaceDetailsNew(placeId);
+    }
+  }
+
+  Future<AddressDetails> _getPlaceDetailsLegacy(String placeId) async {
+    final uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/place/details/json',
+      {
+        'place_id': placeId,
+        'key': _apiKey,
+        'language': 'ar',
+        'fields': 'place_id,formatted_address,geometry',
+      },
+    );
+
+    print('LEGACY_PLACE_DETAILS_URL: $uri');
+
+    final response = await http.get(uri).timeout(const Duration(seconds: 12));
+
+    print('LEGACY_PLACE_DETAILS: ${response.statusCode} ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Legacy place details HTTP ${response.statusCode}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final status = (json['status'] ?? '').toString();
+
+    if (status != 'OK') {
       throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define أو أضف fallback key',
+        'Legacy place details failed: $status - ${(json['error_message'] ?? '').toString()}',
       );
     }
 
-    final response = await http.get(
-      Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': _apiKey,
-        'X-Goog-FieldMask': 'id,formattedAddress,location',
-      },
+    final result = json['result'] as Map<String, dynamic>? ?? {};
+    final geometry = result['geometry'] as Map<String, dynamic>? ?? {};
+    final location = geometry['location'] as Map<String, dynamic>? ?? {};
+
+    final lat = (location['lat'] as num?)?.toDouble();
+    final lng = (location['lng'] as num?)?.toDouble();
+
+    if (lat == null || lng == null) {
+      throw Exception('لم يتم العثور على إحداثيات للموقع المحدد');
+    }
+
+    return AddressDetails(
+      placeId: (result['place_id'] ?? placeId).toString(),
+      formattedAddress: (result['formatted_address'] ?? '').toString(),
+      lat: lat,
+      lng: lng,
     );
+  }
+
+  Future<AddressDetails> _getPlaceDetailsNew(String placeId) async {
+    final response = await http
+        .get(
+          Uri.parse('https://places.googleapis.com/v1/places/$placeId'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': _apiKey,
+            'X-Goog-FieldMask': 'id,formattedAddress,location',
+          },
+        )
+        .timeout(const Duration(seconds: 12));
+
+    print('NEW_PLACE_DETAILS: ${response.statusCode} ${response.body}');
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
@@ -161,7 +309,8 @@ class AddressSearchService {
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final location = (json['location'] as Map<String, dynamic>? ?? {});
+    final location = json['location'] as Map<String, dynamic>? ?? {};
+
     final lat = (location['latitude'] as num?)?.toDouble();
     final lng = (location['longitude'] as num?)?.toDouble();
 
@@ -181,31 +330,37 @@ class AddressSearchService {
     required double latitude,
     required double longitude,
   }) async {
-    if (_apiKey.isEmpty) {
-      throw Exception(
-        'GOOGLE_MAPS_API_KEY غير مضاف. شغّل التطبيق باستخدام --dart-define أو أضف fallback key',
-      );
-    }
-
-    final response = await http.get(
-      Uri.parse(
-        'https://geocode.googleapis.com/v4beta/geocode/location/'
-        '$latitude,$longitude'
-        '?languageCode=ar&regionCode=SA&key=$_apiKey',
-      ),
-      headers: const {
-        'Content-Type': 'application/json',
+    final uri = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/geocode/json',
+      {
+        'latlng': '$latitude,$longitude',
+        'key': _apiKey,
+        'language': 'ar',
+        'region': 'sa',
       },
     );
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'فشل جلب عنوان الموقع الحالي: ${response.statusCode} - ${response.body}',
-      );
+    print('REVERSE_GEOCODE_URL: $uri');
+
+    final response = await http.get(uri).timeout(const Duration(seconds: 12));
+
+    print('REVERSE_GEOCODE: ${response.statusCode} ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('فشل جلب عنوان الموقع الحالي: ${response.statusCode}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final results = (json['results'] as List<dynamic>? ?? []);
+    final status = (json['status'] ?? '').toString();
+
+    if (status != 'OK' && status != 'ZERO_RESULTS') {
+      throw Exception(
+        'فشل جلب عنوان الموقع الحالي: $status - ${(json['error_message'] ?? '').toString()}',
+      );
+    }
+
+    final results = json['results'] as List<dynamic>? ?? [];
 
     if (results.isEmpty) {
       return '$latitude, $longitude';
@@ -213,9 +368,10 @@ class AddressSearchService {
 
     final first = results.first as Map<String, dynamic>;
     final formattedAddress =
-        (first['formattedAddress'] ?? '').toString().trim();
+        (first['formatted_address'] ?? '').toString().trim();
 
-    if (formattedAddress.isNotEmpty) return formattedAddress;
-    return '$latitude, $longitude';
+    return formattedAddress.isNotEmpty
+        ? formattedAddress
+        : '$latitude, $longitude';
   }
 }
