@@ -363,27 +363,86 @@ class RequestProvider extends ChangeNotifier {
     );
   }
 
-  void listenToWorkerRequests({bool includeOpenRequests = false}) {
-    final uid = currentUserId;
-    if (uid == null) {
-      requests = [];
-      _setError('No authenticated user');
-      notifyListeners();
-      return;
-    }
+  void listenToWorkerRequests({
+  bool includeOpenRequests = false,
+}) {
+  final uid = currentUserId;
+  if (uid == null) {
+    requests = [];
+    _setError('لا يوجد مستخدم مسجل');
+    notifyListeners();
+    return;
+  }
 
-    if (includeOpenRequests) {
-      listenToOpenRequests();
-      return;
-    }
+  _requestsSubscription?.cancel();
+  _activeListener = includeOpenRequests
+      ? 'worker_requests_with_open_vehicle_requests'
+      : 'worker_requests_assigned_only';
 
+  _setLoading(true);
+  _setError(null);
+
+  if (!includeOpenRequests) {
     final query = _db
         .collection(FirestorePaths.requests)
         .where('workerId', isEqualTo: uid)
         .orderBy('updatedAt', descending: true);
 
-    _bindQuery(query, listenerName: 'worker_requests_assigned_only');
+    _bindQuery(
+      query,
+      listenerName: 'worker_requests_assigned_only',
+    );
+    return;
   }
+
+  final query = _db.collection(FirestorePaths.requests);
+
+  _requestsSubscription = query.snapshots().listen(
+    (snapshot) {
+      final allowedOpenStatuses = {
+        'newRequest',
+        'checkingAvailability',
+        'available',
+      };
+
+      final items = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).where((item) {
+        final status = (item['status'] ?? '').toString();
+        final listedByWorkerId = (item['listedByWorkerId'] ?? '').toString();
+        final workerId = (item['workerId'] ?? '').toString();
+
+        final isAssignedToMe = workerId == uid;
+
+        final isOpenForMyVehicle =
+            listedByWorkerId == uid && allowedOpenStatuses.contains(status);
+
+        return isAssignedToMe || isOpenForMyVehicle;
+      }).toList();
+
+      DateTime readDate(dynamic value) {
+        if (value is Timestamp) return value.toDate();
+        return DateTime.fromMillisecondsSinceEpoch(0);
+      }
+
+      items.sort((a, b) {
+        final aDate = readDate(a['updatedAt'] ?? a['createdAt']);
+        final bDate = readDate(b['updatedAt'] ?? b['createdAt']);
+        return bDate.compareTo(aDate);
+      });
+
+      requests = items;
+      _setLoading(false);
+    },
+    onError: (error) {
+      requests = [];
+      _setError(error.toString());
+      _setLoading(false);
+    },
+  );
+}
 
   void listenToDriverRequests() {
     final uid = currentUserId;
