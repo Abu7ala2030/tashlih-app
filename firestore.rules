@@ -46,16 +46,16 @@ service cloud.firestore {
     }
 
     function isRequestParticipant(data) {
-      return isAuthenticated() &&
-        data != null && (
-          isAdmin() ||
-          request.auth.uid == data.customerId ||
-          rrequest.auth.uid == data.workerId ||
-          request.auth.uid == data.listedByWorkerId ||
-          request.auth.uid == data.driverId ||
-          request.auth.uid == data.assignedDriverId
-        );
-    }
+  return isAuthenticated() &&
+    data != null && (
+      isAdmin() ||
+      request.auth.uid == data.customerId ||
+      request.auth.uid == data.workerId ||
+      request.auth.uid == data.listedByWorkerId ||
+      request.auth.uid == data.driverId ||
+      request.auth.uid == data.assignedDriverId
+    );
+}
 
     function canReadRequest(data) {
       return isRequestParticipant(data);

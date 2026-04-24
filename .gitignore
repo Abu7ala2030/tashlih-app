@@ -63,3 +63,25 @@ ui-debug.log
 *.bak
 *.tmp
 *.old
+# Firebase
+serviceAccountKey.json
+google-services.json
+firebase_options.dart
+
+# Flutter / Dart
+.dart_tool/
+build/
+.packages
+.pub-cache/
+pubspec.lock
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

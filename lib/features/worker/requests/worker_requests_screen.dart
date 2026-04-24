@@ -26,15 +26,15 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RequestProvider>().listenToWorkerRequests(
-            includeOpenRequests: true,
-          );
+        includeOpenRequests: true,
+      );
     });
   }
 
   void _reload() {
     context.read<RequestProvider>().listenToWorkerRequests(
-          includeOpenRequests: true,
-        );
+      includeOpenRequests: true,
+    );
   }
 
   @override
@@ -49,9 +49,7 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
 
     if (provider.isLoading) {
       return const Scaffold(
-        body: AppGradientBackground(
-          child: SafeArea(child: AppShimmerLoader()),
-        ),
+        body: AppGradientBackground(child: SafeArea(child: AppShimmerLoader())),
       );
     }
 
@@ -61,7 +59,9 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
           child: SafeArea(
             child: AppErrorView(
               message: provider.errorMessage!,
-              onRetry: _reload,
+              onRetry: () => context
+                  .read<RequestProvider>()
+                  .listenToWorkerRequests(includeOpenRequests: true),
             ),
           ),
         ),
@@ -92,10 +92,7 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                         SizedBox(height: 8),
                         Text(
                           'راجع الطلبات الجديدة المرتبطة بمركباتك وأكمل تتبع الطلبات التي تم اختيار عروضك فيها',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            height: 1.5,
-                          ),
+                          style: TextStyle(color: Colors.white70, height: 1.5),
                         ),
                       ],
                     ),
@@ -119,8 +116,7 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                             label: 'جديد',
                             value: allRequests
                                 .where(
-                                  (r) =>
-                                      (r['status'] ?? '') == 'newRequest',
+                                  (r) => (r['status'] ?? '') == 'newRequest',
                                 )
                                 .length
                                 .toString(),
@@ -132,9 +128,7 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                           child: StatCard(
                             label: 'معينة',
                             value: allRequests
-                                .where(
-                                  (r) => (r['status'] ?? '') == 'assigned',
-                                )
+                                .where((r) => (r['status'] ?? '') == 'assigned')
                                 .length
                                 .toString(),
                             icon: Icons.verified_outlined,
@@ -253,16 +247,17 @@ class _WorkerRequestsScreenState extends State<WorkerRequestsScreen> {
                               '${request['vehicleMake'] ?? ''} ${request['vehicleModel'] ?? ''} ${request['vehicleYear'] ?? ''}\n'
                               'المدينة: ${request['city'] ?? '-'}'
                               '${_extraSubtitle(request)}',
-                          imageUrl:
-                              (request['vehicleCoverImage'] ?? '').toString(),
+                          imageUrl: (request['vehicleCoverImage'] ?? '')
+                              .toString(),
                           statusText: _statusText(status),
                           statusColor: _statusColor(status),
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    WorkerRequestDetailsScreen(request: request),
+                                builder: (_) => WorkerRequestDetailsScreen(
+                                  request: request,
+                                ),
                               ),
                             );
                           },
