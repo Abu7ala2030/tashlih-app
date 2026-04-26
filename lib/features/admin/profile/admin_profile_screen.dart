@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/localization/app_localizations.dart';
@@ -6,9 +8,56 @@ import '../../../core/widgets/app_gradient_background.dart';
 class AdminProfileScreen extends StatelessWidget {
   const AdminProfileScreen({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('تسجيل الخروج'),
+          content: const Text('هل أنت متأكد أنك تريد تسجيل الخروج؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.logout),
+              label: const Text('تسجيل الخروج'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    await FirebaseAuth.instance.signOut();
+
+    if (!context.mounted) return;
+
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+  }
+
+  Stream<int> _countStream(String collection) {
+    return FirebaseFirestore.instance.collection(collection).snapshots().map(
+          (snapshot) => snapshot.docs.length,
+        );
+  }
+
+  Stream<int> _usersByRoleCount(String role) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: role)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final email = firebaseUser?.email ?? 'admin@demo.com';
 
     return Scaffold(
       body: AppGradientBackground(
@@ -60,7 +109,10 @@ class AdminProfileScreen extends StatelessWidget {
                         const CircleAvatar(
                           radius: 34,
                           backgroundColor: Colors.white10,
-                          child: Icon(Icons.admin_panel_settings_outlined, size: 34),
+                          child: Icon(
+                            Icons.admin_panel_settings_outlined,
+                            size: 34,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -76,7 +128,7 @@ class AdminProfileScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'admin@demo.com',
+                                email,
                                 style: const TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.w600,
@@ -104,26 +156,88 @@ class AdminProfileScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.translate('vehicles'),
-                          value: '128',
-                          icon: Icons.directions_car_outlined,
+                        child: StreamBuilder<int>(
+                          stream: _countStream('vehicles'),
+                          builder: (context, snapshot) {
+                            return _MiniStatCard(
+                              label: l10n.translate('vehicles'),
+                              value: '${snapshot.data ?? 0}',
+                              icon: Icons.directions_car_outlined,
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.translate('requests'),
-                          value: '64',
-                          icon: Icons.list_alt_outlined,
+                        child: StreamBuilder<int>(
+                          stream: _countStream('requests'),
+                          builder: (context, snapshot) {
+                            return _MiniStatCard(
+                              label: l10n.translate('requests'),
+                              value: '${snapshot.data ?? 0}',
+                              icon: Icons.list_alt_outlined,
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _MiniStatCard(
-                          label: l10n.translate('workers'),
-                          value: '23',
-                          icon: Icons.groups_outlined,
+                        child: StreamBuilder<int>(
+                          stream: _usersByRoleCount('worker'),
+                          builder: (context, snapshot) {
+                            return _MiniStatCard(
+                              label: l10n.translate('workers'),
+                              value: '${snapshot.data ?? 0}',
+                              icon: Icons.groups_outlined,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: StreamBuilder<int>(
+                          stream: _usersByRoleCount('customer'),
+                          builder: (context, snapshot) {
+                            return _MiniStatCard(
+                              label: 'العملاء',
+                              value: '${snapshot.data ?? 0}',
+                              icon: Icons.person_outline,
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: StreamBuilder<int>(
+                          stream: _usersByRoleCount('driver'),
+                          builder: (context, snapshot) {
+                            return _MiniStatCard(
+                              label: 'السائقين',
+                              value: '${snapshot.data ?? 0}',
+                              icon: Icons.local_shipping_outlined,
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: StreamBuilder<int>(
+                          stream: _countStream('commissions'),
+                          builder: (context, snapshot) {
+                            return _MiniStatCard(
+                              label: 'العمولات',
+                              value: '${snapshot.data ?? 0}',
+                              icon: Icons.payments_outlined,
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -156,7 +270,8 @@ class AdminProfileScreen extends StatelessWidget {
                       _ProfileTile(
                         icon: Icons.manage_accounts_outlined,
                         title: l10n.translate('permissions_management'),
-                        subtitle: l10n.translate('permissions_management_subtitle'),
+                        subtitle:
+                            l10n.translate('permissions_management_subtitle'),
                       ),
                       const SizedBox(height: 12),
                       _ProfileTile(
@@ -179,13 +294,14 @@ class AdminProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                   child: SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
+                    child: FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF2B1D1D),
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () {},
-                      child: Text(l10n.translate('logout')),
+                      onPressed: () => _logout(context),
+                      icon: const Icon(Icons.logout),
+                      label: Text(l10n.translate('logout')),
                     ),
                   ),
                 ),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../data/services/chat_service.dart';
 import '../data/services/firestore_paths.dart';
 import '../data/services/financial_service.dart';
+import '../core/utils/app_logger.dart';
 
 class RequestProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -219,7 +220,7 @@ class RequestProvider extends ChangeNotifier {
         ...?extra,
       });
     } catch (e) {
-      debugPrint('Notification skipped: $e');
+      AppLogger.i('Notification skipped: $e');
     }
   }
 
@@ -939,7 +940,7 @@ class RequestProvider extends ChangeNotifier {
         },
       );
     } catch (e) {
-      debugPrint('Offer accepted timeline skipped: $e');
+      AppLogger.i('Offer accepted timeline skipped: $e');
     }
 
     try {
@@ -952,7 +953,7 @@ class RequestProvider extends ChangeNotifier {
         secondaryId: offerId,
       );
     } catch (e) {
-      debugPrint('Offer accepted notification skipped: $e');
+      AppLogger.i('Offer accepted notification skipped: $e');
     }
 
     try {
@@ -962,7 +963,7 @@ class RequestProvider extends ChangeNotifier {
         workerId: workerId,
       );
     } catch (e) {
-      debugPrint('Create chat skipped after offer accepted: $e');
+      AppLogger.i('Create chat skipped after offer accepted: $e');
     }
 
     try {
@@ -1009,7 +1010,7 @@ class RequestProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
-      debugPrint('Driver post-accept steps skipped: $e');
+      AppLogger.i('Driver post-accept steps skipped: $e');
     }
 
     try {
@@ -1034,7 +1035,7 @@ class RequestProvider extends ChangeNotifier {
         });
       }
     } catch (e) {
-      debugPrint('Commission creation skipped after offer accepted: $e');
+      AppLogger.i('Commission creation skipped after offer accepted: $e');
     }
 
     notifyListeners();

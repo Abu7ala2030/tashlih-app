@@ -7,11 +7,12 @@ import '../../../core/widgets/app_gradient_background.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../providers/request_provider.dart';
 import '../../../providers/vehicle_provider.dart';
+import '../customers/manage_customers_screen.dart';
+import '../drivers/manage_drivers_screen.dart';
 import '../finance/admin_commissions_screen.dart';
 import '../requests/admin_request_offers_screen.dart';
 import '../review/review_vehicle_screen.dart';
 import '../workers/manage_workers_screen.dart';
-import '../drivers/manage_drivers_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -22,6 +23,18 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      context.read<RequestProvider>().listenToAllRequests();
+      context.read<VehicleProvider>().listenToAllVehicles();
+    });
+  }
 
   Future<void> _confirmLogout(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
@@ -62,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       const _AdminOverviewTab(),
       const _AdminRequestsTab(),
       const ManageWorkersScreen(),
+      const ManageCustomersScreen(),
       const ManageDriversScreen(),
       const AdminCommissionsScreen(),
       const ReviewVehicleScreen(),
@@ -79,7 +93,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
-      body: IndexedStack(index: _currentIndex, children: pages),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -101,9 +118,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             selectedIcon: const Icon(Icons.groups),
             label: l10n.translate('workers'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.local_shipping_outlined),
-            selectedIcon: const Icon(Icons.local_shipping),
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'العملاء',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.local_shipping_outlined),
+            selectedIcon: Icon(Icons.local_shipping),
             label: 'السائقين',
           ),
           NavigationDestination(
@@ -432,6 +454,16 @@ class _AdminOverviewTab extends StatelessWidget {
                         subtitle: l10n.translate(
                           'manage_accounts_and_approvals',
                         ),
+                      ),
+                      _AdminActionRow(
+                        icon: Icons.person_outline,
+                        title: 'العملاء',
+                        subtitle: 'إدارة حسابات العملاء وتفعيلها أو تعطيلها',
+                      ),
+                      _AdminActionRow(
+                        icon: Icons.local_shipping_outlined,
+                        title: 'السائقين',
+                        subtitle: 'إدارة السائقين وحالة التفعيل',
                       ),
                       _AdminActionRow(
                         icon: Icons.payments_outlined,

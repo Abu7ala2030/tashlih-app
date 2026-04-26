@@ -684,5 +684,6 @@
   "yes": "نعم",
   "payment_failed": "فشل الدفع",
   "payment_session_ready": "جلسة الدفع جاهزة",
-  "pending_manual_payment": "بانتظار دفع يدوي"
+  "pending_manual_payment": "بانتظار دفع يدوي",
+  "typing_now": "يكتب الآن..."
 }

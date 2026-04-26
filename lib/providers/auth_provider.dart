@@ -10,8 +10,16 @@ class AppCurrentUser {
   final String uid;
   final String role;
   final String? email;
+  final bool isActive;
+  final bool disabledByAdmin;
 
-  const AppCurrentUser({required this.uid, required this.role, this.email});
+  const AppCurrentUser({
+    required this.uid,
+    required this.role,
+    this.email,
+    this.isActive = true,
+    this.disabledByAdmin = false,
+  });
 }
 
 class AuthProvider extends ChangeNotifier {
@@ -26,6 +34,9 @@ class AuthProvider extends ChangeNotifier {
 
   StreamSubscription<User?>? _authSubscription;
 
+  static const String disabledAccountMessage =
+      'تم تعطيل حسابك من الإدارة. لا يمكنك الدخول إلا بعد إعادة التفعيل من الإدارة.';
+
   AuthProvider() {
     _authSubscription = _auth.authStateChanges().listen((firebaseUser) async {
       user = firebaseUser;
@@ -33,20 +44,51 @@ class AuthProvider extends ChangeNotifier {
       if (firebaseUser == null) {
         currentUser = null;
         authResolved = true;
-      } else {
-        await _loadUserFromFirestore(firebaseUser.uid);
-        await PushNotificationService.instance.syncCurrentUserToken();
-        authResolved = true;
+        notifyListeners();
+        return;
       }
 
+      await _loadUserFromFirestore(firebaseUser.uid);
+
+      if (user != null && currentUser != null && !isDisabledByAdmin) {
+        await PushNotificationService.instance.syncCurrentUserToken();
+      }
+
+      authResolved = true;
       notifyListeners();
     });
   }
 
   String? get uid => user?.uid;
-  bool get isLoggedIn => user != null;
+  bool get isLoggedIn => user != null && currentUser != null;
   String? get role => currentUser?.role.toLowerCase();
   String get safeRole => (currentUser?.role ?? 'customer').toLowerCase();
+
+  bool get isDisabledByAdmin =>
+      currentUser?.isActive == false ||
+      currentUser?.disabledByAdmin == true;
+
+  Future<void> _forceLogoutDisabledUser() async {
+    try {
+      final currentUid = _auth.currentUser?.uid;
+      if (currentUid != null && currentUid.isNotEmpty) {
+        await PushNotificationService.instance.removeCurrentDeviceToken(
+          uid: currentUid,
+        );
+      }
+    } catch (_) {
+      // Ignore token cleanup errors for disabled accounts.
+    }
+
+    try {
+      await _auth.signOut();
+    } catch (_) {
+      // Ignore sign out errors and still clear local state.
+    }
+
+    user = null;
+    currentUser = null;
+  }
 
   Future<void> _loadUserFromFirestore(String uid) async {
     try {
@@ -54,16 +96,42 @@ class AuthProvider extends ChangeNotifier {
 
       if (doc.exists) {
         final data = doc.data()!;
+
+        final role = (data['role'] ?? 'customer').toString().toLowerCase();
+        final email = (data['email'] ?? user?.email)?.toString();
+
+        final isActive = data['isActive'] != false;
+        final disabledByAdmin = data['disabledByAdmin'] == true;
+
+        if (!isActive || disabledByAdmin) {
+          currentUser = AppCurrentUser(
+            uid: uid,
+            role: role,
+            email: email,
+            isActive: false,
+            disabledByAdmin: true,
+          );
+
+          errorMessage = disabledAccountMessage;
+
+          await _forceLogoutDisabledUser();
+          return;
+        }
+
         currentUser = AppCurrentUser(
           uid: uid,
-          role: (data['role'] ?? 'customer').toString().toLowerCase(),
-          email: (data['email'] ?? user?.email)?.toString(),
+          role: role,
+          email: email,
+          isActive: true,
+          disabledByAdmin: false,
         );
       } else {
         await _firestore.collection('users').doc(uid).set({
           'uid': uid,
           'email': user?.email,
           'role': 'customer',
+          'isActive': true,
+          'disabledByAdmin': false,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
@@ -72,10 +140,12 @@ class AuthProvider extends ChangeNotifier {
           uid: uid,
           role: 'customer',
           email: user?.email,
+          isActive: true,
+          disabledByAdmin: false,
         );
       }
     } catch (e) {
-      errorMessage = 'Failed to load user data: $e';
+      errorMessage = 'فشل تحميل بيانات المستخدم: $e';
     }
   }
 
@@ -101,21 +171,27 @@ class AuthProvider extends ChangeNotifier {
         'uid': uid,
         'email': email.trim(),
         'role': normalizedRole,
+        'isActive': true,
+        'disabledByAdmin': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      user = cred.user;
 
       currentUser = AppCurrentUser(
         uid: uid,
         role: normalizedRole,
         email: email.trim(),
+        isActive: true,
+        disabledByAdmin: false,
       );
 
       await PushNotificationService.instance.syncCurrentUserToken();
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message ?? 'Failed to create account';
+      errorMessage = e.message ?? 'فشل إنشاء الحساب';
     } catch (e) {
-      errorMessage = 'Failed to create account: $e';
+      errorMessage = 'فشل إنشاء الحساب: $e';
     } finally {
       isLoading = false;
       authResolved = true;
@@ -141,12 +217,15 @@ class AuthProvider extends ChangeNotifier {
 
       if (user != null) {
         await _loadUserFromFirestore(user!.uid);
-        await PushNotificationService.instance.syncCurrentUserToken();
+
+        if (user != null && currentUser != null && !isDisabledByAdmin) {
+          await PushNotificationService.instance.syncCurrentUserToken();
+        }
       }
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message ?? 'Login failed';
+      errorMessage = e.message ?? 'فشل تسجيل الدخول';
     } catch (e) {
-      errorMessage = 'Login failed: $e';
+      errorMessage = 'فشل تسجيل الدخول: $e';
     } finally {
       isLoading = false;
       authResolved = true;
@@ -172,23 +251,14 @@ class AuthProvider extends ChangeNotifier {
       user = null;
       currentUser = null;
     } on FirebaseAuthException catch (e) {
-      errorMessage = e.message ?? 'Logout failed';
+      errorMessage = e.message ?? 'فشل تسجيل الخروج';
     } catch (e) {
-      errorMessage = 'Logout failed: $e';
+      errorMessage = 'فشل تسجيل الخروج: $e';
     } finally {
       isLoading = false;
       authResolved = true;
       notifyListeners();
     }
-  }
-
-  Future<void> fakeLoginAs(Object? role) async {
-    await registerWithEmail(
-      email:
-          '${role.toString().toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}@test.com',
-      password: 'Test@123456',
-      role: role.toString(),
-    );
   }
 
   @override

@@ -684,5 +684,6 @@
   "yes": "Yes",
   "payment_failed": "Payment failed",
   "payment_session_ready": "Payment session is ready",
-  "pending_manual_payment": "Pending manual payment"
+  "pending_manual_payment": "Pending manual payment",
+  "typing_now": "Typing..."
 }

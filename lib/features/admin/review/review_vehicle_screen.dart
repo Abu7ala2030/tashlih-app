@@ -20,6 +20,16 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
 
   AppLocalizations get l10n => AppLocalizations.of(context);
 
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<VehicleProvider>().listenToAllVehicles();
+    });
+  }
+
   String _damageTypeText(String value) {
     switch (value) {
       case 'front':
@@ -136,7 +146,8 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
                       StatusChipFilter(
                         label: l10n.translate('published'),
                         selected: selectedStatus == 'published',
-                        onTap: () => setState(() => selectedStatus = 'published'),
+                        onTap: () =>
+                            setState(() => selectedStatus = 'published'),
                       ),
                       StatusChipFilter(
                         label: l10n.translate('rejected'),
@@ -181,7 +192,8 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
                       child: EmptyStateCard(
                         icon: Icons.fact_check_outlined,
                         title: l10n.translate('no_vehicles_in_this_status'),
-                        subtitle: l10n.translate('review_vehicles_empty_subtitle'),
+                        subtitle:
+                            l10n.translate('review_vehicles_empty_subtitle'),
                       ),
                     ),
                   ),
@@ -195,7 +207,8 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
                     itemBuilder: (context, index) {
                       final vehicle = vehicles[index];
                       final vehicleId = (vehicle['id'] ?? '').toString();
-                      final coverImage = (vehicle['coverImage'] ?? '').toString();
+                      final coverImage =
+                          (vehicle['coverImage'] ?? '').toString();
                       final status = (vehicle['status'] ?? '').toString();
 
                       return Container(
@@ -218,24 +231,30 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
                                           width: 92,
                                           height: 92,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Container(
+                                          errorBuilder: (_, __, ___) =>
+                                              Container(
                                             width: 92,
                                             height: 92,
                                             color: Colors.black26,
-                                            child: const Icon(Icons.image_outlined),
+                                            child: const Icon(
+                                              Icons.image_outlined,
+                                            ),
                                           ),
                                         )
                                       : Container(
                                           width: 92,
                                           height: 92,
                                           color: Colors.black26,
-                                          child: const Icon(Icons.image_outlined),
+                                          child: const Icon(
+                                            Icons.image_outlined,
+                                          ),
                                         ),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         '${vehicle['make'] ?? ''} ${vehicle['model'] ?? ''} ${vehicle['year'] ?? ''}',
@@ -247,12 +266,16 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
                                       const SizedBox(height: 6),
                                       Text(
                                         '${l10n.translate('city')}: ${vehicle['city'] ?? '-'}',
-                                        style: const TextStyle(color: Colors.white70),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                        ),
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
                                         '${l10n.translate('damage_type')}: ${_damageTypeText((vehicle['damageType'] ?? '-').toString())}',
-                                        style: const TextStyle(color: Colors.white70),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                        ),
                                       ),
                                       const SizedBox(height: 10),
                                       Row(
@@ -308,7 +331,9 @@ class _ReviewVehicleScreenState extends State<ReviewVehicleScreen> {
                                     style: FilledButton.styleFrom(
                                       backgroundColor: Colors.white10,
                                       foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Colors.white24),
+                                      side: const BorderSide(
+                                        color: Colors.white24,
+                                      ),
                                     ),
                                     onPressed: vehicleId.isEmpty
                                         ? null

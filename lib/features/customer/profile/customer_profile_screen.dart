@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 import '../../../data/services/firestore_paths.dart';
 import '../../../providers/auth_provider.dart';
@@ -16,6 +15,22 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  Future<_CustomerProfileViewModel>? _profileFuture;
+  String? _loadedUid;
+
+  void _ensureProfileFuture(String uid) {
+    if (_profileFuture == null || _loadedUid != uid) {
+      _loadedUid = uid;
+      _profileFuture = _loadViewModel(uid);
+    }
+  }
+
+  void _refreshProfile(String uid) {
+    setState(() {
+      _profileFuture = _loadViewModel(uid);
+    });
+  }
 
   Future<_CustomerProfileViewModel> _loadViewModel(String uid) async {
     final userFuture = _db.collection(FirestorePaths.users).doc(uid).get();
@@ -60,15 +75,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     for (final doc in requestsSnap.docs) {
       final data = doc.data();
       final address = (data['deliveryAddress'] ?? '').toString().trim();
-      if (address.isNotEmpty) {
-        savedAddresses.add(address);
-      }
+      if (address.isNotEmpty) savedAddresses.add(address);
     }
 
     return _CustomerProfileViewModel(
-      name: name,
-      phone: phone,
-      email: email,
+      name: name.isNotEmpty ? name : 'مستخدم',
+      phone: phone.isNotEmpty ? phone : 'غير مضاف',
+      email: email.isNotEmpty ? email : 'غير مضاف',
       requestsCount: requestsSnap.docs.length,
       favoritesCount: favoritesSnap.docs.length,
       unreadNotificationsCount: notificationsSnap.docs.length,
@@ -88,9 +101,134 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }, SetOptions(merge: true));
   }
 
-  void _showSupportSheet() {
-    final l10n = AppLocalizations.of(context);
+  Future<void> _showPersonalDataSheet({
+    required String uid,
+    required _CustomerProfileViewModel data,
+  }) async {
+    final nameController = TextEditingController(
+      text: data.name == 'مستخدم' ? '' : data.name,
+    );
+    final phoneController = TextEditingController(
+      text: data.phone == 'غير مضاف' ? '' : data.phone,
+    );
 
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        bool isSaving = false;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('البيانات الشخصية'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'الاسم',
+                        hintText: 'اكتب اسمك',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'رقم الجوال',
+                        hintText: '05xxxxxxxx',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          final phone = phoneController.text.trim();
+
+                          if (name.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('يرجى إدخال الاسم'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (phone.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('يرجى إدخال رقم الجوال'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isSaving = true);
+
+                          try {
+                            await _saveProfile(
+                              uid: uid,
+                              name: name,
+                              phone: phone,
+                            );
+
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop(true);
+                            }
+                          } catch (e) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() => isSaving = false);
+                            }
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('فشل حفظ البيانات: $e'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('حفظ'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (saved == true) {
+      _refreshProfile(uid);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حفظ البيانات بنجاح')),
+      );
+    }
+  }
+
+  void _showSupportSheet() {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF171A1F),
@@ -98,27 +236,25 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return SafeArea(
+        return const SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 28),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.translate('support'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  'الدعم الفني',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
-                  l10n.translate('support_sheet_description'),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    height: 1.7,
-                  ),
+                  'إذا واجهت مشكلة أثناء الطلب أو تتبع الشحنة:\n'
+                  '1) تأكد من اختيار عنوان صحيح.\n'
+                  '2) تأكد من رقم التواصل.\n'
+                  '3) راجع حالة الطلب من "طلباتي".\n'
+                  '4) إذا لم يظهر التتبع فانتظر حتى يبدأ العامل مرحلة الشحن.',
+                  style: TextStyle(color: Colors.white70, height: 1.7),
                 ),
               ],
             ),
@@ -128,151 +264,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
-  void _showPersonalDataSheet({
-    required String uid,
-    required _CustomerProfileViewModel data,
-  }) {
-    final l10n = AppLocalizations.of(context);
-
-    final nameController = TextEditingController(text: data.name);
-    final phoneController = TextEditingController(text: data.phone);
-
-    bool isSaving = false;
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF171A1F),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  20,
-                  MediaQuery.of(context).viewInsets.bottom + 28,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.translate('personal_data'),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _InputField(
-                      controller: nameController,
-                      label: l10n.translate('name'),
-                      hint: l10n.translate('enter_name'),
-                    ),
-                    const SizedBox(height: 12),
-                    _InputField(
-                      controller: phoneController,
-                      label: l10n.translate('phone'),
-                      hint: '05xxxxxxxx',
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                final name = nameController.text.trim();
-                                final phone = phoneController.text.trim();
-
-                                if (name.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        l10n.translate('enter_name_error'),
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                if (phone.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        l10n.translate('enter_phone_error'),
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                setModalState(() => isSaving = true);
-
-                                try {
-                                  await _saveProfile(
-                                    uid: uid,
-                                    name: name,
-                                    phone: phone,
-                                  );
-
-                                  if (!context.mounted) return;
-                                  Navigator.pop(context);
-                                  setState(() {});
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        l10n.translate('saved_successfully'),
-                                      ),
-                                    ),
-                                  );
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${l10n.translate('save_failed')}: $e',
-                                      ),
-                                    ),
-                                  );
-                                } finally {
-                                  if (context.mounted) {
-                                    setModalState(() => isSaving = false);
-                                  }
-                                }
-                              },
-                        child: isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Text(l10n.translate('save')),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      nameController.dispose();
-      phoneController.dispose();
-    });
-  }
-
   void _showAddressesSheet(List<String> addresses) {
-    final l10n = AppLocalizations.of(context);
-
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -286,13 +278,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             height: MediaQuery.of(context).size.height * 0.68,
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      l10n.translate('saved_addresses'),
-                      style: const TextStyle(
+                      'العناوين المحفوظة',
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -301,16 +293,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 ),
                 Expanded(
                   child: addresses.isEmpty
-                      ? Center(
+                      ? const Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: EdgeInsets.all(24),
                             child: Text(
-                              l10n.translate('no_addresses_long'),
+                              'لا توجد عناوين محفوظة بعد.\n'
+                              'سيتم حفظ العناوين تلقائيًا عند إنشاء طلبات شحن جديدة.',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                height: 1.7,
-                              ),
+                              style:
+                                  TextStyle(color: Colors.white70, height: 1.7),
                             ),
                           ),
                         )
@@ -321,6 +312,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final address = addresses[index];
+
                             return Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
@@ -356,8 +348,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   void _showNotificationsSheet(String uid) {
-    final l10n = AppLocalizations.of(context);
-
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -371,13 +361,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             height: MediaQuery.of(context).size.height * 0.72,
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      l10n.translate('latest_notifications'),
-                      style: const TextStyle(
+                      'آخر الإشعارات',
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -395,20 +385,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return const Center(child: CircularProgressIndicator());
                       }
 
                       final docs = snapshot.data?.docs ?? [];
 
                       if (docs.isEmpty) {
-                        return Center(
+                        return const Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: EdgeInsets.all(24),
                             child: Text(
-                              l10n.translate('no_notifications'),
-                              style: const TextStyle(
+                              'لا توجد إشعارات حتى الآن',
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -423,9 +411,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final item = docs[index].data();
-                          final title =
-                              (item['title'] ?? l10n.translate('notification'))
-                                  .toString();
+                          final title = (item['title'] ?? 'إشعار').toString();
                           final body = (item['body'] ?? '').toString();
 
                           return Container(
@@ -447,9 +433,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  body.isEmpty
-                                      ? l10n.translate('no_details')
-                                      : body,
+                                  body.isEmpty ? 'بدون تفاصيل' : body,
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     height: 1.5,
@@ -473,32 +457,29 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final auth = context.watch<AuthProvider>();
     final uid = auth.uid;
 
     if (uid == null || uid.isEmpty) {
-      return Scaffold(
-        body: const AppGradientBackground(
+      return const Scaffold(
+        body: AppGradientBackground(
           child: SafeArea(
-            child: Center(
-              child: _ProfileMessage(textKey: 'no_authenticated_user'),
-            ),
+            child: Center(child: Text('لا يوجد مستخدم مسجل')),
           ),
         ),
       );
     }
 
+    _ensureProfileFuture(uid);
+
     return FutureBuilder<_CustomerProfileViewModel>(
-      future: _loadViewModel(uid),
+      future: _profileFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: AppGradientBackground(
               child: SafeArea(
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               ),
             ),
           );
@@ -512,7 +493,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      '${l10n.translate('load_profile_failed')}: ${snapshot.error}',
+                      'فشل تحميل بيانات الحساب: ${snapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -524,36 +505,29 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
         final data = snapshot.data ?? const _CustomerProfileViewModel.empty();
 
-        final displayName =
-            data.name.isNotEmpty ? data.name : l10n.translate('user');
-        final displayPhone =
-            data.phone.isNotEmpty ? data.phone : l10n.translate('not_added');
-        final displayEmail =
-            data.email.isNotEmpty ? data.email : l10n.translate('not_added');
-
         return Scaffold(
           body: AppGradientBackground(
             child: SafeArea(
               child: CustomScrollView(
                 slivers: [
-                  SliverToBoxAdapter(
+                  const SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            l10n.translate('profile'),
-                            style: const TextStyle(
+                            'حسابي',
+                            style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
                               letterSpacing: .2,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           Text(
-                            l10n.translate('profile_subtitle'),
-                            style: const TextStyle(
+                            'أدر بياناتك وتابع طلباتك وإعدادات التطبيق من مكان واحد',
+                            style: TextStyle(
                               color: Colors.white70,
                               height: 1.5,
                             ),
@@ -589,7 +563,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    displayName,
+                                    data.name,
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w900,
@@ -597,7 +571,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    displayPhone,
+                                    data.phone,
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontWeight: FontWeight.w600,
@@ -605,16 +579,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    displayEmail,
+                                    data.email,
                                     style: const TextStyle(
                                       color: Colors.white60,
                                       fontSize: 12,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    l10n.translate('customer'),
-                                    style: const TextStyle(
+                                  const Text(
+                                    'عميل',
+                                    style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -634,7 +608,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         children: [
                           Expanded(
                             child: _MiniStatCard(
-                              label: l10n.translate('my_requests'),
+                              label: 'طلباتي',
                               value: data.requestsCount.toString(),
                               icon: Icons.inventory_2_outlined,
                             ),
@@ -642,7 +616,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _MiniStatCard(
-                              label: l10n.translate('addresses'),
+                              label: 'العناوين',
                               value: data.savedAddresses.length.toString(),
                               icon: Icons.location_on_outlined,
                             ),
@@ -650,7 +624,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _MiniStatCard(
-                              label: l10n.translate('notifications'),
+                              label: 'الإشعارات',
                               value: data.unreadNotificationsCount.toString(),
                               icon: Icons.notifications_none,
                             ),
@@ -659,12 +633,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       ),
                     ),
                   ),
-                  SliverToBoxAdapter(
+                  const SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                      padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
                       child: Text(
-                        l10n.translate('settings'),
-                        style: const TextStyle(
+                        'الإعدادات',
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
@@ -678,8 +652,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         children: [
                           _ProfileTile(
                             icon: Icons.person_outline,
-                            title: l10n.translate('personal_data'),
-                            subtitle: l10n.translate('edit_profile'),
+                            title: 'البيانات الشخصية',
+                            subtitle: 'تعديل الاسم ورقم الجوال ومعلومات الحساب',
                             onTap: () => _showPersonalDataSheet(
                               uid: uid,
                               data: data,
@@ -688,22 +662,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.location_on_outlined,
-                            title: l10n.translate('addresses'),
-                            subtitle: l10n.translate('view_addresses'),
-                            onTap: () => _showAddressesSheet(data.savedAddresses),
+                            title: 'العناوين',
+                            subtitle:
+                                'عرض العناوين المحفوظة من طلبات الشحن السابقة',
+                            onTap: () =>
+                                _showAddressesSheet(data.savedAddresses),
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.notifications_none,
-                            title: l10n.translate('notifications'),
-                            subtitle: l10n.translate('view_notifications'),
+                            title: 'الإشعارات',
+                            subtitle: 'اعرض آخر الإشعارات المرتبطة بطلباتك',
                             onTap: () => _showNotificationsSheet(uid),
                           ),
                           const SizedBox(height: 12),
                           _ProfileTile(
                             icon: Icons.support_agent_outlined,
-                            title: l10n.translate('support'),
-                            subtitle: l10n.translate('support_short'),
+                            title: 'الدعم الفني',
+                            subtitle: 'مساعدة سريعة لحل أبرز مشاكل الطلب والتتبع',
                             onTap: _showSupportSheet,
                           ),
                         ],
@@ -729,9 +705,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
-                              : Text(l10n.translate('logout')),
+                              : const Text('تسجيل الخروج'),
                         ),
                       ),
                     ),
@@ -860,72 +838,6 @@ class _ProfileTile extends StatelessWidget {
   }
 }
 
-class _InputField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final TextInputType? keyboardType;
-
-  const _InputField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    this.keyboardType,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: Colors.white10,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.white24),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileMessage extends StatelessWidget {
-  final String textKey;
-
-  const _ProfileMessage({
-    required this.textKey,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      AppLocalizations.of(context).translate(textKey),
-    );
-  }
-}
-
 class _CustomerProfileViewModel {
   final String name;
   final String phone;
@@ -946,9 +858,9 @@ class _CustomerProfileViewModel {
   });
 
   const _CustomerProfileViewModel.empty()
-      : name = '',
-        phone = '',
-        email = '',
+      : name = 'مستخدم',
+        phone = 'غير مضاف',
+        email = 'غير مضاف',
         requestsCount = 0,
         favoritesCount = 0,
         unreadNotificationsCount = 0,
