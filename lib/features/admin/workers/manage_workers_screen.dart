@@ -1,112 +1,152 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/app_gradient_background.dart';
 
 class ManageWorkersScreen extends StatelessWidget {
   const ManageWorkersScreen({super.key});
 
+  Future<void> _toggleWorker({
+    required String uid,
+    required bool isActive,
+  }) async {
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'isActive': isActive,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    final workers = [
-      {
-        'name': '${l10n.translate('worker')} 1',
-        'phone': '0500000001',
-        'status': l10n.translate('active'),
-      },
-      {
-        'name': '${l10n.translate('worker')} 2',
-        'phone': '0500000002',
-        'status': l10n.translate('active'),
-      },
-      {
-        'name': '${l10n.translate('worker')} 3',
-        'phone': '0500000003',
-        'status': l10n.translate('suspended'),
-      },
-    ];
-
     return Scaffold(
       body: AppGradientBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.translate('manage_workers'),
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: .2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            l10n.translate('manage_workers_subtitle'),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: workers.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final worker = workers[index];
-                    final active = worker['status'] == l10n.translate('active');
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('role', isEqualTo: 'worker')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white10,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person),
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'حدث خطأ أثناء تحميل العمال:\n${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }
+
+              final workers = snapshot.data?.docs ?? [];
+
+              if (workers.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'لا يوجد عمال حاليًا',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: workers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final doc = workers[index];
+                  final data = doc.data();
+                  final uid = doc.id;
+
+                  final name = (data['name'] ?? 'عامل').toString();
+                  final email = (data['email'] ?? '').toString();
+                  final phone = (data['phone'] ?? '').toString();
+                  final scrapyardName =
+                      (data['scrapyardName'] ?? '').toString();
+                  final city = (data['city'] ?? '').toString();
+                  final isActive = data['isActive'] == true;
+
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1D21),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor:
+                              isActive ? Colors.green : Colors.grey,
+                          child: const Icon(Icons.engineering),
                         ),
-                        title: Text(worker['name']!),
-                        subtitle: Text(worker['phone']!),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: active
-                                ? Colors.green.withOpacity(.15)
-                                : Colors.red.withOpacity(.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            worker['status']!,
-                            style: TextStyle(
-                              color: active ? Colors.green : Colors.red,
-                            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              if (scrapyardName.isNotEmpty)
+                                Text(
+                                  scrapyardName,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              if (city.isNotEmpty)
+                                Text(
+                                  city,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              if (email.isNotEmpty)
+                                Text(
+                                  email,
+                                  style: const TextStyle(color: Colors.white60),
+                                ),
+                              if (phone.isNotEmpty)
+                                Text(
+                                  phone,
+                                  style: const TextStyle(color: Colors.white60),
+                                ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isActive ? 'نشط' : 'غير نشط',
+                                style: TextStyle(
+                                  color: isActive
+                                      ? Colors.greenAccent
+                                      : Colors.orangeAccent,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                        Switch(
+                          value: isActive,
+                          onChanged: (value) {
+                            _toggleWorker(uid: uid, isActive: value);
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ),
       ),
