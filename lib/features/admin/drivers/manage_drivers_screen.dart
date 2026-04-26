@@ -12,13 +12,59 @@ class ManageDriversScreen extends StatelessWidget {
   }) async {
     await FirebaseFirestore.instance.collection('users').doc(uid).set({
       'isActive': isActive,
+      'disabledByAdmin': !isActive,
+      'disabledAt': isActive ? FieldValue.delete() : FieldValue.serverTimestamp(),
+      'disabledReason': isActive ? FieldValue.delete() : 'Disabled by admin',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     await FirebaseFirestore.instance.collection('drivers').doc(uid).set({
       'isOnline': isActive,
+      'isActive': isActive,
+      'disabledByAdmin': !isActive,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> _confirmToggleDriver({
+    required BuildContext context,
+    required String uid,
+    required String name,
+    required bool currentIsActive,
+  }) async {
+    final nextValue = !currentIsActive;
+
+    if (nextValue) {
+      await _toggleDriver(uid: uid, isActive: true);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('تعطيل حساب السائق'),
+          content: Text(
+            'هل أنت متأكد من تعطيل حساب "$name"؟\n\n'
+            'لن يستطيع السائق الدخول للتطبيق إلا بعد إعادة التفعيل من الإدارة.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('تعطيل'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _toggleDriver(uid: uid, isActive: false);
+    }
   }
 
   @override
@@ -32,11 +78,23 @@ class ManageDriversScreen extends StatelessWidget {
                 .where('role', isEqualTo: 'driver')
                 .snapshots(),
             builder: (context, snapshot) {
-              final drivers = snapshot.data?.docs ?? [];
-
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'حدث خطأ أثناء تحميل السائقين:\n${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }
+
+              final drivers = snapshot.data?.docs ?? [];
 
               if (drivers.isEmpty) {
                 return const Center(
@@ -59,7 +117,11 @@ class ManageDriversScreen extends StatelessWidget {
                   final name = (data['name'] ?? 'سائق').toString();
                   final email = (data['email'] ?? '').toString();
                   final phone = (data['phone'] ?? '').toString();
-                  final isActive = data['isActive'] == true;
+
+                  final isActive = data['isActive'] != false &&
+                      data['disabledByAdmin'] != true;
+
+                  final disabledByAdmin = data['disabledByAdmin'] == true;
 
                   return Container(
                     padding: const EdgeInsets.all(16),
@@ -101,11 +163,15 @@ class ManageDriversScreen extends StatelessWidget {
                                 ),
                               const SizedBox(height: 6),
                               Text(
-                                isActive ? 'نشط وجاهز' : 'غير نشط',
+                                isActive
+                                    ? 'نشط وجاهز'
+                                    : disabledByAdmin
+                                        ? 'معطل من الإدارة'
+                                        : 'غير نشط',
                                 style: TextStyle(
                                   color: isActive
                                       ? Colors.greenAccent
-                                      : Colors.orangeAccent,
+                                      : Colors.redAccent,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -115,7 +181,12 @@ class ManageDriversScreen extends StatelessWidget {
                         Switch(
                           value: isActive,
                           onChanged: (value) {
-                            _toggleDriver(uid: uid, isActive: value);
+                            _confirmToggleDriver(
+                              context: context,
+                              uid: uid,
+                              name: name,
+                              currentIsActive: isActive,
+                            );
                           },
                         ),
                       ],
