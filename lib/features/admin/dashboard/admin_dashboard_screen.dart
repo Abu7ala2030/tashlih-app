@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -21,6 +22,40 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
 
+  Future<void> _confirmLogout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('تسجيل الخروج'),
+          content: const Text('هل أنت متأكد أنك تريد تسجيل الخروج؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.logout),
+              label: const Text('تسجيل الخروج'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true) return;
+
+    await FirebaseAuth.instance.signOut();
+
+    if (!context.mounted) return;
+
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/login',
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -34,6 +69,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ];
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('لوحة المدير'),
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'تسجيل الخروج',
+            onPressed: () => _confirmLogout(context),
+          ),
+        ],
+      ),
       body: IndexedStack(
         index: _currentIndex,
         children: pages,
@@ -89,7 +135,10 @@ class _AdminRequestsTab extends StatelessWidget {
         body: Center(
           child: Text(
             l10n.translate('no_requests_now'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       );
@@ -105,17 +154,20 @@ class _AdminRequestsTab extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final request = requests[index];
-          final partName =
-              (request['partName'] ?? l10n.translate('unnamed_request')).toString();
+          final partName = (request['partName'] ??
+                  l10n.translate('unnamed_request'))
+              .toString();
           final customerName =
-              (request['customerName'] ?? l10n.translate('customer')).toString();
+              (request['customerName'] ?? l10n.translate('customer'))
+                  .toString();
           final status = (request['status'] ?? '').toString();
 
           return Card(
             child: ListTile(
               title: Text(partName),
               subtitle: Text(
-                '${l10n.translate('customer')}: $customerName\n${l10n.translate('status')}: ${_statusText(status, l10n)}',
+                '${l10n.translate('customer')}: $customerName\n'
+                '${l10n.translate('status')}: ${_statusText(status, l10n)}',
               ),
               isThreeLine: true,
               trailing: const Icon(Icons.arrow_forward_ios, size: 18),
@@ -123,7 +175,9 @@ class _AdminRequestsTab extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AdminRequestOffersScreen(request: request),
+                    builder: (_) => AdminRequestOffersScreen(
+                      request: request,
+                    ),
                   ),
                 );
               },
@@ -146,6 +200,10 @@ class _AdminRequestsTab extends StatelessWidget {
         return l10n.translate('status_unavailable');
       case 'assigned':
         return l10n.translate('status_offer_selected');
+      case 'shipped':
+        return l10n.translate('status_shipped');
+      case 'delivered':
+        return l10n.translate('status_delivered');
       case 'cancelled':
         return l10n.translate('status_cancelled');
       default:
@@ -177,6 +235,12 @@ class _AdminOverviewTab extends StatelessWidget {
         .toList();
     final availableRequests =
         allRequests.where((r) => (r['status'] ?? '') == 'available').toList();
+    final assignedRequests =
+        allRequests.where((r) => (r['status'] ?? '') == 'assigned').toList();
+    final shippedRequests =
+        allRequests.where((r) => (r['status'] ?? '') == 'shipped').toList();
+    final deliveredRequests =
+        allRequests.where((r) => (r['status'] ?? '') == 'delivered').toList();
 
     return AppGradientBackground(
       child: SafeArea(
@@ -312,6 +376,38 @@ class _AdminOverviewTab extends StatelessWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: StatCard(
+                        label: l10n.translate('status_offer_selected'),
+                        value: assignedRequests.length.toString(),
+                        icon: Icons.verified_user_outlined,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        label: l10n.translate('status_shipped'),
+                        value: shippedRequests.length.toString(),
+                        icon: Icons.local_shipping_outlined,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        label: l10n.translate('status_delivered'),
+                        value: deliveredRequests.length.toString(),
+                        icon: Icons.done_all_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 120),
                 child: Container(
                   padding: const EdgeInsets.all(18),
@@ -325,22 +421,26 @@ class _AdminOverviewTab extends StatelessWidget {
                       _AdminActionRow(
                         icon: Icons.assignment_outlined,
                         title: l10n.translate('requests'),
-                        subtitle: l10n.translate('review_request_offers_and_status'),
+                        subtitle:
+                            l10n.translate('review_request_offers_and_status'),
                       ),
                       _AdminActionRow(
                         icon: Icons.groups_outlined,
                         title: l10n.translate('workers'),
-                        subtitle: l10n.translate('manage_accounts_and_approvals'),
+                        subtitle:
+                            l10n.translate('manage_accounts_and_approvals'),
                       ),
                       _AdminActionRow(
                         icon: Icons.payments_outlined,
                         title: l10n.translate('finance'),
-                        subtitle: l10n.translate('track_commissions_and_reports'),
+                        subtitle:
+                            l10n.translate('track_commissions_and_reports'),
                       ),
                       _AdminActionRow(
                         icon: Icons.fact_check_outlined,
                         title: l10n.translate('review'),
-                        subtitle: l10n.translate('approve_vehicles_and_verify_data'),
+                        subtitle:
+                            l10n.translate('approve_vehicles_and_verify_data'),
                         isLast: true,
                       ),
                     ],
@@ -376,7 +476,9 @@ class _AdminActionRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(.08)),
+                bottom: BorderSide(
+                  color: Colors.white.withOpacity(.08),
+                ),
               ),
       ),
       child: Row(
@@ -397,7 +499,10 @@ class _AdminActionRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
