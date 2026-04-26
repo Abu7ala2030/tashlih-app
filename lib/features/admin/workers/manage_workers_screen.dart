@@ -12,8 +12,52 @@ class ManageWorkersScreen extends StatelessWidget {
   }) async {
     await FirebaseFirestore.instance.collection('users').doc(uid).set({
       'isActive': isActive,
+      'disabledByAdmin': !isActive,
+      'disabledAt': isActive ? FieldValue.delete() : FieldValue.serverTimestamp(),
+      'disabledReason': isActive ? FieldValue.delete() : 'Disabled by admin',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> _confirmToggleWorker({
+    required BuildContext context,
+    required String uid,
+    required String name,
+    required bool currentIsActive,
+  }) async {
+    final nextValue = !currentIsActive;
+
+    if (nextValue) {
+      await _toggleWorker(uid: uid, isActive: true);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('تعطيل حساب العامل'),
+          content: Text(
+            'هل أنت متأكد من تعطيل حساب "$name"؟\n\n'
+            'لن يستطيع العامل الدخول للتطبيق إلا بعد إعادة التفعيل من الإدارة.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('تعطيل'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _toggleWorker(uid: uid, isActive: false);
+    }
   }
 
   @override
@@ -69,7 +113,11 @@ class ManageWorkersScreen extends StatelessWidget {
                   final scrapyardName =
                       (data['scrapyardName'] ?? '').toString();
                   final city = (data['city'] ?? '').toString();
-                  final isActive = data['isActive'] == true;
+
+                  final isActive = data['isActive'] != false &&
+                      data['disabledByAdmin'] != true;
+
+                  final disabledByAdmin = data['disabledByAdmin'] == true;
 
                   return Container(
                     padding: const EdgeInsets.all(16),
@@ -124,11 +172,15 @@ class ManageWorkersScreen extends StatelessWidget {
                                 ),
                               const SizedBox(height: 6),
                               Text(
-                                isActive ? 'نشط' : 'غير نشط',
+                                isActive
+                                    ? 'نشط'
+                                    : disabledByAdmin
+                                        ? 'معطل من الإدارة'
+                                        : 'غير نشط',
                                 style: TextStyle(
                                   color: isActive
                                       ? Colors.greenAccent
-                                      : Colors.orangeAccent,
+                                      : Colors.redAccent,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -138,7 +190,12 @@ class ManageWorkersScreen extends StatelessWidget {
                         Switch(
                           value: isActive,
                           onChanged: (value) {
-                            _toggleWorker(uid: uid, isActive: value);
+                            _confirmToggleWorker(
+                              context: context,
+                              uid: uid,
+                              name: name,
+                              currentIsActive: isActive,
+                            );
                           },
                         ),
                       ],
