@@ -11,6 +11,7 @@ import '../finance/admin_commissions_screen.dart';
 import '../requests/admin_request_offers_screen.dart';
 import '../review/review_vehicle_screen.dart';
 import '../workers/manage_workers_screen.dart';
+import '../drivers/manage_drivers_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -50,10 +51,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (!context.mounted) return;
 
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      '/login',
-      (route) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
   @override
@@ -64,6 +62,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       const _AdminOverviewTab(),
       const _AdminRequestsTab(),
       const ManageWorkersScreen(),
+      const ManageDriversScreen(),
       const AdminCommissionsScreen(),
       const ReviewVehicleScreen(),
     ];
@@ -80,10 +79,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -104,6 +100,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: const Icon(Icons.groups_outlined),
             selectedIcon: const Icon(Icons.groups),
             label: l10n.translate('workers'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.local_shipping_outlined),
+            selectedIcon: const Icon(Icons.local_shipping),
+            label: 'السائقين',
           ),
           NavigationDestination(
             icon: const Icon(Icons.payments_outlined),
@@ -135,28 +136,23 @@ class _AdminRequestsTab extends StatelessWidget {
         body: Center(
           child: Text(
             l10n.translate('no_requests_now'),
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
         ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.translate('customer_requests')),
-      ),
+      appBar: AppBar(title: Text(l10n.translate('customer_requests'))),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: requests.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final request = requests[index];
-          final partName = (request['partName'] ??
-                  l10n.translate('unnamed_request'))
-              .toString();
+          final partName =
+              (request['partName'] ?? l10n.translate('unnamed_request'))
+                  .toString();
           final customerName =
               (request['customerName'] ?? l10n.translate('customer'))
                   .toString();
@@ -175,9 +171,7 @@ class _AdminRequestsTab extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AdminRequestOffersScreen(
-                      request: request,
-                    ),
+                    builder: (_) => AdminRequestOffersScreen(request: request),
                   ),
                 );
               },
@@ -222,25 +216,32 @@ class _AdminOverviewTab extends StatelessWidget {
     final requestProvider = context.watch<RequestProvider>();
 
     final allVehicles = vehicleProvider.vehicles;
-    final pendingVehicles =
-        allVehicles.where((v) => (v['status'] ?? '') == 'pending').toList();
-    final publishedVehicles =
-        allVehicles.where((v) => (v['status'] ?? '') == 'published').toList();
+    final pendingVehicles = allVehicles
+        .where((v) => (v['status'] ?? '') == 'pending')
+        .toList();
+    final publishedVehicles = allVehicles
+        .where((v) => (v['status'] ?? '') == 'published')
+        .toList();
 
     final allRequests = requestProvider.requests;
-    final newRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'newRequest').toList();
+    final newRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'newRequest')
+        .toList();
     final checkingRequests = allRequests
         .where((r) => (r['status'] ?? '') == 'checkingAvailability')
         .toList();
-    final availableRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'available').toList();
-    final assignedRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'assigned').toList();
-    final shippedRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'shipped').toList();
-    final deliveredRequests =
-        allRequests.where((r) => (r['status'] ?? '') == 'delivered').toList();
+    final availableRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'available')
+        .toList();
+    final assignedRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'assigned')
+        .toList();
+    final shippedRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'shipped')
+        .toList();
+    final deliveredRequests = allRequests
+        .where((r) => (r['status'] ?? '') == 'delivered')
+        .toList();
 
     return AppGradientBackground(
       child: SafeArea(
@@ -421,26 +422,30 @@ class _AdminOverviewTab extends StatelessWidget {
                       _AdminActionRow(
                         icon: Icons.assignment_outlined,
                         title: l10n.translate('requests'),
-                        subtitle:
-                            l10n.translate('review_request_offers_and_status'),
+                        subtitle: l10n.translate(
+                          'review_request_offers_and_status',
+                        ),
                       ),
                       _AdminActionRow(
                         icon: Icons.groups_outlined,
                         title: l10n.translate('workers'),
-                        subtitle:
-                            l10n.translate('manage_accounts_and_approvals'),
+                        subtitle: l10n.translate(
+                          'manage_accounts_and_approvals',
+                        ),
                       ),
                       _AdminActionRow(
                         icon: Icons.payments_outlined,
                         title: l10n.translate('finance'),
-                        subtitle:
-                            l10n.translate('track_commissions_and_reports'),
+                        subtitle: l10n.translate(
+                          'track_commissions_and_reports',
+                        ),
                       ),
                       _AdminActionRow(
                         icon: Icons.fact_check_outlined,
                         title: l10n.translate('review'),
-                        subtitle:
-                            l10n.translate('approve_vehicles_and_verify_data'),
+                        subtitle: l10n.translate(
+                          'approve_vehicles_and_verify_data',
+                        ),
                         isLast: true,
                       ),
                     ],
@@ -475,11 +480,7 @@ class _AdminActionRow extends StatelessWidget {
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(.08),
-                ),
-              ),
+            : Border(bottom: BorderSide(color: Colors.white.withOpacity(.08))),
       ),
       child: Row(
         children: [
@@ -499,10 +500,7 @@ class _AdminActionRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
                 ),
               ],
             ),
