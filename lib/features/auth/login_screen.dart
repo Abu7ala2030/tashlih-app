@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/localization/app_localizations.dart';
-import '../../data/enums/user_role.dart';
 import '../../providers/auth_provider.dart';
 import 'role_gate_screen.dart';
 
@@ -14,11 +12,35 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  UserRole selectedRole = UserRole.customer;
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
 
-  Future<void> _continue() async {
+  bool obscurePassword = true;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('أدخل البريد الإلكتروني وكلمة المرور')),
+      );
+      return;
+    }
+
     final auth = context.read<AuthProvider>();
-    await auth.fakeLoginAs(selectedRole);
+
+    await auth.loginWithEmail(
+      email: email,
+      password: password,
+    );
 
     if (!mounted) return;
 
@@ -34,187 +56,99 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  String _roleLabel(UserRole role, AppLocalizations l10n) {
-    switch (role) {
-      case UserRole.customer:
-        return l10n.translate('customer');
-      case UserRole.worker:
-        return l10n.translate('worker');
-      case UserRole.admin:
-        return l10n.translate('admin');
-    }
-  }
-
-  String _roleDescription(UserRole role, AppLocalizations l10n) {
-    switch (role) {
-      case UserRole.customer:
-        return l10n.translate('customer_role_description');
-      case UserRole.worker:
-        return l10n.translate('worker_role_description');
-      case UserRole.admin:
-        return l10n.translate('admin_role_description');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.translate('choose_account_type')),
+        title: const Text('تسجيل الدخول'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
           children: [
+            const SizedBox(height: 24),
             Container(
-              width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1D21),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: Colors.white10),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.translate('welcome_back'),
-                    style: const TextStyle(
-                      fontSize: 22,
+                    'مرحبًا بعودتك',
+                    style: TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
-                    l10n.translate('select_role_to_continue'),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      height: 1.5,
-                    ),
+                    'سجّل دخولك بالبريد وكلمة المرور، وسيتم فتح حسابك حسب الدور المسجل في Firebase.',
+                    style: TextStyle(color: Colors.white70, height: 1.5),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
-            _RoleTile(
-              title: _roleLabel(UserRole.customer, l10n),
-              subtitle: _roleDescription(UserRole.customer, l10n),
-              value: UserRole.customer,
-              groupValue: selectedRole,
-              onChanged: (value) {
-                if (value != null) setState(() => selectedRole = value);
-              },
+            const SizedBox(height: 20),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: 'البريد الإلكتروني',
+                prefixIcon: const Icon(Icons.email_outlined),
+                filled: true,
+                fillColor: const Color(0xFF1A1D21),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
-            _RoleTile(
-              title: _roleLabel(UserRole.worker, l10n),
-              subtitle: _roleDescription(UserRole.worker, l10n),
-              value: UserRole.worker,
-              groupValue: selectedRole,
-              onChanged: (value) {
-                if (value != null) setState(() => selectedRole = value);
-              },
+            const SizedBox(height: 14),
+            TextField(
+              controller: passwordController,
+              obscureText: obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'كلمة المرور',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() => obscurePassword = !obscurePassword);
+                  },
+                  icon: Icon(
+                    obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                ),
+                filled: true,
+                fillColor: const Color(0xFF1A1D21),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
-            _RoleTile(
-              title: _roleLabel(UserRole.admin, l10n),
-              subtitle: _roleDescription(UserRole.admin, l10n),
-              value: UserRole.admin,
-              groupValue: selectedRole,
-              onChanged: (value) {
-                if (value != null) setState(() => selectedRole = value);
-              },
-            ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
             SizedBox(
-              width: double.infinity,
+              height: 54,
               child: FilledButton(
-                onPressed: auth.isLoading ? null : _continue,
+                onPressed: auth.isLoading ? null : _login,
                 child: auth.isLoading
                     ? const SizedBox(
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(l10n.translate('login')),
+                    : const Text('دخول'),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RoleTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final UserRole value;
-  final UserRole groupValue;
-  final ValueChanged<UserRole?> onChanged;
-
-  const _RoleTile({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.groupValue,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = value == groupValue;
-
-    return Material(
-      color: const Color(0xFF1A1D21),
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => onChanged(value),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected ? Colors.white38 : Colors.white10,
-              width: selected ? 1.3 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Radio<UserRole>(
-                value: value,
-                groupValue: groupValue,
-                onChanged: onChanged,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
