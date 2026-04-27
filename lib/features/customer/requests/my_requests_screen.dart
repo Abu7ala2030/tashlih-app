@@ -297,39 +297,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                     ),
                   ),
                 ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () async {
-                          final created = await Navigator.pushNamed(
-                            context,
-                            '/part-request',
-                          );
-
-                          if (created == true && mounted) {
-                            context.read<RequestProvider>().listenToMyRequests();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('تم إنشاء الطلب ويمكنك متابعته هنا'),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.add_circle_outline),
-                        label: const Text('طلب جديد'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                
                 if (newOffersRequestsCount > 0 || highestOfferCount > 0)
                   SliverToBoxAdapter(
                     child: Padding(
